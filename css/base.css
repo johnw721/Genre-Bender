@@ -1,0 +1,13 @@
+/* ============================================================
+   base.css — reset, body, decorative grid background, app shell
+   ============================================================ */
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(124,111,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(124,111,255,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+.app{position:relative;z-index:1;max-width:980px;margin:0 auto;padding:40px 24px 100px}
+
+/* shared blinking text cursor + limit warning (used by generators) */
+.cursor{display:inline-block;width:2px;height:14px;background:var(--accent);margin-left:2px;vertical-align:-2px;animation:blink 0.8s step-end infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.limit-warn{font-size:11px;color:var(--coral);padding:6px 12px;background:rgba(255,124,124,0.08);border:1px solid rgba(255,124,124,0.2);border-radius:6px;display:none}
+.limit-warn.visible{display:block}

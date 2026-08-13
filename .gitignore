@@ -1,0 +1,17 @@
+# dependencies
+node_modules/
+server/node_modules/
+
+# build / dev-server cache
+dist/
+.vite/
+
+# secrets / local env
+.env
+server/.env
+
+# logs & os cruft
+npm-debug.log*
+*.log
+.DS_Store
+Thumbs.db

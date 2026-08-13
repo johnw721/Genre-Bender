@@ -1,0 +1,97 @@
+/* ============================================================
+   trainer.css — Shape Trainer panel (drills: shapes ⇄ chords ⇄ numbers).
+   Leans on existing pieces: .fret-chord chips, .pb-btn, .fret-cell,
+   .chord-box / .cb-* diagram styles from notation.css.
+   ============================================================ */
+
+.trainer-mode-row{flex-wrap:wrap}
+.trainer-mode.selected{border-color:var(--accent2);background:var(--accent-glow);color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow)}
+
+.trainer-stats-row{display:flex;align-items:center;gap:12px;margin:2px 0 14px;flex-wrap:wrap}
+.trainer-stats-row span{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:0.03em}
+
+.trainer-card{border:1px solid var(--border2);border-radius:12px;background:var(--surface2);padding:20px;display:flex;flex-direction:column;gap:16px}
+
+.trainer-prompt{font-size:14px;color:var(--text);line-height:1.6}
+.trainer-hint{display:block;font-size:11px;color:var(--muted);margin-top:4px}
+
+.trainer-diagrams{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 4px}
+.trainer-diagram{display:flex;flex-direction:column;align-items:center;gap:2px;border:1px solid transparent;border-radius:10px;padding:4px;transition:all 0.15s}
+.trainer-diagram.playing{border-color:var(--green);background:rgba(111,255,196,0.07)}
+.trainer-diagram.layers-off{opacity:0.45}
+.trainer-diagram-label{font-family:var(--mono);font-size:11px;color:var(--accent);min-height:14px}
+
+/* "My chords" track: each diagram + its type/edit/delete controls,
+   grouped so they stack as one item in the diagrams row. */
+.trainer-custom-chord-block{display:flex;flex-direction:column;align-items:stretch;width:150px}
+.trainer-custom-controls{display:flex;flex-direction:column;gap:6px;margin-top:4px;padding:0 4px}
+.trainer-custom-position{display:flex;align-items:center;gap:6px}
+.trainer-custom-position label{display:flex;align-items:center;gap:6px;font-size:9px;letter-spacing:0.06em;
+  text-transform:uppercase;color:var(--muted);flex:1}
+.card-position-input{width:44px;padding:3px 5px;border-radius:5px;border:1px solid var(--border2);background:var(--surface2);
+  color:var(--text);font-family:var(--mono);font-size:11px;outline:none;text-transform:none;letter-spacing:normal}
+.card-position-input:focus{border-color:var(--accent2)}
+.fit-key-btn{width:100%;text-align:center;border-color:rgba(124,212,255,0.3);color:var(--blue)}
+.fit-key-btn:hover{background:rgba(124,212,255,0.08);color:var(--blue)}
+.fit-key-btn:disabled{color:var(--muted);border-color:var(--border2)}
+.trainer-custom-edit{display:flex;flex-direction:column;gap:6px;margin-top:4px;padding:0 4px;width:150px}
+
+/* per-row fret numbers on trainer fretboards */
+.chord-box .cb-fretnum{fill:var(--muted);font-family:var(--mono);font-size:9px;opacity:0.85}
+
+/* scale-layer dots (drawn under the chord layer) */
+.chord-box .cb-scale{fill:none;stroke:var(--blue);stroke-width:1.4;opacity:0.75}
+.chord-box .cb-scaleroot{fill:var(--blue);opacity:0.9}
+.chord-box .cb-chordtone{fill:none;stroke:var(--amber);stroke-width:2.2;opacity:0.95}
+
+.trainer-answers{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.trainer-opt:disabled{cursor:default;opacity:0.75}
+.trainer-opt.trainer-right{border-color:var(--green);background:rgba(111,255,196,0.12);color:var(--green);opacity:1}
+.trainer-opt.trainer-wrong{border-color:var(--coral);background:rgba(255,124,124,0.1);color:var(--coral);opacity:1}
+.trainer-check{align-self:center}
+
+/* quiz ⇄ explore view toggle + sandbox controls */
+.trainer-view{margin-left:auto}
+.trainer-view.on{color:var(--accent);border-color:var(--accent2);background:var(--accent-glow)}
+.trainer-ex-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0 4px}
+.trainer-ex-ctl{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.trainer-ex-ctl input[type="range"]{width:120px}
+.trainer-ex-name{color:var(--accent);font-size:12px;min-width:52px}
+.trainer-readout{font-family:var(--mono);font-size:12px;color:var(--muted);line-height:1.8;margin-top:6px}
+.trainer-readout strong{color:var(--text)}
+
+/* "My chords" — saved tracks + chord builder */
+.trainer-track-tabs{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.trainer-track-tab.selected{border-color:var(--accent2);background:var(--accent-glow);color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow)}
+.trainer-track-add{font-size:11px}
+.trainer-track-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-6px 0 2px}
+.trainer-track-name{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:0.02em}
+.trainer-custom-status{font-family:var(--mono);font-size:11px;color:var(--green);background:rgba(111,255,196,0.08);
+  border:1px solid rgba(111,255,196,0.25);border-radius:6px;padding:6px 10px;margin:-2px 0 2px}
+
+.trainer-custom-input{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.trainer-custom-name{width:140px;height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--border2);
+  background:var(--surface);color:var(--text);font-family:var(--mono);font-size:13px}
+.trainer-custom-name:focus{border-color:var(--accent2);background:var(--surface3);box-shadow:0 0 0 3px var(--accent-glow);outline:none}
+.trainer-custom-fret-inputs{align-items:flex-end;flex-wrap:wrap}
+.trainer-custom-err{font-size:12px;color:var(--coral);min-height:16px}
+.trainer-chips{display:flex;flex-wrap:wrap;gap:8px}
+.trainer-chip{display:inline-flex;align-items:center;gap:6px;cursor:default}
+.trainer-chip-x{border:none;background:none;color:inherit;opacity:0.6;cursor:pointer;font-size:14px;line-height:1;padding:0 0 0 2px}
+.trainer-chip-x:hover{opacity:1;color:var(--coral)}
+
+.trainer-suggest{display:flex;flex-direction:column;gap:6px;margin-top:2px;padding-top:12px;border-top:1px dashed var(--border2)}
+.trainer-suggest-chips{display:flex;flex-wrap:wrap;gap:8px}
+.trainer-suggest-chip{font-size:12px}
+
+/* lick / fill suggestion sitting between two chord diagrams */
+.trainer-lick{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:6px 2px}
+.trainer-lick-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase}
+.trainer-lick-tab.composer-tab{font-size:10px;line-height:1.35;padding:8px 10px;max-width:200px}
+.trainer-lick-tools{display:flex;gap:6px}
+
+.trainer-feedback{font-size:13px;line-height:1.6;color:var(--muted);min-height:20px}
+.trainer-feedback.ok  .trainer-verdict{color:var(--green);font-weight:600}
+.trainer-feedback.bad .trainer-verdict{color:var(--coral);font-weight:600}
+.trainer-feedback .trainer-next{margin-left:10px}
+.trainer-feedback .trainer-diagrams{margin-top:8px}

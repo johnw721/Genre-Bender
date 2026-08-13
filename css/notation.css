@@ -1,0 +1,214 @@
+/* ============================================================
+   notation.css — tab/notation generator, playback toolbar,
+   chord cards, per-card loopers, and the compose banner
+   ============================================================ */
+
+/* TAB NOTATION PANEL */
+.tab-panel-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.tab-panel-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface2);flex-wrap:wrap;gap:10px}
+.tab-panel-title{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted)}
+.tab-inner-tabs{display:flex;gap:4px}
+.tab-inner-tab{padding:5px 14px;border-radius:6px;border:1px solid var(--border);background:none;font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;transition:all 0.15s}
+.tab-inner-tab:hover{color:var(--text);background:var(--surface3)}
+.tab-inner-tab.active{border-color:var(--accent2);color:var(--accent);background:var(--accent-glow)}
+.tab-panel-body{padding:20px}
+.tab-generate-row{display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap}
+.tab-key-select,.tab-style-select{padding:7px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--mono);font-size:12px;cursor:pointer;outline:none}
+.tab-key-select:focus,.tab-style-select:focus{border-color:var(--accent2)}
+.tab-output{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px 20px;min-height:120px;font-family:var(--mono);font-size:12px;line-height:1.9;color:var(--muted)}
+.tab-output.has-content{color:var(--text)}
+
+/* PLAYBACK TOOLBAR */
+.playback-toolbar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;margin-bottom:14px;flex-wrap:wrap}
+.pb-label{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.pb-btn{padding:6px 12px;border-radius:6px;font-family:var(--mono);font-size:11px;cursor:pointer;transition:all 0.15s;background:none;border:1px solid var(--border2);color:var(--muted);white-space:nowrap}
+.pb-btn:hover{color:var(--text);background:var(--surface2)}
+.pb-btn.active-playing{color:var(--green);border-color:var(--green);background:rgba(111,255,196,0.07)}
+.pb-btn.stop-btn{color:var(--coral);border-color:rgba(255,124,124,0.3)}
+.pb-btn.stop-btn:hover{background:rgba(255,124,124,0.08)}
+.pb-btn.compose-btn{color:var(--blue);border-color:rgba(124,212,255,0.3)}
+.pb-btn.compose-btn:hover{background:rgba(124,212,255,0.08)}
+.pb-btn.compose-btn.active-playing{background:rgba(124,212,255,0.1);border-color:var(--blue)}
+.pb-btn.midi-btn{color:var(--amber);border-color:rgba(255,203,107,0.3);margin-left:auto}
+.pb-btn.midi-btn:hover{background:rgba(255,203,107,0.08)}
+.pb-mode-select{padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--mono);font-size:11px;outline:none;cursor:pointer}
+.pb-mode-select:focus{border-color:var(--accent2)}
+.seq-pos-dots{display:flex;gap:4px;align-items:center}
+.seq-dot{width:8px;height:8px;border-radius:50%;background:var(--surface3);border:1px solid var(--border2);transition:all 0.08s;flex-shrink:0}
+.seq-dot.active{background:var(--green);transform:scale(1.4)}
+
+/* CHORD CARDS — shared for guitar + piano */
+.chord-cards-container{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.chord-card-item{background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;min-width:110px;cursor:pointer;transition:all 0.12s;position:relative;user-select:none}
+.chord-card-item:hover{border-color:var(--border2)}
+.chord-card-item.playing{border-color:var(--green);box-shadow:0 0 12px rgba(111,255,196,0.12)}
+.chord-card-item.looping-active{box-shadow:0 0 0 1.5px var(--green),0 0 18px rgba(111,255,196,0.08)}
+.chord-card-item.dragging{opacity:0.3;border-style:dashed;transform:scale(0.96)}
+.chord-card-item.drag-over{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow);transform:scale(1.04)}
+.chord-card-item.invalid{border-color:rgba(255,124,124,0.4)}
+.chord-card-item .drag-handle{position:absolute;top:6px;left:8px;font-size:11px;color:var(--muted);opacity:0;cursor:grab;user-select:none}
+.chord-card-item:hover .drag-handle{opacity:0.5}
+.chord-card-item .card-play-hint{position:absolute;top:6px;right:8px;font-size:10px;color:var(--muted);opacity:0}
+.chord-card-item:hover .card-play-hint{opacity:1}
+.chord-card-item .card-name{font-family:var(--display);font-size:15px;font-weight:700;color:var(--amber);margin-bottom:6px;padding-top:2px}
+.chord-card-item .card-sub{font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:2px}
+.chord-card-item .card-notes{font-size:11px;color:var(--accent);line-height:1.5}
+.card-quality-select{margin-top:8px;width:100%;padding:4px 6px;border-radius:5px;border:1px solid var(--border2);
+  background:var(--surface2);color:var(--text);font-family:var(--mono);font-size:10px;outline:none;cursor:pointer}
+.card-quality-select:focus{border-color:var(--accent2)}
+
+/* validation badge */
+.card-valid-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;margin-top:6px;padding:2px 7px;border-radius:10px;letter-spacing:0.04em}
+.card-valid-badge.ok{background:rgba(111,255,196,0.12);color:var(--green);border:1px solid rgba(111,255,196,0.25)}
+.card-valid-badge.warn{background:rgba(255,124,124,0.1);color:var(--coral);border:1px solid rgba(255,124,124,0.25)}
+
+/* per-card loop toggle + edit/delete actions (one row) */
+.card-actions{display:flex;align-items:center;gap:5px;margin-top:8px;flex-wrap:wrap}
+.card-loop-btn{padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:none;font-family:var(--mono);font-size:10px;color:var(--muted);cursor:pointer;transition:all 0.12s;white-space:nowrap}
+.card-loop-btn:hover{color:var(--text);background:var(--surface2)}
+.card-loop-btn.looping{background:rgba(111,255,196,0.1);border-color:var(--green);color:var(--green)}
+.card-action-btn{padding:3px 7px;border-radius:5px;border:1px solid var(--border2);background:none;
+  font-size:11px;line-height:1;color:var(--muted);cursor:pointer;transition:all 0.12s}
+.card-action-btn:hover{color:var(--text);background:var(--surface2)}
+.card-action-btn.danger:hover{color:var(--coral);border-color:rgba(255,124,124,0.4);background:rgba(255,124,124,0.08)}
+.card-action-btn:disabled{opacity:0.3;cursor:not-allowed}
+.card-action-btn:disabled:hover{color:var(--muted);background:none;border-color:var(--border2)}
+
+/* inline chord edit form (replaces a card's display when editing) */
+.chord-card-item.editing{cursor:default}
+.card-edit-label{font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.card-edit-name,.card-edit-sub{width:100%;padding:6px 8px;margin-bottom:6px;border-radius:5px;border:1px solid var(--border2);
+  background:var(--surface2);color:var(--text);font-family:var(--mono);font-size:12px;outline:none}
+.card-edit-name:focus,.card-edit-sub:focus{border-color:var(--accent2)}
+.card-edit-error{font-size:10px;color:var(--coral);line-height:1.5;margin-bottom:6px}
+.card-edit-actions{display:flex;gap:6px;margin-top:2px}
+.card-loop-rate{font-size:10px;color:var(--muted);min-width:24px}
+
+/* COMPOSE BANNER */
+.compose-banner{display:flex;align-items:center;gap:12px;padding:12px 18px;background:rgba(124,212,255,0.05);border:1px solid rgba(124,212,255,0.2);border-radius:10px;margin-top:28px}
+.compose-banner-label{font-size:11px;color:var(--blue);letter-spacing:0.08em;flex:1}
+.compose-banner.active{background:rgba(124,212,255,0.1);border-color:var(--blue)}
+
+/* ---- Phrase composer ----------------------------------------------------- */
+.composer-intro{
+  font-size:12.5px; line-height:1.5; color:var(--muted);
+  margin-bottom:14px; max-width:62ch;
+}
+.composer-ai-toggle{
+  display:inline-flex; align-items:center; gap:6px;
+  font-size:12px; color:var(--muted); cursor:pointer; user-select:none;
+}
+.composer-ai-toggle input{ accent-color:var(--accent); }
+.composer-meta{
+  font-size:11.5px; letter-spacing:.02em; color:var(--muted);
+  margin-bottom:10px; text-transform:lowercase;
+}
+.composer-meta[data-bar]:not([data-bar=""])::after{
+  content:" — bar " attr(data-bar); color:var(--accent);
+}
+.composer-tab{
+  font-family:var(--mono, 'DM Mono', monospace);
+  font-size:13px; line-height:1.55; white-space:pre; overflow-x:auto;
+  margin:0; padding:14px; border-radius:10px;
+  background:rgba(0,0,0,.28); color:var(--text);
+  border:1px solid var(--line);
+}
+.composer-legend{
+  margin-top:10px; font-size:11px; color:var(--muted); letter-spacing:.02em;
+}
+.composer-tools{
+  display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:14px;
+}
+
+/* ---- interactive phrase tab (bass / lick layers) ---- */
+.ctab-bars{
+  display:flex; flex-wrap:wrap; gap:10px;
+  padding:14px; border-radius:10px;
+  background:rgba(0,0,0,.28); border:1px solid var(--line); overflow-x:auto;
+}
+.ctab-bar{
+  display:flex; flex-direction:column; gap:4px;
+  padding:8px; border-radius:8px; border:1px solid var(--line);
+  background:rgba(255,255,255,.02);
+}
+.ctab-bar.layer-bass{ border-color:rgba(124,111,255,.5); }
+.ctab-bar.layer-lick{ border-color:rgba(184,169,255,.5); }
+.ctab-layer{
+  font:600 10.5px/1 var(--mono,'DM Mono',monospace); letter-spacing:.04em;
+  color:var(--accent); background:var(--surface2);
+  border:1px solid var(--line); border-radius:6px; padding:4px 6px; cursor:pointer;
+}
+.ctab-layer:hover{ background:var(--surface3); }
+.ctab-chord{ font-size:10.5px; color:var(--muted); text-align:center; }
+.ctab{ border-collapse:collapse; font-family:var(--mono,'DM Mono',monospace); font-size:13px; }
+.ctab th.ctab-str{ color:var(--muted); padding:0 6px 0 2px; font-weight:400; text-align:right; }
+.ctab-cell{ text-align:center; min-width:1.6em; padding:1px 4px; color:var(--text); }
+.ctab-cell.empty{ color:var(--line); }
+.ctab-cell.on.bass{ color:var(--accent); }
+.ctab-cell.on.lick{ color:var(--text); }
+.ctab-cell.greyed{ color:var(--muted); opacity:.5; cursor:pointer; border-radius:4px; }
+.ctab-cell.greyed:hover{ opacity:1; background:var(--accent-glow); color:var(--accent); }
+
+/* ============================================================
+   Frets -> chords inner panel
+   ============================================================ */
+.fret-input-row{align-items:flex-end}
+.fret-inputs{display:flex;gap:6px}
+.fret-cell{display:flex;flex-direction:column;align-items:center;gap:4px}
+.fret-cell span{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.05em}
+.fret-cell input{width:40px;height:40px;text-align:center;border-radius:8px;border:1px solid var(--border2);
+  background:var(--surface2);color:var(--text);font-family:var(--mono);font-size:16px;outline:none;transition:all 0.15s}
+.fret-cell input:focus{border-color:var(--accent2);background:var(--surface3);box-shadow:0 0 0 3px var(--accent-glow)}
+
+.fret-detect{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px;min-height:22px}
+.fret-detect:empty{display:none}
+.fret-chip-name{font-family:var(--display,var(--mono));font-size:22px;font-weight:700;color:var(--accent);letter-spacing:0.01em}
+.fret-detect-key{font-family:var(--mono);font-size:12px;color:var(--text);padding:3px 10px;border:1px solid var(--border2);border-radius:20px}
+.fret-detect-notes{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:0.08em}
+
+.fret-prog{padding:12px 0;border-bottom:1px solid var(--border)}
+.fret-prog:last-child{border-bottom:none}
+.fret-prog-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.fret-prog-label{font-family:var(--mono);font-size:12px;color:var(--text);font-weight:500}
+.fret-prog-roman{font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:0.06em}
+.fret-prog-src{font-family:var(--mono);font-size:10px;color:var(--muted);font-style:italic;margin-left:auto}
+.fret-play.playing{color:var(--green);border-color:var(--green);background:rgba(111,255,196,0.07)}
+.fret-loop.looping{color:var(--accent);border-color:var(--accent2);background:var(--accent-glow)}
+
+.fret-prog-chords{display:flex;gap:8px;flex-wrap:wrap}
+.fret-chord{padding:9px 16px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);
+  color:var(--text);font-family:var(--mono);font-size:14px;cursor:pointer;transition:all 0.12s}
+.fret-chord:hover{border-color:var(--accent2);background:var(--surface3);color:var(--accent)}
+.fret-chord.playing{border-color:var(--green);background:rgba(111,255,196,0.12);color:var(--green);transform:translateY(-2px)}
+
+/* ---- frets -> chords: layout + fingering viewport -------- */
+.fret-layout{display:grid;grid-template-columns:1fr 200px;gap:16px;align-items:start}
+.fret-layout .tab-output{margin:0}
+@media (max-width:720px){ .fret-layout{grid-template-columns:1fr} }
+
+.fret-chord.selected{border-color:var(--accent2);background:var(--accent-glow);color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow)}
+
+.fret-diagram-wrap{background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  padding:14px;display:flex;align-items:center;justify-content:center;min-height:120px}
+.fret-diagram-wrap.empty{color:var(--muted)}
+.fret-diagram-hint{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;line-height:1.6}
+.fret-diagram-card{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%}
+.fret-diagram-meta{display:flex;flex-direction:column;align-items:center;gap:5px}
+.fret-diagram-name{font-family:var(--mono);font-size:16px;font-weight:600;color:var(--accent)}
+.fret-diagram-notes{font-family:var(--mono);font-size:10px;color:var(--text);letter-spacing:0.06em;text-align:center}
+.fret-diagram-style{font-family:var(--mono);font-size:9px;color:var(--muted);font-style:italic}
+.fret-diagram-quality-label{display:flex;flex-direction:column;align-items:center;gap:3px;font-family:var(--mono);
+  font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px}
+.fret-diagram-quality{padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);
+  color:var(--text);font-family:var(--mono);font-size:11px;text-transform:none;letter-spacing:normal;outline:none;cursor:pointer}
+.fret-diagram-quality:focus{border-color:var(--accent2)}
+
+.chord-box{width:148px;height:auto}
+.chord-box .cb-fret{stroke:var(--border2)}
+.chord-box .cb-string{stroke:var(--border2);stroke-width:1}
+.chord-box .cb-dot{fill:var(--accent)}
+.chord-box .cb-dot-label{fill:var(--bg);font-family:var(--mono);font-size:9px;font-weight:600}
+.chord-box .cb-open{fill:none;stroke:var(--muted);stroke-width:1.5}
+.chord-box .cb-mute{fill:var(--muted);font-family:var(--mono);font-size:13px}
+.chord-box .cb-pos{fill:var(--muted);font-family:var(--mono);font-size:11px}
+.chord-box .cb-strname{fill:var(--muted);font-family:var(--mono);font-size:9px}

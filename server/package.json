@@ -1,0 +1,13 @@
+{
+  "name": "genrebender-proxy",
+  "version": "0.1.0",
+  "description": "Local dev proxy for Anthropic API to keep the API key server-side.",
+  "main": "proxy.js",
+  "scripts": {
+    "start": "node proxy.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.7"
+  }
+}

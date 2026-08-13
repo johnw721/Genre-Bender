@@ -1,0 +1,1171 @@
+/* ============================================================
+   trainer.js — Shape Trainer: drills that connect
+   scale shapes ⇄ chord shapes ⇄ chords ⇄ numbers.
+
+   Five question kinds, all built from the app's own theory
+   engines (chord book + scale book) — no AI, no network:
+
+     s2n  Shape → Number   see a voicing in a key, name its degree
+     n2s  Number → Shape   "play the IV in G" — enter frets, we verify
+     mv   Moving shapes    "E-shape barre at fret 3 = ?" — name the chord
+     prog Progression ID   hear/see a progression, name the degree sequence
+     sc   Scale shapes     see a scale box (roots marked), name the scale
+
+   Every fretboard is drawn with TWO independent layers — the scale
+   box and the chord shape — toggleable separately, so you can see
+   how chords live inside scale positions (or hide either one).
+   Layer preferences persist locally.
+
+   Question order is driven by a Leitner spaced-repetition queue
+   (trainersrs.js): missed cards come back soon, mastered cards
+   drift out to multi-day intervals. Progress lives in localStorage.
+   ============================================================ */
+import { diatonicChords, keyInfo, guessKey } from './scales.js';
+import {
+  KEYS, romansFor, keyLabel, MV_QUALS, MV_SUFFIX, MV_QUAL_LABEL,
+  SC_CENTERS, PROG_TEMPLATES, scaleNotesWindow
+} from './theorydata.js';
+import { getVoicing, parseChordName, E_SHAPES, A_SHAPES, QUALITY_LABELS, QUALITY_SUFFIX, withQuality } from './chordbook.js';
+import { layeredFretSVG, windowFor } from './fretdiagram.js';
+import { STRING_OPEN_MIDI, midiToHz, pcToName } from './theory.js';
+import { playChordNow, playNote, playLeadEvent, getCtx } from './audio.js';
+import { makeLooper } from './loopscheduler.js';
+import { escHtml } from './util.js';
+import { srsPick, srsRecord, srsStats, srsResetAll } from './trainersrs.js';
+import { renderExplore, redrawExploreDiagrams, configureExplore } from './trainerexplore.js';
+import { detectChordAndKey } from './fretchords.js';
+import { buildLick } from './phrase.js';
+import { renderTab } from './tabrender.js';
+import { getBPM } from './metronome.js';
+
+const $ = (id) => document.getElementById(id);
+
+/* ---- decks ------------------------------------------------
+   Shared vocabulary (KEYS, romans, barre shapes, progression
+   templates, scaleNotesWindow) lives in theorydata.js. */
+const SC_TYPES = ['pent', 'full'];
+function scaleLabel(key, type){ return keyLabel(key) + (type === 'pent' ? ' pentatonic' : ''); }
+
+/* Production drill skips the diminished degree (awkward beginner shape). */
+function n2sDegrees(key){
+  return keyInfo(key).mode === 'minor' ? [0, 2, 3, 4, 5, 6] : [0, 1, 2, 3, 4, 5];
+}
+
+function mvRootPc(fam, fret){ return ((fam === 'E' ? 4 : 9) + fret) % 12; }
+function mvName(fam, qual, fret){ return pcToName(mvRootPc(fam, fret)) + MV_SUFFIX[qual]; }
+
+/* All card ids for a mode ('mixed' = every deck). */
+function deckFor(mode){
+  if (mode === 's2n') return KEYS.flatMap(k => [0,1,2,3,4,5,6].map(d => `s2n|${k}|${d}`));
+  if (mode === 'n2s') return KEYS.flatMap(k => n2sDegrees(k).map(d => `n2s|${k}|${d}`));
+  if (mode === 'mv'){
+    const out = [];
+    for (const fam of ['E', 'A'])
+      for (const q of MV_QUALS)
+        for (let f = 1; f <= 9; f++) out.push(`mv|${fam}|${q}|${f}`);
+    return out;
+  }
+  if (mode === 'prog') return KEYS.flatMap(k => [0,1,2,3].map(t => `prog|${k}|${t}`));
+  if (mode === 'sc'){
+    return KEYS.flatMap(k => SC_TYPES.flatMap(ty => SC_CENTERS.map(c => `sc|${k}|${c}|${ty}`)));
+  }
+  return ['s2n','n2s','mv','prog','sc'].flatMap(deckFor);
+}
+
+/* ---- module state ----------------------------------------- */
+let mode = 'mixed';
+let current = null;          // the active question object
+let lastId = null;           // previous card id (avoid immediate repeats)
+let answered = false;
+let session = { asked: 0, right: 0, streak: 0 };
+let advanceToken = 0;        // cancels a pending auto-advance
+let progLooper = null;
+
+/* Per-mode quiz ⇄ explore preference, persisted locally. */
+const VIEW_KEY = 'GenreBenderTrainerView_v1';
+let viewPref = {};
+function loadViewPref(){
+  try { viewPref = JSON.parse(localStorage.getItem(VIEW_KEY)) || {}; }
+  catch { viewPref = {}; }
+}
+function saveViewPref(){
+  try { localStorage.setItem(VIEW_KEY, JSON.stringify(viewPref)); } catch { /* ignore */ }
+}
+function exploring(){ return mode !== 'mixed' && mode !== 'custom' && viewPref[mode] === 'explore'; }
+function updateViewToggle(){
+  const b = $('trainer-view-toggle');
+  if (!b) return;
+  b.style.display = (mode === 'mixed' || mode === 'custom') ? 'none' : '';
+  b.classList.toggle('on', exploring());
+  b.textContent = exploring() ? '🎓 back to quiz' : '🧭 explore this drill';
+}
+/* "My chords" is a reference/practice panel, not a quiz deck — it has
+   no SRS stats and the scale layer / reset-progress controls don't
+   apply to it, so hide them while it's active. */
+function updateModeChrome(){
+  const scaleWrap = $('trainer-layer-scale-wrap');
+  if (scaleWrap) scaleWrap.style.display = mode === 'custom' ? 'none' : '';
+  const resetBtn = $('trainer-reset-btn');
+  if (resetBtn) resetBtn.style.display = mode === 'custom' ? 'none' : '';
+}
+
+/* Layer visibility — independent toggles, persisted locally. */
+const LAYERS_KEY = 'GenreBenderTrainerLayers_v1';
+let layers = { chord: true, scale: true };
+function loadLayers(){
+  try {
+    const s = JSON.parse(localStorage.getItem(LAYERS_KEY));
+    if (s) layers = { chord: !!s.chord, scale: !!s.scale };
+  } catch { /* defaults */ }
+}
+function saveLayers(){
+  try { localStorage.setItem(LAYERS_KEY, JSON.stringify(layers)); } catch { /* ignore */ }
+}
+function syncLayerCheckboxes(){
+  const c = $('trainer-layer-chord'), s = $('trainer-layer-scale');
+  if (c) c.checked = layers.chord;
+  if (s) s.checked = layers.scale;
+}
+
+/* ---- "My chords" — saved tracks of chord diagrams ----------------
+   A track is a named, ordered sequence of chords (like a chord tab):
+   add a chord by typing its name, or by entering its actual frets
+   (six squares, same reading logic as the frets->chords tab, chord
+   name auto-detected from the notes) so the diagram shows YOUR
+   fingering rather than the auto-picked voicing. Several tracks can
+   be saved and switched between; once a track has 2+ chords, the
+   last two are used to guess a likely key and suggest diatonic
+   chords to add next. Every gap between adjacent chords also gets a
+   suggested lick (phrase.buildLick) — a short pentatonic fill that
+   resolves from the first chord's tones onto the second's, reusing
+   the composer's lead-line engine. Reference/practice panel — never
+   feeds SRS. */
+const TRACKS_KEY = 'GenreBenderTrainerTracks_v1';
+const LEGACY_CUSTOM_KEY = 'GenreBenderTrainerCustom_v1'; // pre-tracks flat chord list
+let tracks = [];
+let activeTrackId = null;
+let editingCustomIdx = null;      // index of the chord mid-rename in "My chords", or null
+let customEditError = null;       // inline error shown in that edit form
+let customFitMessage = null;      // one-shot status line after "fit key", shown once then cleared
+
+function makeTrackId(){ return 'trk_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function makeTrack(name){ return { id: makeTrackId(), name, chords: [] }; }
+function getActiveTrack(){ return tracks.find(t => t.id === activeTrackId) || tracks[0] || null; }
+
+function loadTracks(){
+  try {
+    const s = JSON.parse(localStorage.getItem(TRACKS_KEY));
+    if (s && Array.isArray(s.tracks) && s.tracks.length){
+      tracks = s.tracks;
+      activeTrackId = tracks.some(t => t.id === s.activeId) ? s.activeId : tracks[0].id;
+      return;
+    }
+  } catch { /* fall through to migration/default below */ }
+  // Migrate the earlier flat "My chords" list into a first track, if present.
+  let migrated = [];
+  try {
+    const old = JSON.parse(localStorage.getItem(LEGACY_CUSTOM_KEY));
+    if (Array.isArray(old)) migrated = old.filter(n => typeof n === 'string' && n).map(name => ({ name, frets: null }));
+  } catch { /* ignore */ }
+  const t = makeTrack('My chords');
+  t.chords = migrated;
+  tracks = [t];
+  activeTrackId = t.id;
+  saveTracks();
+}
+function saveTracks(){
+  try { localStorage.setItem(TRACKS_KEY, JSON.stringify({ tracks, activeId: activeTrackId })); } catch { /* ignore */ }
+}
+function addChordToActiveTrack(entry){
+  const t = getActiveTrack();
+  if (!t) return;
+  t.chords.push(entry);           // tracks are sequences — repeats are allowed on purpose
+  saveTracks();
+}
+
+/* Capitalize just the first character so "am7" reads as "Am7" —
+   parseChordName requires an uppercase A–G root letter. */
+function normalizeChordInput(raw){
+  const t = String(raw || '').trim();
+  return t ? t[0].toUpperCase() + t.slice(1) : '';
+}
+
+/* Read the six "add by frets" squares -> per-string fret array
+   (null = muted) + the sounding MIDI notes, same convention as
+   the trainer's n2s fret entry and the frets->chords tab. */
+function readCustomFretSquares(){
+  const frets = [], midis = [];
+  for (let i = 0; i < 6; i++){
+    const el = $('trainer-custom-fret-' + i);
+    const raw = (el ? el.value : '').trim().toLowerCase();
+    if (raw === '' || raw === 'x' || raw === '-'){ frets.push(null); continue; }
+    const f = parseInt(raw, 10);
+    if (Number.isNaN(f) || f < 0 || f > 24){ frets.push(null); continue; }
+    frets.push(f);
+    midis.push(STRING_OPEN_MIDI[i] + f);
+  }
+  return { frets, midis };
+}
+function clearCustomFretSquares(){
+  for (let i = 0; i < 6; i++){ const el = $('trainer-custom-fret-' + i); if (el) el.value = ''; }
+}
+
+/* A track entry is { name, frets }: frets is the exact voicing when
+   added via the fret squares, typed via the position control below, or
+   null when added by name (in which case the diagram falls back to the
+   chord book's best guess). */
+function resolvedFretsFor(entry){
+  return entry.frets || (getVoicing(entry.name) || {}).frets || null;
+}
+function customDiagSpec(entry, idx){
+  return { chordFrets: resolvedFretsFor(entry), label: `${idx + 1}. ${entry.name}` };
+}
+/* Lowest fretted (non-open, non-muted) note of a voicing — the fret a
+   guitarist would call its "position". 0 if the shape is all open/muted. */
+function startFretOf(frets){
+  if (!frets) return 0;
+  const fretted = frets.filter(f => f !== null && f > 0);
+  return fretted.length ? Math.min(...fretted) : 0;
+}
+
+/* ---- "fit key" — conform a chord's neighbors to its key --------------
+   Groups a chord's original quality into a rough "extension family" (plain
+   triad, seventh, ninth, sixth, sus, add9) so a fitted chord keeps roughly
+   the same color instead of collapsing to a bare triad. */
+const EXTENSION_FAMILY = {
+  maj: 'triad', min: 'triad', dim: 'triad', aug: 'triad',
+  dom7: 'seventh', min7: 'seventh', maj7: 'seventh', m7b5: 'seventh', dim7: 'seventh',
+  dom7s9: 'seventh', dom7b9: 'seventh', dom7s5: 'seventh', dom7b5: 'seventh',
+  dom9: 'ninth', maj9: 'ninth', min9: 'ninth',
+  dom11: 'ninth', min11: 'ninth', maj11: 'ninth',
+  dom13: 'ninth', min13: 'ninth', maj13: 'ninth',
+  six: 'sixth', min6: 'sixth', six9: 'sixth',
+  add9: 'ninthAdd', madd9: 'ninthAdd',
+  sus2: 'sus2', sus4: 'sus4',
+};
+/* family + the target diatonic degree's basic mode ('maj'|'min'|'dim') ->
+   the chord-book quality key to render the fitted chord as. */
+const DEGREE_QUALITY = {
+  triad:    { maj: 'maj',  min: 'min',  dim: 'dim'   },
+  seventh:  { maj: 'maj7', min: 'min7', dim: 'm7b5'  },
+  ninth:    { maj: 'maj9', min: 'min9', dim: 'min9'  },
+  sixth:    { maj: 'six',  min: 'min6', dim: 'min6'  },
+  ninthAdd: { maj: 'add9', min: 'madd9', dim: 'madd9' },
+  sus2:     { maj: 'sus2', min: 'sus2', dim: 'sus2'  },
+  sus4:     { maj: 'sus4', min: 'sus4', dim: 'sus4'  },
+};
+function qualityForDegree(origQualityKey, targetMode){
+  const family = EXTENSION_FAMILY[origQualityKey] || 'triad';
+  const table = DEGREE_QUALITY[family] || DEGREE_QUALITY.triad;
+  return table[targetMode] || table.maj;
+}
+
+/* Minimally adjust one chord name to fit diatonically in `key`: keep its
+   root if that root is already diatonic there (just correct the quality
+   to match that degree), otherwise snap to the nearest diatonic root by
+   semitone distance. Either way, the original chord's rough "color"
+   (triad / seventh / ninth / sus / etc.) is preserved via qualityForDegree.
+   Returns the original name unchanged if it can't be parsed. */
+function fitChordToKey(originalName, key){
+  const orig = parseChordName(originalName);
+  if (!orig) return originalName;
+  const diatonicParsed = diatonicChords(key)
+    .map(n => ({ name: n, p: parseChordName(n) }))
+    .filter(d => d.p);
+  if (!diatonicParsed.length) return originalName;
+
+  let target = diatonicParsed.find(d => d.p.rootPc === orig.rootPc);
+  if (!target){
+    const dist = (a, b) => { const d = Math.abs(a - b) % 12; return Math.min(d, 12 - d); };
+    target = diatonicParsed.reduce((best, d) =>
+      dist(d.p.rootPc, orig.rootPc) < dist(best.p.rootPc, orig.rootPc) ? d : best);
+  }
+  const newQualityKey = qualityForDegree(orig.quality, target.p.quality);
+  return target.p.rootName + (QUALITY_SUFFIX[newQualityKey] ?? '');
+}
+function customChipsHTML(t){
+  if (!t.chords.length){
+    return `<span class="trainer-hint">No chords yet — type a name or enter frets below, then add.</span>`;
+  }
+  return t.chords.map((c, i) => `
+    <span class="chip trainer-chip">${i + 1}. ${escHtml(c.name)}
+      <button type="button" class="trainer-chip-x" aria-label="Remove ${escHtml(c.name)}" onclick="trainerRemoveCustomChord(${i})">×</button>
+    </span>`).join('');
+}
+/* ---- lick suggestions between adjacent chords -------------------
+   For the gap between chords[i] and chords[i+1]: guess a key from
+   just that pair (guessKey), then build a short pentatonic fill
+   (phrase.buildLick) that starts on a FROM-chord tone and resolves
+   onto a TO-chord tone. Persisted per track (keyed by gap index) so
+   it's stable across re-renders; a "different lick" button rerolls
+   it with a fresh seed. Auto-heals if the adjacent chords change. */
+function generateLickFor(fromName, toName, seed){
+  const key = guessKey([fromName, toName]) || 'C';
+  return buildLick({ key, fromChordName: fromName, toChordName: toName, seed });
+}
+function ensureLick(t, gapIdx){
+  const from = t.chords[gapIdx], to = t.chords[gapIdx + 1];
+  if (!from || !to) return null;
+  if (!t.licks) t.licks = {};
+  const existing = t.licks[gapIdx];
+  if (existing && existing.fromChordName === from.name && existing.toChordName === to.name) return existing;
+  const lick = generateLickFor(from.name, to.name);
+  if (lick) t.licks[gapIdx] = lick; else delete t.licks[gapIdx];
+  saveTracks();
+  return lick;
+}
+function lickHTML(t, gapIdx){
+  const lick = ensureLick(t, gapIdx);
+  if (!lick) return '';
+  const tab = renderTab({ bars: [{ chordName: null, events: lick.events }] });
+  return `
+    <div class="trainer-lick" id="trainer-lick-${gapIdx}">
+      <div class="trainer-lick-label">fill · ${escHtml(keyLabel(lick.key))}</div>
+      <pre class="trainer-lick-tab composer-tab">${escHtml(tab)}</pre>
+      <div class="trainer-lick-tools">
+        <button class="pb-btn" type="button" onclick="trainerPlayLick(${gapIdx})">▶ play</button>
+        <button class="pb-btn" type="button" onclick="trainerRerollLick(${gapIdx})">🔀 different lick</button>
+      </div>
+    </div>`;
+}
+
+/* Controls under each "My chords" diagram: a chord-type selector (same
+   QUALITY_LABELS list as the guitar tab's cards, one click to try the
+   7th/9th/11th/sus/etc. of the same root) plus edit/delete. Only shown
+   here, never in the quiz decks — diagHTML() itself stays untouched so
+   quiz diagrams remain read-only. */
+function customControlsHTML(entry, idx, t){
+  if (editingCustomIdx === idx){
+    const errorHTML = customEditError ? `<div class="card-edit-error">${escHtml(customEditError)}</div>` : '';
+    return `<div class="trainer-custom-edit">
+      <input type="text" class="card-edit-name" id="custom-edit-name-${idx}" value="${escHtml(entry.name)}" placeholder="e.g. F#m7"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();trainerSaveCustomChordEdit(${idx});} if(event.key==='Escape'){trainerCancelCustomChordEdit();}">
+      ${errorHTML}
+      <div class="card-edit-actions">
+        <button class="pb-btn" type="button" onclick="trainerSaveCustomChordEdit(${idx})">✓ save</button>
+        <button class="pb-btn" type="button" onclick="trainerCancelCustomChordEdit()">✕ cancel</button>
+      </div>
+    </div>`;
+  }
+  const p = parseChordName(entry.name);
+  const currentQuality = p ? p.quality : 'maj';
+  const qualityOptions = Object.entries(QUALITY_LABELS)
+    .map(([key, label]) => `<option value="${key}"${key === currentQuality ? ' selected' : ''}>${escHtml(label)}</option>`)
+    .join('');
+  const atStart = idx === 0, atEnd = idx === t.chords.length - 1;
+  const hasNeighbor = t.chords.length > 1;
+  const startFret = startFretOf(resolvedFretsFor(entry));
+  return `<div class="trainer-custom-controls">
+    <select class="card-quality-select" aria-label="Chord type" title="Change chord type"
+      onchange="trainerChangeCustomChordQuality(${idx},this.value)">${qualityOptions}</select>
+    <div class="trainer-custom-position">
+      <label>fret position
+        <input type="number" class="card-position-input" min="0" max="20" value="${startFret}"
+          aria-label="Fret position" title="Move this voicing up or down the neck"
+          onchange="trainerSetCustomChordPosition(${idx},this.value)">
+      </label>
+      <button class="card-action-btn" type="button" title="Use the chord book's best-guess position" aria-label="Auto position"
+        onclick="trainerResetCustomChordPosition(${idx})">auto</button>
+    </div>
+    <button class="card-action-btn fit-key-btn" type="button" aria-label="Fit neighboring chords to this chord's key"${hasNeighbor
+        ? ' title="Nudge the chord before/after this one to fit its key"'
+        : ' disabled title="No neighboring chords to fit"'}
+      onclick="trainerFitChordToKey(${idx})">🔑 make in key</button>
+    <div class="card-actions">
+      <button class="card-action-btn" type="button" aria-label="Move earlier"${atStart ? ' disabled title="Already first"' : ' title="Move earlier"'}
+        onclick="trainerMoveCustomChord(${idx},-1)">◀</button>
+      <button class="card-action-btn" type="button" aria-label="Move later"${atEnd ? ' disabled title="Already last"' : ' title="Move later"'}
+        onclick="trainerMoveCustomChord(${idx},1)">▶</button>
+      <button class="card-action-btn" type="button" title="Edit chord" aria-label="Edit chord"
+        onclick="trainerStartCustomChordEdit(${idx})">✎ edit</button>
+      <button class="card-action-btn danger" type="button" title="Delete chord" aria-label="Delete chord"
+        onclick="trainerRemoveCustomChord(${idx})">🗑 delete</button>
+    </div>
+  </div>`;
+}
+
+function customDiagramsInnerHTML(t){
+  const parts = [];
+  t.chords.forEach((c, i) => {
+    // Wrap the diagram + its controls together so they stack as one flex
+    // item (the diagrams row itself is a flex row of side-by-side chords).
+    parts.push(`<div class="trainer-custom-chord-block">${diagHTML(customDiagSpec(c, i), i)}${customControlsHTML(c, i, t)}</div>`);
+    if (i < t.chords.length - 1) parts.push(lickHTML(t, i));
+  });
+  return parts.join('');
+}
+function customDiagramsHTML(t){
+  if (!t.chords.length) return '';
+  return `<div class="trainer-diagrams" id="trainer-custom-diagrams">${customDiagramsInnerHTML(t)}</div>`;
+}
+function redrawCustomDiagrams(){
+  const c = $('trainer-custom-diagrams'), t = getActiveTrack();
+  if (!c || !t) return;
+  c.innerHTML = customDiagramsInnerHTML(t);
+}
+
+export function trainerPlayLick(gapIdx){
+  const t = getActiveTrack();
+  const lick = t && t.licks && t.licks[gapIdx];
+  if (!lick || !lick.events.length) return;
+  const spb = 60 / getBPM();
+  const ctx = getCtx();
+  let time = ctx.currentTime + 0.05;
+  lick.events.forEach(ev => {
+    playLeadEvent(ev, time, spb);
+    time += (ev.beats || 0.5) * spb;
+  });
+}
+
+export function trainerRerollLick(gapIdx){
+  const t = getActiveTrack();
+  if (!t) return;
+  const from = t.chords[gapIdx], to = t.chords[gapIdx + 1];
+  if (!from || !to) return;
+  const seed = ((Date.now() & 0xffffffff) ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
+  const lick = generateLickFor(from.name, to.name, seed);
+  if (!t.licks) t.licks = {};
+  if (lick) t.licks[gapIdx] = lick;
+  saveTracks();
+  redrawCustomDiagrams();
+}
+
+/* Once a track has 2+ chords, guess a key from the last two and
+   offer the guessed key's remaining diatonic chords as "add next"
+   chips (labeled with roman numerals). */
+function suggestionHTML(t){
+  if (t.chords.length < 2) return '';
+  const key = guessKey(t.chords.slice(-2).map(c => c.name));
+  if (!key) return '';
+  const romans = romansFor(key), names = diatonicChords(key);
+  const used = new Set(t.chords.map(c => c.name.toLowerCase()));
+  const opts = names.map((n, i) => ({ n, roman: romans[i] })).filter(o => !used.has(o.n.toLowerCase()));
+  if (!opts.length) return '';
+  return `
+    <div class="trainer-suggest">
+      <span class="trainer-hint">Guessed key (from the last two chords): <strong>${escHtml(keyLabel(key))}</strong> — try next:</span>
+      <div class="trainer-suggest-chips">${opts.map(o =>
+        `<button type="button" class="chip trainer-suggest-chip" onclick="trainerAddSuggested('${o.n}')">${escHtml(o.roman)} · ${escHtml(o.n)}</button>`
+      ).join('')}</div>
+    </div>`;
+}
+
+function trackTabsHTML(){
+  return tracks.map(t => `
+    <button type="button" class="fret-chord trainer-track-tab${t.id === activeTrackId ? ' selected' : ''}"
+      onclick="trainerSwitchTrack('${t.id}')">${escHtml(t.name)}</button>`).join('') +
+    `<button type="button" class="pb-btn trainer-track-add" onclick="trainerNewTrack()" title="Save a new track">+ track</button>`;
+}
+function customFretCellsHTML(){
+  return ['E', 'A', 'D', 'G', 'B', 'e'].map((s, i) =>
+    `<label class="fret-cell"><span>${s}</span><input id="trainer-custom-fret-${i}" type="text" inputmode="numeric" maxlength="2" placeholder="x" aria-label="${s} string fret"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();trainerAddCustomChordFromFrets();}"></label>`).join('');
+}
+
+function renderCustomView(){
+  stopProgAudio();
+  advanceToken++;                 // cancel any pending quiz auto-advance
+  const q = $('trainer-question'), a = $('trainer-answers'), f = $('trainer-feedback');
+  const t = getActiveTrack();
+  if (!q || !t) return;
+  const fitMsg = customFitMessage;      // one-shot: read then clear so it only shows once
+  customFitMessage = null;
+  q.innerHTML = `
+    <div class="trainer-prompt">Build a track — a saved, ordered sequence of chords.
+      <span class="trainer-hint">Add a chord by typing its name, or by entering its frets (name is auto-detected). Once a track has two chords, we'll guess the key and suggest what fits next.</span>
+    </div>
+    <div class="trainer-track-tabs" role="tablist" aria-label="Saved tracks">${trackTabsHTML()}</div>
+    <div class="trainer-track-tools">
+      <span class="trainer-track-name">${escHtml(t.name)}</span>
+      <button class="pb-btn" type="button" onclick="trainerRenameTrack()">rename</button>
+      <button class="pb-btn" type="button" onclick="trainerDeleteTrack()">delete track</button>
+      ${t.chords.length ? `<button class="btn btn-ghost" type="button" onclick="trainerClearCustomChords()">clear chords</button>` : ''}
+    </div>
+    ${fitMsg ? `<div class="trainer-custom-status">${escHtml(fitMsg)}</div>` : ''}
+    <div class="trainer-custom-input" role="group" aria-label="Add a chord by name">
+      <input id="trainer-custom-name" class="trainer-custom-name" type="text" placeholder="e.g. Am7" autocomplete="off" maxlength="12"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();trainerAddCustomChord();}">
+      <button class="btn btn-primary" type="button" onclick="trainerAddCustomChord()">+ add by name</button>
+    </div>
+    <div class="fret-inputs trainer-custom-fret-inputs" role="group" aria-label="Or add a chord by frets, low E to high e">
+      ${customFretCellsHTML()}
+      <button class="btn btn-primary" type="button" onclick="trainerAddCustomChordFromFrets()">+ add from frets</button>
+    </div>
+    <div class="trainer-custom-err" id="trainer-custom-err"></div>
+    <div class="trainer-chips" id="trainer-chips">${customChipsHTML(t)}</div>
+    ${customDiagramsHTML(t)}
+    ${suggestionHTML(t)}`;
+  if (a) a.innerHTML = '';
+  if (f){ f.className = 'trainer-feedback'; f.innerHTML = ''; }
+  updateStats();
+}
+
+export function trainerAddCustomChord(){
+  const el = $('trainer-custom-name');
+  if (!el) return;
+  const name = normalizeChordInput(el.value);
+  const errEl = $('trainer-custom-err');
+  if (!name) return;
+  if (!parseChordName(name)){
+    if (errEl) errEl.textContent = `Can't read "${name}" — start with a note letter A–G.`;
+    return;
+  }
+  if (errEl) errEl.textContent = '';
+  addChordToActiveTrack({ name, frets: null });
+  renderCustomView();
+  const again = $('trainer-custom-name');
+  if (again) again.focus();
+}
+
+export function trainerAddCustomChordFromFrets(){
+  const { frets, midis } = readCustomFretSquares();
+  const errEl = $('trainer-custom-err');
+  if (!midis.length){
+    if (errEl) errEl.textContent = 'Enter at least one fret (0 = open, x/blank = muted) to add a chord.';
+    return;
+  }
+  const info = detectChordAndKey(midis);
+  if (!info || !info.symbol){
+    if (errEl) errEl.textContent = "Couldn't identify a chord from those frets.";
+    return;
+  }
+  if (errEl) errEl.textContent = '';
+  addChordToActiveTrack({ name: info.symbol, frets });
+  clearCustomFretSquares();
+  renderCustomView();
+}
+
+export function trainerAddSuggested(name){
+  addChordToActiveTrack({ name, frets: null });
+  renderCustomView();
+}
+
+export function trainerRemoveCustomChord(i){
+  const t = getActiveTrack();
+  if (!t) return;
+  t.chords.splice(i, 1);
+  if (editingCustomIdx !== null){       // indices just shifted — bail out of any open edit
+    editingCustomIdx = null;
+    customEditError = null;
+  }
+  saveTracks();
+  renderCustomView();
+  const again = $('trainer-custom-name');
+  if (again) again.focus();
+}
+
+/* Move a chord earlier (dir -1) or later (dir 1) in the track — a
+   progression's chord order matters as much as which chords are in it. */
+export function trainerMoveCustomChord(idx, dir){
+  const t = getActiveTrack();
+  if (!t) return;
+  const dest = idx + dir;
+  if (dest < 0 || dest >= t.chords.length) return;
+  [t.chords[idx], t.chords[dest]] = [t.chords[dest], t.chords[idx]];
+  if (editingCustomIdx !== null){       // positions just swapped — bail out of any open edit
+    editingCustomIdx = null;
+    customEditError = null;
+  }
+  saveTracks();
+  renderCustomView();
+}
+
+/* "Make in key/scale": infer a key from this chord plus its immediate
+   neighbors (the chord itself is weighted first, so it need not become
+   the tonic — a strong fit from the neighbors on some other key can
+   outweigh that), then minimally retune just the neighbor(s) to be
+   diatonic in that key. The selected chord itself is never touched. */
+export function trainerFitChordToKey(idx){
+  const t = getActiveTrack();
+  if (!t) return;
+  const entry = t.chords[idx];
+  if (!entry) return;
+  const prev = t.chords[idx - 1] || null;
+  const next = t.chords[idx + 1] || null;
+  if (!prev && !next) return;              // nothing to fit around
+
+  const ctxNames = [entry.name, prev && prev.name, next && next.name].filter(Boolean);
+  const key = guessKey(ctxNames);
+  if (!key){
+    customFitMessage = `Couldn't infer a key around "${entry.name}".`;
+    renderCustomView();
+    return;
+  }
+
+  let changed = 0;
+  [prev, next].forEach(n => {
+    if (!n) return;
+    const fitted = fitChordToKey(n.name, key);
+    if (fitted && fitted !== n.name){
+      n.name = fitted;
+      n.frets = null;                      // re-resolve a fresh voicing for the new name
+      changed++;
+    }
+  });
+
+  if (editingCustomIdx !== null){ editingCustomIdx = null; customEditError = null; }
+  customFitMessage = changed
+    ? `Fit the chords around "${entry.name}" to the key of ${keyLabel(key)}.`
+    : `The chords around "${entry.name}" already fit the key of ${keyLabel(key)}.`;
+  saveTracks();
+  renderCustomView();
+}
+
+/* Re-voice a chord at a different neck position — same name, same
+   quality, just moved up or down the fretboard. Pins the resulting exact
+   shape on the entry (same convention as the "add from frets" input). */
+export function trainerSetCustomChordPosition(idx, rawValue){
+  const t = getActiveTrack();
+  const entry = t && t.chords[idx];
+  if (!entry) return;
+  const near = Math.max(0, Math.min(20, parseInt(rawValue, 10) || 0));
+  const v = getVoicing(entry.name, { near });
+  if (!v) return;
+  entry.frets = v.frets;
+  saveTracks();
+  renderCustomView();
+}
+
+/* Drop the pinned voicing and go back to the chord book's own best guess. */
+export function trainerResetCustomChordPosition(idx){
+  const t = getActiveTrack();
+  const entry = t && t.chords[idx];
+  if (!entry) return;
+  entry.frets = null;
+  saveTracks();
+  renderCustomView();
+}
+
+/* ---- edit / retype an existing custom chord ------------------------------ */
+export function trainerStartCustomChordEdit(idx){
+  editingCustomIdx = idx;
+  customEditError = null;
+  renderCustomView();
+  const el = $('custom-edit-name-' + idx);
+  if (el){ el.focus(); el.select(); }
+}
+
+export function trainerCancelCustomChordEdit(){
+  editingCustomIdx = null;
+  customEditError = null;
+  renderCustomView();
+}
+
+export function trainerSaveCustomChordEdit(idx){
+  const t = getActiveTrack();
+  const entry = t && t.chords[idx];
+  if (!entry) return;
+  const el = $('custom-edit-name-' + idx);
+  const newName = normalizeChordInput(el ? el.value : entry.name);
+  if (!newName || !parseChordName(newName)){
+    customEditError = `Can't read "${newName || ''}" — start with a note letter A–G.`;
+    renderCustomView();
+    return;
+  }
+  entry.name = newName;
+  entry.frets = null;              // re-resolve a fresh, real voicing for the new name
+  saveTracks();
+  editingCustomIdx = null;
+  customEditError = null;
+  renderCustomView();
+}
+
+/* Swap an existing custom chord's quality in place (e.g. Am7 -> Am9 ->
+   Asus4), same one-click idea as the guitar tab's card selector. */
+export function trainerChangeCustomChordQuality(idx, qualityKey){
+  const t = getActiveTrack();
+  const entry = t && t.chords[idx];
+  if (!entry) return;
+  const newName = withQuality(entry.name, qualityKey);
+  if (!newName) return;
+  entry.name = newName;
+  entry.frets = null;
+  saveTracks();
+  renderCustomView();
+}
+
+export function trainerClearCustomChords(){
+  const t = getActiveTrack();
+  if (!t || !t.chords.length) return;
+  if (!confirm(`Clear all chords from "${t.name}"?`)) return;
+  t.chords = [];
+  saveTracks();
+  renderCustomView();
+}
+
+export function trainerSwitchTrack(id){
+  if (!tracks.some(x => x.id === id)) return;
+  activeTrackId = id;
+  saveTracks();
+  renderCustomView();
+}
+
+export function trainerNewTrack(){
+  const name = (prompt('Name this track:', `Track ${tracks.length + 1}`) || '').trim();
+  if (!name) return;
+  const t = makeTrack(name);
+  tracks.push(t);
+  activeTrackId = t.id;
+  saveTracks();
+  renderCustomView();
+}
+
+export function trainerRenameTrack(){
+  const t = getActiveTrack();
+  if (!t) return;
+  const name = (prompt('Rename track:', t.name) || '').trim();
+  if (!name) return;
+  t.name = name;
+  saveTracks();
+  renderCustomView();
+}
+
+export function trainerDeleteTrack(){
+  if (tracks.length <= 1){
+    alert("This is your only track — clear its chords instead of deleting it.");
+    return;
+  }
+  const t = getActiveTrack();
+  if (!t || !confirm(`Delete track "${t.name}"? This can't be undone.`)) return;
+  tracks = tracks.filter(x => x.id !== t.id);
+  activeTrackId = tracks[0].id;
+  saveTracks();
+  renderCustomView();
+}
+
+/* ---- small helpers ---------------------------------------- */
+function shuffle(arr){
+  for (let i = arr.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+function fretsToFreqs(frets){
+  const out = [];
+  frets.forEach((f, s) => { if (f !== null && f !== undefined) out.push(midiToHz(STRING_OPEN_MIDI[s] + f)); });
+  return out;
+}
+function voicingFreqs(name){
+  const v = getVoicing(name);
+  return (v && v.midis && v.midis.length) ? v.midis.map(midiToHz) : null;
+}
+function chordTonePcs(name){
+  const p = parseChordName(name);
+  return p ? [...new Set(p.intervals.map(iv => (p.rootPc + iv) % 12))] : [];
+}
+
+/* ---- layered diagram rendering ------------------------------
+   Each question carries `diagrams`: an array of specs
+     { chordFrets?, chordPcs?, scaleKey?, scaleType?, window?,
+       label?, revealLabel?, chordHiddenUntilReveal? }
+   redrawDiagrams() paints them into #trainer-diagrams honouring
+   the two layer toggles, so toggling repaints live. */
+function diagHTML(spec, idx){
+  const chordVisible = layers.chord &&
+    (spec.chordFrets || spec.chordPcs) &&
+    (!spec.chordHiddenUntilReveal || answered);
+  const win = spec.window || windowFor(spec.chordFrets, null);
+  const scaleVisible = !!(layers.scale && spec.scaleKey);
+  const scaleNotes = scaleVisible
+    ? scaleNotesWindow(spec.scaleKey, spec.scaleType || 'full', win.lo, win.hi)
+    : null;
+  const label = (answered && spec.revealLabel) ? spec.revealLabel : (spec.label || '');
+  const empty = !chordVisible && !scaleVisible;
+  const emptyMsg = spec.scaleKey ? ' (both layers hidden)' : ' (chord layer hidden)';
+  return `<div class="trainer-diagram${empty ? ' layers-off' : ''}" id="trainer-diag-${idx}">
+      ${layeredFretSVG({
+        chordFrets: spec.chordFrets || null,
+        chordPcs: spec.chordPcs || null,
+        scaleNotes,
+        window: win,
+        showChord: !!chordVisible,
+        showScale: scaleVisible,
+      })}
+      <div class="trainer-diagram-label">${escHtml(label)}${empty ? emptyMsg : ''}</div>
+    </div>`;
+}
+function redrawDiagrams(){
+  const c = $('trainer-diagrams');
+  if (!c || !current || !current.diagrams) return;
+  c.innerHTML = current.diagrams.map(diagHTML).join('');
+}
+
+export function trainerToggleLayer(which, on){
+  if (which !== 'chord' && which !== 'scale') return;
+  layers[which] = !!on;
+  saveLayers();
+  syncLayerCheckboxes();
+  if (mode === 'custom') redrawCustomDiagrams();
+  else if (exploring()) redrawExploreDiagrams();
+  else redrawDiagrams();
+}
+
+/* Flip the current mode between quiz and explore (per-mode, persisted). */
+export function trainerToggleView(){
+  if (mode === 'mixed') return;
+  viewPref[mode] = exploring() ? 'quiz' : 'explore';
+  saveViewPref();
+  updateViewToggle();
+  if (exploring()) renderExploreView();
+  else trainerNext();
+}
+
+function renderExploreView(){
+  stopProgAudio();
+  answered = false;
+  advanceToken++;               // cancel any pending quiz auto-advance
+  renderExplore(mode);
+  updateStats();
+}
+
+/* ---- question builders ------------------------------------ */
+function buildFromId(id){
+  const p = id.split('|');
+  if (p[0] === 's2n')  return buildS2N(id, p[1], +p[2]);
+  if (p[0] === 'n2s')  return buildN2S(id, p[1], +p[2]);
+  if (p[0] === 'mv')   return buildMV(id, p[1], p[2], +p[3]);
+  if (p[0] === 'prog') return buildProg(id, p[1], +p[2]);
+  if (p[0] === 'sc')   return buildSC(id, p[1], +p[2], p[3]);
+  return null;
+}
+
+const DIAGRAMS_DIV = `<div class="trainer-diagrams" id="trainer-diagrams"></div>`;
+
+/* Shape → Number: show a voicing (inside its scale box), name the degree. */
+function buildS2N(id, key, deg){
+  const chord = diatonicChords(key)[deg];
+  const v = getVoicing(chord);
+  const romans = romansFor(key);
+  return {
+    id, kind: 's2n', correctIdx: deg,
+    playFreqs: v ? v.midis.map(midiToHz) : null,
+    diagrams: [{ chordFrets: v ? v.frets : null, scaleKey: key, scaleType: 'full', revealLabel: chord }],
+    questionHTML: `
+      <div class="trainer-prompt">Key of <strong>${escHtml(keyLabel(key))}</strong> — which degree is this chord shape?
+        <span class="trainer-hint">Scale layer shows the key's notes around it.</span>
+      </div>
+      ${DIAGRAMS_DIV}
+      <button class="pb-btn" type="button" onclick="trainerPlay()">▶ hear it</button>`,
+    answersHTML: romans.map((r, i) =>
+      `<button class="fret-chord trainer-opt" id="trainer-opt-${i}" onclick="trainerAnswer(${i})">${escHtml(r)}</button>`).join(''),
+    revealHTML: `That's <strong>${escHtml(chord)}</strong> — the ${escHtml(romans[deg])} of ${escHtml(keyLabel(key))}.`,
+  };
+}
+
+/* Number → Shape: prompt a degree, user enters frets, we verify pitches.
+   The scale layer doubles as a hint (in-key notes); the chord layer
+   holds the answer, so it stays hidden until the reveal. */
+function buildN2S(id, key, deg){
+  const chord = diatonicChords(key)[deg];
+  const roman = romansFor(key)[deg];
+  const v = getVoicing(chord);
+  const cells = ['E','A','D','G','B','e'].map((s, i) =>
+    `<label class="fret-cell"><span>${s}</span><input id="trainer-fret-${i}" type="text" inputmode="numeric" maxlength="2" placeholder="x" aria-label="${s} string fret" onkeydown="if(event.key==='Enter')trainerCheckShape()"></label>`).join('');
+  return {
+    id, kind: 'n2s', chord,
+    diagrams: [{
+      chordFrets: v ? v.frets : null, chordHiddenUntilReveal: true,
+      scaleKey: key, scaleType: 'full', revealLabel: chord,
+    }],
+    questionHTML: `
+      <div class="trainer-prompt">Play the <strong>${escHtml(roman)}</strong> in <strong>${escHtml(keyLabel(key))}</strong>.
+        <span class="trainer-hint">Enter a fret per string (x or blank = muted). Any voicing counts — we check the pitches.
+        The scale layer below is your hint; one correct shape appears in it after you answer.</span>
+      </div>
+      ${DIAGRAMS_DIV}`,
+    answersHTML: `
+      <div class="fret-inputs" role="group" aria-label="Your shape, low E to high e">${cells}</div>
+      <button class="btn btn-primary trainer-check" type="button" onclick="trainerCheckShape()">Check ↗</button>
+      <button class="pb-btn" type="button" onclick="trainerGiveUp()">show answer</button>`,
+  };
+}
+
+/* Moving shapes: barre shape + fret number → chord name. Chromatic
+   drill, so there's no key context and no scale layer here. */
+function buildMV(id, fam, qual, fret){
+  const shape = (fam === 'E' ? E_SHAPES : A_SHAPES)[qual];
+  const frets = shape(fret);
+  const correct = mvName(fam, qual, fret);
+  const cands = [];
+  for (const df of [-2, -1, 1, 2]){
+    const f = fret + df;
+    if (f >= 1 && f <= 11) cands.push(mvName(fam, qual, f));
+  }
+  for (const q of MV_QUALS) if (q !== qual) cands.push(mvName(fam, q, fret));
+  const distractors = shuffle([...new Set(cands)].filter(n => n !== correct)).slice(0, 3);
+  const options = shuffle([correct, ...distractors]);
+  return {
+    id, kind: 'mv', correctIdx: options.indexOf(correct),
+    playFreqs: fretsToFreqs(frets),
+    diagrams: [{ chordFrets: frets, revealLabel: correct }],
+    questionHTML: `
+      <div class="trainer-prompt"><strong>${fam}-shape</strong> ${escHtml(MV_QUAL_LABEL[qual])} barre at <strong>fret ${fret}</strong> — which chord?</div>
+      ${DIAGRAMS_DIV}
+      <button class="pb-btn" type="button" onclick="trainerPlay()">▶ hear it</button>`,
+    answersHTML: options.map((n, i) =>
+      `<button class="fret-chord trainer-opt" id="trainer-opt-${i}" onclick="trainerAnswer(${i})">${escHtml(n)}</button>`).join(''),
+    revealHTML: `The ${fam}-shape root sits on the ${fam === 'E' ? 'low-E' : 'A'} string: fret ${fret} = ${escHtml(pcToName(mvRootPc(fam, fret)))}, so this is <strong>${escHtml(correct)}</strong>.`,
+  };
+}
+
+/* Progression ID: hear/see chords (in the key's scale), name the sequence. */
+function buildProg(id, key, ti){
+  const modeKey = keyInfo(key).mode;
+  const tpls = PROG_TEMPLATES[modeKey];
+  const tpl = tpls[ti];
+  const names = diatonicChords(key);
+  const chords = tpl.deg.map(d => names[d]);
+  const voicings = chords.map(n => getVoicing(n));
+  const chordsFreqs = chords.map((n, i) =>
+    (voicings[i] && voicings[i].midis.length) ? voicings[i].midis.map(midiToHz) : []);
+  return {
+    id, kind: 'prog', correctIdx: ti, chordsFreqs,
+    diagrams: voicings.map((v, i) => ({
+      chordFrets: v ? v.frets : null, scaleKey: key, scaleType: 'full',
+      revealLabel: chords[i],
+    })),
+    questionHTML: `
+      <div class="trainer-prompt">Key of <strong>${escHtml(keyLabel(key))}</strong> — listen (and watch the shapes): which progression is this?</div>
+      ${DIAGRAMS_DIV}
+      <button class="pb-btn" type="button" onclick="trainerPlay()">▶ play progression</button>`,
+    answersHTML: tpls.map((t, i) =>
+      `<button class="fret-chord trainer-opt" id="trainer-opt-${i}" onclick="trainerAnswer(${i})">${escHtml(t.name)}</button>`).join(''),
+    revealHTML: `<strong>${escHtml(tpl.name)}</strong> — ${chords.map(escHtml).join(' · ')}.`,
+  };
+}
+
+/* Scale shapes: show a scale box (roots marked), name the scale.
+   The chord layer highlights the tonic chord tones INSIDE the box —
+   the intertwine: toggle it to see the chord living in the shape. */
+function buildSC(id, key, center, type){
+  const win = { lo: Math.max(0, center - 1), hi: center + 4 };
+  const modeKey = keyInfo(key).mode;
+  const correct = scaleLabel(key, type);
+  const tonic = diatonicChords(key)[0];
+  const sameModeKeys = KEYS.filter(k => keyInfo(k).mode === modeKey && k !== key);
+  const distractors = shuffle([...sameModeKeys]).slice(0, 3).map(k => scaleLabel(k, type));
+  const options = shuffle([correct, ...distractors]);
+  const runNotes = scaleNotesWindow(key, type, win.lo, win.hi);
+  return {
+    id, kind: 'sc', correctIdx: options.indexOf(correct),
+    scaleRunNotes: runNotes,
+    tonicFreqs: voicingFreqs(tonic),
+    diagrams: [{
+      scaleKey: key, scaleType: type, window: win,
+      chordPcs: chordTonePcs(tonic),
+      revealLabel: `${correct} · tonic ${tonic}`,
+    }],
+    questionHTML: `
+      <div class="trainer-prompt">Which scale is this box? <span class="trainer-hint">Solid dots are the roots. With the chord layer on, the tonic chord's tones are highlighted inside the shape.</span></div>
+      ${DIAGRAMS_DIV}
+      <button class="pb-btn" type="button" onclick="trainerPlay()">▶ hear the box</button>`,
+    answersHTML: options.map((n, i) =>
+      `<button class="fret-chord trainer-opt" id="trainer-opt-${i}" onclick="trainerAnswer(${i})">${escHtml(n)}</button>`).join(''),
+    revealHTML: `<strong>${escHtml(correct)}</strong> around fret ${center}. Its tonic chord is <strong>${escHtml(tonic)}</strong> — toggle the chord layer to see those tones sitting inside the box.`,
+  };
+}
+
+/* ---- rendering -------------------------------------------- */
+function renderQuestion(){
+  stopProgAudio();
+  answered = false;
+  advanceToken++;
+  const q = $('trainer-question'), a = $('trainer-answers'), f = $('trainer-feedback');
+  if (!q || !current) return;
+  q.innerHTML = current.questionHTML;
+  a.innerHTML = current.answersHTML;
+  f.className = 'trainer-feedback';
+  f.innerHTML = '';
+  redrawDiagrams();
+  updateStats();
+}
+
+function updateStats(){
+  const el = $('trainer-stats');
+  if (!el) return;
+  if (mode === 'custom'){
+    const t = getActiveTrack();
+    const n = t ? t.chords.length : 0;
+    el.textContent = t
+      ? `"${t.name}" · ${n} chord${n === 1 ? '' : 's'} · ${tracks.length} track${tracks.length === 1 ? '' : 's'} saved`
+      : 'no tracks saved yet';
+    return;
+  }
+  const s = srsStats(deckFor(mode));
+  const acc = s.accuracy === null ? '—' : Math.round(s.accuracy * 100) + '%';
+  el.textContent =
+    `session ${session.right}/${session.asked} · streak ${session.streak} · ` +
+    `deck ${s.seen}/${s.total} seen · ${s.due} due · ${s.mastered} mastered · ${acc} all-time`;
+}
+
+function showFeedback(ok, extraHTML = ''){
+  const f = $('trainer-feedback');
+  if (!f) return;
+  f.className = 'trainer-feedback ' + (ok ? 'ok' : 'bad');
+  f.innerHTML =
+    `<span class="trainer-verdict">${ok ? '✓ correct' : '✗ not quite'}</span> ` +
+    (extraHTML || '') +
+    ` <button class="pb-btn trainer-next" type="button" onclick="trainerNext()">next →</button>`;
+}
+
+function finish(ok){
+  if (answered) return;
+  answered = true;
+  redrawDiagrams();                 // reveal labels / unhide answer layers
+  session.asked++;
+  if (ok){ session.right++; session.streak++; } else session.streak = 0;
+  srsRecord(current.id, ok);
+  updateStats();
+  if (ok){
+    const token = ++advanceToken;
+    setTimeout(() => { if (token === advanceToken) trainerNext(); }, 1400);
+  }
+}
+
+/* ---- answer handlers (window-bridged) ---------------------- */
+export function trainerAnswer(i){
+  if (answered || !current || current.correctIdx === undefined) return;
+  const ok = i === current.correctIdx;
+  const chosen = $('trainer-opt-' + i);
+  const right = $('trainer-opt-' + current.correctIdx);
+  if (chosen) chosen.classList.add(ok ? 'trainer-right' : 'trainer-wrong');
+  if (right) right.classList.add('trainer-right');
+  document.querySelectorAll('.trainer-opt').forEach(b => b.disabled = true);
+  showFeedback(ok, current.revealHTML || '');
+  if (current.kind === 'prog') playProgression();
+  else if (current.kind === 'sc'){ if (current.tonicFreqs) playChordNow(current.tonicFreqs); }
+  else if (current.playFreqs) playChordNow(current.playFreqs);
+  finish(ok);
+}
+
+/* Read the trainer's six fret inputs → sounding MIDI notes. */
+function readTrainerFrets(){
+  const midis = [];
+  for (let i = 0; i < 6; i++){
+    const el = $('trainer-fret-' + i);
+    const raw = (el ? el.value : '').trim().toLowerCase();
+    if (raw === '' || raw === 'x' || raw === '-') continue;
+    const f = parseInt(raw, 10);
+    if (Number.isNaN(f) || f < 0 || f > 24) continue;
+    midis.push(STRING_OPEN_MIDI[i] + f);
+  }
+  return midis;
+}
+
+/* Verify entered pitches spell the target chord (any voicing/octave). */
+function checkShape(name, midis){
+  const p = parseChordName(name);
+  if (!p) return { ok: false, msg: 'internal error parsing the target chord' };
+  const want = new Set(p.intervals.map(iv => (p.rootPc + iv) % 12));
+  const root = p.rootPc;
+  const third = (p.rootPc + p.intervals[1]) % 12;
+  const pcs = new Set(midis.map(m => ((m % 12) + 12) % 12));
+  if (midis.length < 3) return { ok: false, msg: 'Need at least 3 sounding strings.' };
+  const outside = [...pcs].filter(pc => !want.has(pc));
+  if (outside.length) return { ok: false, msg: `Out-of-chord note${outside.length > 1 ? 's' : ''}: ${outside.map(pcToName).join(' ')}.` };
+  if (!pcs.has(root))  return { ok: false, msg: `Missing the root (${pcToName(root)}).` };
+  if (!pcs.has(third)) return { ok: false, msg: `Missing the 3rd (${pcToName(third)}) — the shape doesn't define its quality yet.` };
+  return { ok: true, msg: `That spells ${name}.` };
+}
+
+export function trainerCheckShape(){
+  if (answered || !current || current.kind !== 'n2s') return;
+  const midis = readTrainerFrets();
+  const res = checkShape(current.chord, midis);
+  if (res.ok && midis.length) playChordNow(midis.map(midiToHz));
+  else { const f = voicingFreqs(current.chord); if (f) setTimeout(() => playChordNow(f), 250); }
+  showFeedback(res.ok,
+    `${escHtml(res.msg)} One correct shape for <strong>${escHtml(current.chord)}</strong> is now shown above, inside the key's scale.`);
+  finish(res.ok);
+}
+
+export function trainerGiveUp(){
+  if (answered || !current || current.kind !== 'n2s') return;
+  showFeedback(false,
+    `No worries — a shape for <strong>${escHtml(current.chord)}</strong> is now shown above, inside the key's scale.`);
+  const f = voicingFreqs(current.chord);
+  if (f) playChordNow(f);
+  finish(false);
+}
+
+/* ---- audio -------------------------------------------------- */
+function getProgLooper(){
+  if (progLooper) return progLooper;
+  progLooper = makeLooper({
+    swing: false,
+    onStep(i){
+      document.querySelectorAll('.trainer-diagram').forEach((el, j) =>
+        el.classList.toggle('playing', j === i));
+    },
+    onStop(){
+      document.querySelectorAll('.trainer-diagram.playing').forEach(el =>
+        el.classList.remove('playing'));
+    },
+  });
+  return progLooper;
+}
+function playProgression(){
+  if (!current || !current.chordsFreqs) return;
+  getProgLooper().start(
+    current.chordsFreqs.map(f => ({ freqs: f, beats: 2 })),
+    { beatsPerChord: 2, mode: 'chord', loop: false });
+}
+function stopProgAudio(){ if (progLooper) progLooper.stop(); }
+
+/* Ascending run through the scale box — the sound of the shape. */
+function playScaleRun(notes){
+  if (!notes || !notes.length) return;
+  const ctx = getCtx();
+  const t0 = ctx.currentTime + 0.05;
+  const seq = [...notes].sort((a, b) => a.midi - b.midi);
+  seq.forEach((n, i) => playNote(midiToHz(n.midi), t0 + i * 0.13, 0.3, 0.14));
+}
+
+export function trainerPlay(){
+  if (!current) return;
+  if (current.kind === 'prog') playProgression();
+  else if (current.kind === 'sc') playScaleRun(current.scaleRunNotes);
+  else if (current.playFreqs) playChordNow(current.playFreqs);
+}
+
+/* ---- mode switching / lifecycle ----------------------------- */
+export function trainerSetMode(m){
+  mode = m;
+  document.querySelectorAll('.trainer-mode').forEach(b =>
+    b.classList.toggle('selected', b.id === 'trainer-mode-' + m));
+  updateViewToggle();
+  updateModeChrome();
+  if (mode === 'custom'){ renderCustomView(); return; }
+  if (exploring()) renderExploreView();
+  else trainerNext();
+}
+
+export function trainerNext(){
+  if (exploring()){ renderExploreView(); return; }
+  advanceToken++;
+  const id = srsPick(deckFor(mode), { excludeId: lastId });
+  if (!id) return;
+  lastId = id;
+  current = buildFromId(id);
+  renderQuestion();
+}
+
+export function trainerResetStats(){
+  if (!confirm('Reset all trainer progress (spaced-repetition history)?')) return;
+  srsResetAll();
+  session = { asked: 0, right: 0, streak: 0 };
+  trainerNext();
+}
+
+export function initTrainer(){
+  if (!$('trainer-question')) return;
+  loadLayers();
+  loadViewPref();
+  loadTracks();
+  configureExplore(() => layers);
+  syncLayerCheckboxes();
+  updateViewToggle();
+  updateModeChrome();
+  trainerNext();
+}

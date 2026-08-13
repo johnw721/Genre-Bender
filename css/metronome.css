@@ -1,0 +1,44 @@
+/* ============================================================
+   metronome.css — tempo keeper, beat grid, time-sig + swing,
+   and the chord-count slider used in the generators
+   ============================================================ */
+.metronome-bar{display:flex;align-items:center;gap:20px;padding:16px 20px;background:var(--surface);border:1px solid var(--border);border-radius:10px 10px 0 0;flex-wrap:wrap}
+.metronome-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:28px;overflow:hidden}
+.metro-bpm-display{display:flex;flex-direction:column;align-items:center;min-width:64px}
+.metro-bpm-num{font-family:var(--display);font-size:36px;font-weight:800;color:var(--text);line-height:1;letter-spacing:-2px}
+.metro-bpm-label{font-size:10px;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;margin-top:2px}
+.metro-controls{display:flex;flex-direction:column;gap:8px;flex:1;min-width:160px}
+.metro-slider-row{display:flex;align-items:center;gap:10px}
+.metro-slider-row input[type=range]{flex:1}
+.metro-buttons{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.metro-btn-play{width:40px;height:40px;border-radius:50%;border:none;background:var(--accent2);color:#fff;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0}
+.metro-btn-play:hover{background:var(--accent);transform:scale(1.05)}
+.metro-btn-play.playing{background:var(--coral)}
+.metro-beat-grid{display:flex;gap:6px;align-items:center}
+.beat-dot{width:12px;height:12px;border-radius:50%;background:var(--surface3);border:1px solid var(--border2);transition:background 0.05s,transform 0.05s}
+.beat-dot.active{background:var(--accent);transform:scale(1.3)}
+.beat-dot.accent{border-color:var(--accent2)}
+.beat-dot.accent.active{background:var(--green)}
+.metro-sig-btns{display:flex;gap:4px}
+.metro-sig-btn{padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:none;font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;transition:all 0.15s}
+.metro-sig-btn:hover{border-color:var(--border2);color:var(--text)}
+.metro-sig-btn.active{border-color:var(--accent2);color:var(--accent);background:var(--accent-glow)}
+.metro-tap-btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border2);background:none;font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;transition:all 0.1s}
+.metro-tap-btn:hover{color:var(--text);background:var(--surface2)}
+.metro-tap-btn:active{background:var(--accent-glow);border-color:var(--accent2);color:var(--accent);transform:scale(0.96)}
+
+/* SWING ROW */
+.swing-row{display:flex;align-items:center;gap:10px;padding:8px 20px 12px;border-top:1px solid var(--border);flex-wrap:wrap}
+.swing-label{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap;min-width:44px}
+.swing-row input[type=range]{flex:1;min-width:80px}
+.swing-val{font-size:11px;color:var(--amber);font-weight:500;min-width:42px;text-align:right}
+.swing-presets{display:flex;gap:4px}
+.swing-preset{padding:3px 9px;border-radius:5px;border:1px solid var(--border);background:none;font-family:var(--mono);font-size:10px;color:var(--muted);cursor:pointer;transition:all 0.12s}
+.swing-preset:hover{color:var(--text);border-color:var(--border2)}
+.swing-preset.active{color:var(--amber);border-color:rgba(255,203,107,0.4);background:rgba(255,203,107,0.07)}
+
+/* CHORD COUNT ROW (in the generate row) */
+.chord-count-row{display:flex;align-items:center;gap:8px;width:100%}
+.chord-count-label{font-size:11px;color:var(--muted);white-space:nowrap}
+.chord-count-row input[type=range]{flex:1;min-width:80px}
+.chord-count-val{font-size:11px;color:var(--accent);font-weight:500;min-width:20px}

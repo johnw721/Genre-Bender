@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Genre Bender</title>
+<meta name="description" content="Genre Bender — an AI production assistant that blends genres and generates playable guitar tabs and piano charts.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<!-- Tonal.js (chord validation) -->
+<script src="https://cdn.jsdelivr.net/npm/tonal@6.4.0/dist/tonal.min.js"></script>
+
+<!-- Styles, split by concern -->
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/header-tabs.css">
+<link rel="stylesheet" href="css/mixer.css">
+<link rel="stylesheet" href="css/metronome.css">
+<link rel="stylesheet" href="css/notation.css">
+<link rel="stylesheet" href="css/trainer.css">
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div>
+      <div class="logo-sub">AI production assistant</div>
+      <div class="logo">Genre Bender</div>
+    </div>
+    <div class="header-right">
+      <div id="sel-count">0 / 4 genres selected</div>
+      <div style="margin-top:4px">bedroom producer mode</div>
+      <button class="settings-btn" type="button" onclick="openSettings()" aria-label="Open AI settings">⚙ AI</button>
+    </div>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" onclick="switchTab('mixer')">01 — Visual Mixer</button>
+    <button class="tab" onclick="switchTab('guided')">02 — Guided Workflow</button>
+    <button class="tab" onclick="switchTab('upload')">03 — Analyze Track</button>
+    <button class="explore-toggle" id="explore-btn" onclick="toggleExplore()" aria-pressed="false"
+      title="Explore mode: shuffles genres, tempo, keys and settings everywhere, jumps you somewhere new, and keeps re-rolling each panel you wander into. Never calls the AI — hit Generate when a roll intrigues you.">✦ explore</button>
+  </div>
+
+  <!-- MIXER TAB -->
+  <div class="panel active" id="panel-mixer">
+
+    <!-- METRONOME -->
+    <div class="section-label">Tempo keeper</div>
+    <div class="metronome-wrap">
+    <div class="metronome-bar">
+      <div class="metro-bpm-display">
+        <div class="metro-bpm-num" id="bpm-display">120</div>
+        <div class="metro-bpm-label">BPM</div>
+      </div>
+      <div class="metro-controls">
+        <div class="metro-slider-row">
+          <span style="font-size:11px;color:var(--muted);width:28px">40</span>
+          <input type="range" id="bpm-slider" min="40" max="220" step="1" value="120" aria-label="Tempo in BPM" oninput="setBPM(this.value)">
+          <span style="font-size:11px;color:var(--muted);width:28px;text-align:right">220</span>
+        </div>
+        <div class="metro-buttons">
+          <button class="metro-btn-play" id="metro-play-btn" aria-label="Play metronome" aria-pressed="false" onclick="toggleMetronome()">▶</button>
+          <div class="metro-sig-btns">
+            <button class="metro-sig-btn active" onclick="setTimeSig(4,this)">4/4</button>
+            <button class="metro-sig-btn" onclick="setTimeSig(3,this)">3/4</button>
+            <button class="metro-sig-btn" onclick="setTimeSig(6,this)">6/8</button>
+          </div>
+          <button class="metro-tap-btn" onclick="tapTempo()">tap</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:center">
+        <div class="metro-beat-grid" id="beat-grid"></div>
+        <span style="font-size:10px;color:var(--muted);letter-spacing:0.08em">beats</span>
+      </div>
+    </div>
+    <!-- SWING ROW -->
+    <div class="swing-row">
+      <span class="swing-label">Swing</span>
+      <input type="range" id="swing-slider" min="0" max="100" step="1" value="0" aria-label="Swing amount" oninput="setSwing(this.value)">
+      <span class="swing-val" id="swing-display">straight</span>
+      <div class="swing-presets">
+        <button class="swing-preset active" onclick="applySwingPreset(0,this)">straight</button>
+        <button class="swing-preset" onclick="applySwingPreset(33,this)">light</button>
+        <button class="swing-preset" onclick="applySwingPreset(55,this)">jazz</button>
+        <button class="swing-preset" onclick="applySwingPreset(75,this)">hard</button>
+      </div>
+    </div>
+    </div><!-- end metronome-wrap -->
+
+    <!-- GENRE COLS -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-bottom:32px">
+      <div>
+        <div class="section-label">Genre library — select 2–4</div>
+        <div class="genre-search">
+          <div class="genre-search-row">
+            <input id="genre-filter" type="search" placeholder="Search genres…" aria-label="Filter genres" oninput="filterGenres(this.value)">
+            <button id="genre-clear-btn" class="genre-search-clear" type="button" onclick="clearGenreFilter()" aria-label="Clear genre search">×</button>
+          </div>
+        </div>
+        <div class="genre-categories" id="genre-library"></div>
+        <div class="genre-empty" id="genre-empty" style="display:none">No genres match your search.</div>
+      </div>
+      <div>
+        <div class="section-label">Selected genres</div>
+        <div class="selected-bar" id="selected-bar"><span class="placeholder">No genres selected yet</span></div>
+        <div class="limit-warn" id="limit-warn">Max 4 genres. Deselect one to add another.</div>
+        <div class="section-label" style="margin-top:20px">Blend ratios</div>
+        <div class="sliders" id="sliders"><div style="color:var(--muted);font-size:12px;font-style:italic">Ratios appear after selecting genres.</div></div>
+        <div class="action-row">
+          <button class="btn btn-primary" id="gen-btn" onclick="generateBlend()" disabled>Generate blend ↗</button>
+          <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BLEND OUTPUT -->
+    <div class="output-shell">
+      <div class="output-header">
+        <span class="output-title">Blend output</span>
+        <span class="status-dot" id="status-dot"></span>
+      </div>
+      <div class="output-body" id="output-body" aria-live="polite" aria-atomic="true">Select 2–4 genres, adjust ratios, then hit <strong style="color:var(--text)">Generate blend</strong>.</div>
+    </div>
+
+    <!-- TAB / NOTATION PANEL -->
+    <div class="tab-panel-wrap">
+      <div class="tab-panel-header">
+        <span class="tab-panel-title">Tab &amp; notation generator</span>
+        <div class="tab-inner-tabs">
+          <button class="tab-inner-tab active" onclick="switchInnerTab('guitar',this)">Guitar tab</button>
+          <button class="tab-inner-tab" onclick="switchInnerTab('piano',this)">Piano / chord chart</button>
+          <button class="tab-inner-tab" onclick="switchInnerTab('composer',this)">Phrase composer</button>
+          <button class="tab-inner-tab" onclick="switchInnerTab('frets',this)">Frets → chords</button>
+          <button class="tab-inner-tab" onclick="switchInnerTab('trainer',this)">Shape trainer</button>
+        </div>
+      </div>
+      <div class="tab-panel-body">
+
+        <!-- GUITAR -->
+        <div id="inner-guitar" class="inner-panel" style="display:block">
+          <div class="tab-generate-row">
+            <select class="tab-key-select" id="guitar-key" aria-label="Guitar key" onchange="syncKey(this.value, this.id)">
+              <option value="Am">A minor</option><option value="Em">E minor</option>
+              <option value="Dm">D minor</option><option value="Cm">C minor</option>
+              <option value="Gm">G minor</option><option value="A">A major</option>
+              <option value="C">C major</option><option value="D">D major</option>
+              <option value="E">E major</option><option value="G">G major</option>
+            </select>
+            <select class="tab-style-select" id="guitar-style" aria-label="Guitar style">
+              <option value="chord_progression">Chord progression</option>
+              <option value="riff">Melodic riff</option>
+              <option value="fingerpicking">Fingerpicking pattern</option>
+              <option value="arpeggio">Arpeggios</option>
+            </select>
+            <button class="btn btn-primary" id="guitar-gen-btn" onclick="generateGuitar()">Generate tab ↗</button>
+            <div class="chord-count-row">
+              <span class="chord-count-label">Chords:</span>
+              <input type="range" id="guitar-chord-count" min="2" max="8" step="1" value="4" aria-label="Number of guitar chords" oninput="document.getElementById('guitar-chord-count-val').textContent=this.value">
+              <span class="chord-count-val" id="guitar-chord-count-val">4</span>
+            </div>
+          </div>
+          <div class="tab-output" id="guitar-output">Select key and style, then generate a tab based on your blend.</div>
+        </div>
+
+        <!-- PIANO -->
+        <div id="inner-piano" class="inner-panel" style="display:none">
+          <div class="tab-generate-row">
+            <select class="tab-key-select" id="piano-key" aria-label="Piano key" onchange="syncKey(this.value, this.id)">
+              <option value="Am">A minor</option><option value="Em">E minor</option>
+              <option value="Dm">D minor</option><option value="Cm">C minor</option>
+              <option value="Gm">G minor</option><option value="A">A major</option>
+              <option value="C">C major</option><option value="D">D major</option>
+              <option value="E">E major</option><option value="G">G major</option>
+            </select>
+            <select class="tab-style-select" id="piano-style" aria-label="Piano style">
+              <option value="chord_voicings">Chord voicings</option>
+              <option value="left_hand_pattern">Left hand pattern</option>
+              <option value="melody_line">Melody line</option>
+              <option value="full_comping">Full comping pattern</option>
+            </select>
+            <button class="btn btn-primary" id="piano-gen-btn" onclick="generatePiano()">Generate chart ↗</button>
+            <div class="chord-count-row">
+              <span class="chord-count-label">Chords:</span>
+              <input type="range" id="piano-chord-count" min="2" max="8" step="1" value="4" aria-label="Number of piano chords" oninput="document.getElementById('piano-chord-count-val').textContent=this.value">
+              <span class="chord-count-val" id="piano-chord-count-val">4</span>
+            </div>
+          </div>
+          <div class="tab-output" id="piano-output">Select key and style, then generate a piano chart based on your blend.</div>
+        </div>
+
+        <!-- PHRASE COMPOSER -->
+        <div id="inner-composer" class="inner-panel" style="display:none">
+          <div class="composer-intro">
+            Builds a 2–16 bar phrase that interweaves chords with a lead line
+            (slides, hammer-ons, pull-offs, bends, vibrato). Chords come from a
+            built-in voicing book and lead notes from in-key scale positions —
+            no AI is needed for the notes. Toggle AI to let it arrange the
+            progression only.
+          </div>
+          <div class="tab-generate-row">
+            <select class="tab-key-select" id="composer-key" aria-label="Phrase key" onchange="syncKey(this.value, this.id)">
+              <option value="Am">A minor</option><option value="Em">E minor</option>
+              <option value="Dm">D minor</option><option value="Cm">C minor</option>
+              <option value="Gm">G minor</option><option value="A">A major</option>
+              <option value="C">C major</option><option value="D">D major</option>
+              <option value="E">E major</option><option value="G">G major</option>
+            </select>
+            <select class="tab-style-select" id="composer-density" aria-label="Lead density">
+              <option value="none">Chords only</option>
+              <option value="light" selected>Light lead</option>
+              <option value="medium">Medium lead</option>
+              <option value="heavy">Busy lead</option>
+            </select>
+            <select class="tab-style-select" id="composer-position" aria-label="Neck position">
+              <option value="open" selected>Open position</option>
+              <option value="auto">Auto (match key)</option>
+              <option value="zone1">Zone 1 · open colors (0–3)</option>
+              <option value="zone2">Zone 2 · funk (3–7)</option>
+              <option value="zone3">Zone 3 · jazz voicings (7–12)</option>
+              <option value="5">5th-fret position</option>
+              <option value="7">7th-fret position</option>
+              <option value="9">9th-fret position</option>
+              <option value="12">12th-fret position</option>
+            </select>
+            <select class="tab-style-select" id="composer-voicing" aria-label="Chord voicing style">
+              <option value="auto" selected>Auto voicings</option>
+              <option value="barre">Full / barre</option>
+              <option value="compact">Compact (drop-2)</option>
+            </select>
+            <select class="tab-style-select" id="composer-layer" aria-label="Which layers to play" onchange="setComposerLayer()">
+              <option value="both" selected>Bass + lick</option>
+              <option value="bass">Bass only</option>
+              <option value="lick">Lick only</option>
+            </select>
+            <button class="btn btn-primary" id="composer-gen-btn" onclick="generatePhrase()">Compose ↗</button>
+            <div class="chord-count-row">
+              <span class="chord-count-label">Bars:</span>
+              <input type="range" id="composer-bars" min="2" max="16" step="1" value="4" aria-label="Number of bars" oninput="document.getElementById('composer-bars-val').textContent=this.value">
+              <span class="chord-count-val" id="composer-bars-val">4</span>
+            </div>
+            <label class="composer-ai-toggle">
+              <input type="checkbox" id="composer-passing" aria-label="Insert diminished passing chords">
+              <span>Passing dim7</span>
+            </label>
+            <label class="composer-ai-toggle">
+              <input type="checkbox" id="composer-ai" aria-label="Let AI arrange the progression">
+              <span>AI arrange</span>
+            </label>
+          </div>
+          <div class="tab-output placeholder" id="composer-output">Pick a key, bars, and lead density, then compose a phrase.</div>
+          <div class="composer-tools" id="composer-tools" style="display:none">
+            <button class="pb-btn" id="composer-play-btn" onclick="phrasePlay()">▶ play phrase</button>
+            <button class="pb-btn stop-btn" onclick="phraseStop()">■ stop</button>
+            <button class="pb-btn" onclick="regeneratePhrase()">↻ reroll</button>
+            <button class="pb-btn" onclick="exportComposerMidi()">⤓ MIDI</button>
+            <label class="composer-ai-toggle"><input type="checkbox" id="composer-loop"><span>loop</span></label>
+          </div>
+        </div>
+
+        <!-- FRETS -> CHORDS -->
+        <div id="inner-frets" class="inner-panel" style="display:none">
+          <div class="composer-intro">
+            Type a fret number for each string (low E → high e). Use
+            <code>x</code> for a muted string and <code>0</code> for open.
+            Genre Bender reads the shape, names the chord, infers a key, and
+            spins up chord progressions live — pure theory, no AI, no waiting.
+          </div>
+          <div class="tab-generate-row fret-input-row">
+            <div class="fret-inputs" role="group" aria-label="Guitar frets, low E to high e">
+              <label class="fret-cell"><span>E</span><input id="fret-0" type="text" inputmode="numeric" maxlength="2" placeholder="x" aria-label="Low E string fret"></label>
+              <label class="fret-cell"><span>A</span><input id="fret-1" type="text" inputmode="numeric" maxlength="2" placeholder="x" aria-label="A string fret"></label>
+              <label class="fret-cell"><span>D</span><input id="fret-2" type="text" inputmode="numeric" maxlength="2" placeholder="x" aria-label="D string fret"></label>
+              <label class="fret-cell"><span>G</span><input id="fret-3" type="text" inputmode="numeric" maxlength="2" placeholder="x" aria-label="G string fret"></label>
+              <label class="fret-cell"><span>B</span><input id="fret-4" type="text" inputmode="numeric" maxlength="2" placeholder="x" aria-label="B string fret"></label>
+              <label class="fret-cell"><span>e</span><input id="fret-5" type="text" inputmode="numeric" maxlength="2" placeholder="x" aria-label="High e string fret"></label>
+            </div>
+            <select class="tab-style-select" id="fret-mode" aria-label="Progression flavour">
+              <option value="diatonic" selected>Common diatonic patterns</option>
+              <option value="genre">Bias to selected genres</option>
+              <option value="moods">Contrasting moods</option>
+            </select>
+            <button class="pb-btn" type="button" onclick="randomFrets()">⤬ try a shape</button>
+            <button class="pb-btn" type="button" onclick="clearFrets()">clear</button>
+          </div>
+          <div class="fret-detect" id="fret-detect"></div>
+          <div class="fret-layout">
+            <div class="tab-output placeholder" id="fret-output">Enter fret numbers above. Progressions appear as you type.</div>
+            <div class="fret-diagram-wrap empty" id="fret-diagram"><span class="fret-diagram-hint">Click any chord to see its fingering.</span></div>
+          </div>
+        </div>
+
+        <!-- SHAPE TRAINER -->
+        <div id="inner-trainer" class="inner-panel" style="display:none">
+          <div class="composer-intro">
+            Drills that connect <strong>scale shapes ⇄ chord shapes ⇄ chords ⇄ numbers</strong>.
+            Every fretboard has two independent layers — the scale box and the
+            chord shape — so you can see chords living inside positions.
+            Questions come from the app's own chord and scale books — pure
+            theory, no AI. A spaced-repetition queue (saved in this browser)
+            brings back the cards you miss and retires the ones you know.
+          </div>
+          <div class="tab-generate-row trainer-mode-row" role="group" aria-label="Trainer mode">
+            <button class="fret-chord trainer-mode selected" id="trainer-mode-mixed" onclick="trainerSetMode('mixed')">Mixed (SRS)</button>
+            <button class="fret-chord trainer-mode" id="trainer-mode-sc" onclick="trainerSetMode('sc')">Scale shapes</button>
+            <button class="fret-chord trainer-mode" id="trainer-mode-s2n" onclick="trainerSetMode('s2n')">Shape → Number</button>
+            <button class="fret-chord trainer-mode" id="trainer-mode-n2s" onclick="trainerSetMode('n2s')">Number → Shape</button>
+            <button class="fret-chord trainer-mode" id="trainer-mode-mv" onclick="trainerSetMode('mv')">Moving shapes</button>
+            <button class="fret-chord trainer-mode" id="trainer-mode-prog" onclick="trainerSetMode('prog')">Progression ID</button>
+            <button class="fret-chord trainer-mode" id="trainer-mode-custom" onclick="trainerSetMode('custom')" title="Build your own set of chords and see all their diagrams side by side">My chords</button>
+            <button class="pb-btn trainer-view" id="trainer-view-toggle" type="button" onclick="trainerToggleView()" style="display:none"
+              title="Flip this drill between quiz and a free-exploration sandbox (remembered per drill)">🧭 explore this drill</button>
+          </div>
+          <div class="trainer-stats-row">
+            <span id="trainer-stats" aria-live="polite"></span>
+            <label class="composer-ai-toggle" title="Show/hide chord shapes on the fretboards">
+              <input type="checkbox" id="trainer-layer-chord" checked onchange="trainerToggleLayer('chord', this.checked)">
+              <span>chord layer</span>
+            </label>
+            <label class="composer-ai-toggle" id="trainer-layer-scale-wrap" title="Show/hide scale boxes on the fretboards">
+              <input type="checkbox" id="trainer-layer-scale" checked onchange="trainerToggleLayer('scale', this.checked)">
+              <span>scale layer</span>
+            </label>
+            <button class="pb-btn" id="trainer-reset-btn" type="button" onclick="trainerResetStats()">reset progress</button>
+          </div>
+          <div class="trainer-card">
+            <div id="trainer-question" class="trainer-question"></div>
+            <div id="trainer-answers" class="trainer-answers"></div>
+            <div id="trainer-feedback" class="trainer-feedback" aria-live="polite"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- COMPOSE BANNER -->
+    <div class="compose-banner" id="compose-banner" style="display:none">
+      <span class="compose-banner-label" id="compose-label">Guitar + Piano — play both together in sync</span>
+      <button class="pb-btn compose-btn" id="compose-btn" onclick="toggleCompose()">⊕ Compose</button>
+      <button class="pb-btn stop-btn" onclick="stopCompose()">■ stop both</button>
+    </div>
+
+  </div>
+
+  <!-- GUIDED TAB -->
+  <div class="panel" id="panel-guided">
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:260px;gap:12px;color:var(--muted)">
+      <div style="font-family:var(--display);font-size:18px;color:var(--text)">Guided Workflow</div>
+      <div>Step-by-step production path — coming in next iteration</div>
+    </div>
+  </div>
+
+  <!-- UPLOAD TAB -->
+  <div class="panel" id="panel-upload">
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:260px;gap:12px;color:var(--muted)">
+      <div style="font-family:var(--display);font-size:18px;color:var(--text)">Analyze a Track</div>
+      <div>Upload .mp3 / .wav to detect genre fingerprints — coming in next iteration</div>
+    </div>
+  </div>
+
+  <div class="modal" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" style="display:none">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <div id="settings-title">AI endpoint settings</div>
+          <div class="modal-sub">Save locally in this browser for quick setup.</div>
+        </div>
+        <button class="modal-close" type="button" onclick="closeSettings()" aria-label="Close settings">×</button>
+      </div>
+      <div class="modal-body">
+        <label class="modal-field">
+          <span>Endpoint</span>
+          <input id="settings-endpoint" type="url" placeholder="https://api.anthropic.com/v1/messages">
+        </label>
+        <label class="modal-field">
+          <span>Model</span>
+          <input id="settings-model" type="text" placeholder="sonnet-4.6">
+        </label>
+        <label class="modal-field">
+          <span>Anthropic API key</span>
+          <input id="settings-api-key" type="password" placeholder="x-api-key...">
+        </label>
+        <div class="modal-note">If you use the direct Anthropic endpoint, the key is stored locally in your browser. For production, use a proxy endpoint instead.</div>
+        <div id="settings-status" class="modal-status"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" type="button" onclick="saveSettings()">Save</button>
+        <button class="btn btn-ghost" type="button" onclick="closeSettings()">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

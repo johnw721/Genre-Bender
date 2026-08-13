@@ -1,0 +1,34 @@
+/* ============================================================
+   keysync.js — one "current key" across the whole bench.
+
+   Guitar, piano, composer and the trainer's explore sandbox each
+   have a key selector over the same 10 keys. Changing any of them
+   updates all the others, so "work in G" is one click, not four.
+   The trainer QUIZ is deliberately excluded — its questions roam
+   keys on purpose.
+
+   The circular import with trainerexplore.js is runtime-only
+   (calls happen inside handlers, never at module evaluation).
+   ============================================================ */
+import { setExploreKey } from './trainerexplore.js';
+
+const KEY_SELECT_IDS = ['guitar-key', 'piano-key', 'composer-key'];
+
+let currentKey = null;
+
+export function getAppKey(){ return currentKey; }
+
+/* Called from any key <select> (onchange) or the explore sandbox.
+   sourceId identifies the caller so we don't write back into it. */
+export function syncKey(key, sourceId){
+  if (!key) return;
+  currentKey = key;
+  KEY_SELECT_IDS.forEach(id => {
+    if (id === sourceId) return;
+    const el = document.getElementById(id);
+    if (!el || el.value === key) return;
+    const options = el.options ? [...el.options] : [];
+    if (!options.length || options.some(o => o.value === key)) el.value = key;
+  });
+  if (sourceId !== 'trainer-explore') setExploreKey(key);
+}
