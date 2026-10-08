@@ -13,7 +13,7 @@ import {
   phraseGridHTML, eventActive, cycleCell as cycleCellPure,
   setBarLayer, setAllLayers, LAYER_ORDER
 } from './phraselayers.js';
-import { TECH_LEGEND } from './techniques.js';
+import { techLegend } from './techniques.js';
 import { diatonicChords, keyInfo, PROGRESSIONS } from './scales.js';
 import { getCtx, playStrumAtTime, playLeadEvent } from './audio.js';
 import { getBPM } from './metronome.js';
@@ -22,6 +22,7 @@ import { extractJSON, escHtml } from './util.js';
 import { exportPhraseMidi } from './midi.js';
 import { blendDescriptor } from './library.js';
 import { store } from './store.js';
+import { bendMark } from './labels.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -127,7 +128,7 @@ function renderPhrase(timeline, source){
   out.innerHTML =
     `<div class="composer-meta">${head}</div>` +
     phraseGridHTML(timeline) +
-    `<div class="composer-legend">Per-bar button cycles Bass+Lick / Bass / Lick. Greyed numbers are editable — click to swap for another in-key fret. ${escHtml(TECH_LEGEND)}</div>`;
+    `<div class="composer-legend">Per-bar button cycles Bass+Lick / Bass / Lick. Greyed numbers are editable — click to swap for another in-key fret. ${escHtml(techLegend(bendMark()))}</div>`;
   const tools = $('composer-tools');
   if (tools) tools.style.display = 'flex';
   updatePhraseBtn();

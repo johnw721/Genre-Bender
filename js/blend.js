@@ -22,7 +22,7 @@ export async function generateBlend(){
   btn.disabled = true;
 
   const blendDesc = blendDescriptor();
-  const prompt = `You are a music production AI assistant helping a bedroom producer blend genres. The user wants to blend: ${blendDesc}\nRespond ONLY with a JSON object (no markdown, no backticks, no preamble):\n{"direction":"2-3 sentence creative direction.","techniques":[{"name":"name","desc":"2-sentence DAW explanation."},{"name":"name","desc":"2-sentence."},{"name":"name","desc":"2-sentence."}],"chords":{"key":"key/mode","bpm":"BPM range","rhythm":"rhythmic feel","voicing":"chord voicing tip"},"references":[{"artist":"Artist – Track","note":"one sentence."},{"artist":"Artist – Track","note":"one sentence."},{"artist":"Artist – Track","note":"one sentence."}]}`;
+  const prompt = `You are a music production AI assistant helping a bedroom producer blend genres. The user wants to blend: ${blendDesc}${referenceLine()}\nRespond ONLY with a JSON object (no markdown, no backticks, no preamble):\n{"direction":"2-3 sentence creative direction.","techniques":[{"name":"name","desc":"2-sentence DAW explanation."},{"name":"name","desc":"2-sentence."},{"name":"name","desc":"2-sentence."}],"chords":{"key":"key/mode","bpm":"BPM range","rhythm":"rhythmic feel","voicing":"chord voicing tip"},"references":[{"artist":"Artist – Track","note":"one sentence."},{"artist":"Artist – Track","note":"one sentence."},{"artist":"Artist – Track","note":"one sentence."}]}`;
 
   try {
     const raw = await callClaude([{ role: "user", content: prompt }], { maxTokens: 1000 });
@@ -38,6 +38,19 @@ export async function generateBlend(){
     console.error(e);
   }
   btn.disabled = false;
+}
+
+/* One line describing the reference clip the mixer was seeded from, so the
+   direction is grounded in something the producer actually heard. */
+export function referenceLine(){
+  const r = store.reference;
+  if (!r) return '';
+  const bits = [];
+  if (r.key) bits.push(`key ${r.key}`);
+  if (r.bpm) bits.push(`${r.bpm} BPM`);
+  if (r.genres) bits.push(`sounds like: ${r.genres}`);
+  if (r.notes) bits.push(`notes: "${String(r.notes).slice(0, 300)}"`);
+  return `\nThey are blending TOWARD a reference clip ("${r.label}" on ${r.platform || 'the web'}${bits.length ? ' — ' + bits.join(', ') : ''}). Keep the creative direction, tempo and key anchored to that reference; say explicitly how the blend departs from it.`;
 }
 
 /* Exported so persist.js can re-render a restored session. */

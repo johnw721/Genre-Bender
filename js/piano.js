@@ -4,6 +4,14 @@
    Same shape as the guitar generator but with left/right-hand
    voicings: prompt -> validate against chord names -> one repair
    pass -> render cards, rhythm pattern, and playback transport.
+
+   Optional Hooktheory layer (see hooktheory.js) — same two
+   integration points as guitar.js: a realism score on the generated
+   progression (spends the "spare" retry when Tonal.js validation
+   passed on the first try but the movement is statistically
+   unusual), and an opt-in skeleton toggle that seeds the prompt with
+   a real, commonly-occurring progression to reharmonize. Both are
+   no-ops when Hooktheory isn't connected.
    ============================================================ */
 import { callClaude } from './api.js';
 import { escHtml, extractJSON } from './util.js';
@@ -12,6 +20,7 @@ import { buildChordCardHTML, initDragDrop } from './cards.js';
 import { pianoSeq, updateComposeBanner } from './sequencer.js';
 import { store } from './store.js';
 import { blendDescriptor } from './library.js';
+import { isHooktheoryAuthed, buildTrendSkeleton, scoreProgressionRealism } from './hooktheory.js';
 
 const STYLE_MAP = {
   chord_voicings:    'chord voicings with left hand bass and right hand voicing',
@@ -19,6 +28,10 @@ const STYLE_MAP = {
   melody_line:       'a right hand melody line',
   full_comping:      'a full comping pattern with both hands'
 };
+
+// Below this mean transition probability (0-1), a progression is
+// considered unusual enough to spend the realism retry on.
+const REALISM_THRESHOLD = 0.05;
 
 export async function generatePiano(){
   if (store.selected.length < 2){
@@ -28,6 +41,7 @@ export async function generatePiano(){
   const key = document.getElementById('piano-key').value;
   const style = document.getElementById('piano-style').value;
   const chordCount = parseInt(document.getElementById('piano-chord-count').value) || 4;
+  const useSkeleton = document.getElementById('piano-hooktheory')?.checked && isHooktheoryAuthed();
   const blendDesc = blendDescriptor();
   const out = document.getElementById('piano-output');
   const btn = document.getElementById('piano-gen-btn');
@@ -36,28 +50,58 @@ export async function generatePiano(){
   out.innerHTML = '<span style="color:var(--muted)">Generating piano chart<span class="cursor"></span></span>';
   btn.disabled = true; pianoSeq.stop();
 
-  const buildPrompt = (retryHints) => {
+  const buildPrompt = ({ retryHints, realismHint, skeleton } = {}) => {
     const rb = retryHints ? `\nFIX REQUIRED:\n${retryHints}\n` : '';
-    return `You are a piano and music theory expert. A bedroom producer wants to blend: ${blendDesc}.\nGenerate ${STYLE_MAP[style]} in the key of ${key} with EXACTLY ${chordCount} chords.${rb}\n\nRespond ONLY with a JSON object (no markdown, no backticks):\n{\n  "title":"Short title",\n  "description":"1-2 sentences.",\n  "chords":[\n    {"name":"Am7","left":"A2 E3","right":"E3 G3 C4 E4","beat":"1","duration_beats":4}\n  ],\n  "pattern":"Rhythmic pattern description.",\n  "notes":"1-2 DAW tips."\n}\nCRITICAL: chords array must have EXACTLY ${chordCount} entries. left and right must be real note names with octave numbers.`;
+    const realb = realismHint ? `\n${realismHint}\n` : '';
+    const skelb = (skeleton && skeleton.length)
+      ? `\nUse this well-established chord skeleton as your starting point (a real, commonly-occurring progression): ${skeleton.join(' - ')}. Reharmonize/voice it to fit the blend, but keep the underlying functional movement close to it.\n`
+      : '';
+    return `You are a piano and music theory expert. A bedroom producer wants to blend: ${blendDesc}.\nGenerate ${STYLE_MAP[style]} in the key of ${key} with EXACTLY ${chordCount} chords.${rb}${realb}${skelb}\n\nRespond ONLY with a JSON object (no markdown, no backticks):\n{\n  "title":"Short title",\n  "description":"1-2 sentences.",\n  "chords":[\n    {"name":"Am7","left":"A2 E3","right":"E3 G3 C4 E4","beat":"1","duration_beats":4}\n  ],\n  "pattern":"Rhythmic pattern description.",\n  "notes":"1-2 DAW tips."\n}\nCRITICAL: chords array must have EXACTLY ${chordCount} entries. left and right must be real note names with octave numbers.`;
   };
   const callAPI = async (p) => extractJSON(await callClaude([{ role: "user", content: p }], { maxTokens: 900 }));
 
   try {
+    let skeleton = null;
+    if (useSkeleton) {
+      out.innerHTML = '<span style="color:var(--muted)">Pulling a Hooktheory chord skeleton<span class="cursor"></span></span>';
+      skeleton = await buildTrendSkeleton(key, chordCount); // null if unavailable — silently ignored
+    }
+
     out.innerHTML = '<span style="color:var(--muted)">Generating chords<span class="cursor"></span></span>';
-    let result = await callAPI(buildPrompt(null));
+    let result = await callAPI(buildPrompt({ skeleton }));
     out.innerHTML = '<span style="color:var(--muted)">Validating<span class="cursor"></span></span>';
     const { bad, annotated } = validateChordList(result.chords || [], 'leftright');
+    let retried = false;
     if (bad.length > 0){
       out.innerHTML = `<span style="color:var(--muted)">Fixing ${bad.length} chord${bad.length > 1 ? 's' : ''}…<span class="cursor"></span></span>`;
       const hints = bad.map(b => `"${b.name}": was [${b.allNotes.join(' ')}], should be [${b.expected.join(' ')}]`).join('\n');
-      const retryResult = await callAPI(buildPrompt(hints));
+      const retryResult = await callAPI(buildPrompt({ retryHints: hints, skeleton }));
       const { annotated: ra } = validateChordList(retryResult.chords || [], 'leftright');
       result.chords = annotated.map(orig => orig._valid !== false ? orig : (ra.find(r => r.name === orig.name) || orig));
       const { annotated: final } = validateChordList(result.chords, 'leftright');
       result.chords = final;
+      retried = true;
     } else {
       result.chords = annotated;
     }
+
+    // Realism check: only worth spending an extra call if we haven't
+    // already used our one retry on note-validation, and only if
+    // Hooktheory is connected.
+    if (!retried && isHooktheoryAuthed()){
+      const realism = await scoreProgressionRealism(result.chords.map(c => c.name), key);
+      if (realism && realism.score < REALISM_THRESHOLD){
+        out.innerHTML = '<span style="color:var(--muted)">Improving progression realism<span class="cursor"></span></span>';
+        const hintMsg = `The progression ${result.chords.map(c => c.name).join(' - ')} is statistically unusual (Hooktheory realism score ${(realism.score * 100).toFixed(1)}%). Prefer a more common chord movement while keeping the blend's character.`;
+        try {
+          const retryResult = await callAPI(buildPrompt({ realismHint: hintMsg, skeleton }));
+          const { bad: bad2, annotated: annotated2 } = validateChordList(retryResult.chords || [], 'leftright');
+          // Only take the realism retry if it didn't itself fail structural validation.
+          if (bad2.length === 0) result.chords = annotated2;
+        } catch { /* keep the original, structurally-valid result */ }
+      }
+    }
+
     store.pianoChordData = result;
     renderPianoChart(result, style);
     updateComposeBanner();

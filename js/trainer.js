@@ -37,6 +37,16 @@ import { detectChordAndKey } from './fretchords.js';
 import { buildLick } from './phrase.js';
 import { renderTab } from './tabrender.js';
 import { getBPM } from './metronome.js';
+import { registerStore, loadJSON, saveJSON } from './storage.js';
+import {
+  initPalette, paletteHTML, redrawPalette, initPaletteDrag, paletteAdd,
+  getDragPayload, setDragPayload, clearDragPayload, DRAG_MIME
+} from './chordpalette.js';
+import {
+  colorMapHTML, initColorMapDrag, configureColorMap, recolorName, nextColorName,
+  degreeOf, pinnedFretsFor, LEVEL_NAMES
+} from './colormap.js';
+import { getAppKey } from './keysync.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -82,14 +92,13 @@ let advanceToken = 0;        // cancels a pending auto-advance
 let progLooper = null;
 
 /* Per-mode quiz ⇄ explore preference, persisted locally. */
-const VIEW_KEY = 'GenreBenderTrainerView_v1';
+const VIEW_KEY = registerStore('trainerView', 'GenreBenderTrainerView_v1');
 let viewPref = {};
 function loadViewPref(){
-  try { viewPref = JSON.parse(localStorage.getItem(VIEW_KEY)) || {}; }
-  catch { viewPref = {}; }
+  viewPref = loadJSON(VIEW_KEY, {});
 }
 function saveViewPref(){
-  try { localStorage.setItem(VIEW_KEY, JSON.stringify(viewPref)); } catch { /* ignore */ }
+  saveJSON(VIEW_KEY, viewPref);
 }
 function exploring(){ return mode !== 'mixed' && mode !== 'custom' && viewPref[mode] === 'explore'; }
 function updateViewToggle(){
@@ -110,16 +119,14 @@ function updateModeChrome(){
 }
 
 /* Layer visibility — independent toggles, persisted locally. */
-const LAYERS_KEY = 'GenreBenderTrainerLayers_v1';
+const LAYERS_KEY = registerStore('trainerLayers', 'GenreBenderTrainerLayers_v1');
 let layers = { chord: true, scale: true };
 function loadLayers(){
-  try {
-    const s = JSON.parse(localStorage.getItem(LAYERS_KEY));
-    if (s) layers = { chord: !!s.chord, scale: !!s.scale };
-  } catch { /* defaults */ }
+  const s = loadJSON(LAYERS_KEY);
+  if (s) layers = { chord: !!s.chord, scale: !!s.scale };
 }
 function saveLayers(){
-  try { localStorage.setItem(LAYERS_KEY, JSON.stringify(layers)); } catch { /* ignore */ }
+  saveJSON(LAYERS_KEY, layers);
 }
 function syncLayerCheckboxes(){
   const c = $('trainer-layer-chord'), s = $('trainer-layer-scale');
@@ -140,7 +147,7 @@ function syncLayerCheckboxes(){
    resolves from the first chord's tones onto the second's, reusing
    the composer's lead-line engine. Reference/practice panel — never
    feeds SRS. */
-const TRACKS_KEY = 'GenreBenderTrainerTracks_v1';
+const TRACKS_KEY = registerStore('trainerTracks', 'GenreBenderTrainerTracks_v1');
 const LEGACY_CUSTOM_KEY = 'GenreBenderTrainerCustom_v1'; // pre-tracks flat chord list
 let tracks = [];
 let activeTrackId = null;
@@ -153,20 +160,18 @@ function makeTrack(name){ return { id: makeTrackId(), name, chords: [] }; }
 function getActiveTrack(){ return tracks.find(t => t.id === activeTrackId) || tracks[0] || null; }
 
 function loadTracks(){
-  try {
-    const s = JSON.parse(localStorage.getItem(TRACKS_KEY));
+  {
+    const s = loadJSON(TRACKS_KEY);
     if (s && Array.isArray(s.tracks) && s.tracks.length){
       tracks = s.tracks;
       activeTrackId = tracks.some(t => t.id === s.activeId) ? s.activeId : tracks[0].id;
       return;
     }
-  } catch { /* fall through to migration/default below */ }
+  }
   // Migrate the earlier flat "My chords" list into a first track, if present.
   let migrated = [];
-  try {
-    const old = JSON.parse(localStorage.getItem(LEGACY_CUSTOM_KEY));
-    if (Array.isArray(old)) migrated = old.filter(n => typeof n === 'string' && n).map(name => ({ name, frets: null }));
-  } catch { /* ignore */ }
+  const old = loadJSON(LEGACY_CUSTOM_KEY);
+  if (Array.isArray(old)) migrated = old.filter(n => typeof n === 'string' && n).map(name => ({ name, frets: null }));
   const t = makeTrack('My chords');
   t.chords = migrated;
   tracks = [t];
@@ -174,7 +179,7 @@ function loadTracks(){
   saveTracks();
 }
 function saveTracks(){
-  try { localStorage.setItem(TRACKS_KEY, JSON.stringify({ tracks, activeId: activeTrackId })); } catch { /* ignore */ }
+  saveJSON(TRACKS_KEY, { tracks, activeId: activeTrackId });
 }
 function addChordToActiveTrack(entry){
   const t = getActiveTrack();
@@ -236,6 +241,7 @@ const EXTENSION_FAMILY = {
   maj: 'triad', min: 'triad', dim: 'triad', aug: 'triad',
   dom7: 'seventh', min7: 'seventh', maj7: 'seventh', m7b5: 'seventh', dim7: 'seventh',
   dom7s9: 'seventh', dom7b9: 'seventh', dom7s5: 'seventh', dom7b5: 'seventh',
+  minS5: 'triad', dimb9: 'seventh',
   dom9: 'ninth', maj9: 'ninth', min9: 'ninth',
   dom11: 'ninth', min11: 'ninth', maj11: 'ninth',
   dom13: 'ninth', min13: 'ninth', maj13: 'ninth',
@@ -371,6 +377,8 @@ function customControlsHTML(entry, idx, t){
         ? ' title="Nudge the chord before/after this one to fit its key"'
         : ' disabled title="No neighboring chords to fit"'}
       onclick="trainerFitChordToKey(${idx})">🔑 make in key</button>
+    <button class="card-action-btn color-btn" type="button" title="Cycle this chord through its degree's colours (color map)" aria-label="Cycle chord colour"
+      onclick="trainerColorChord(${idx})">🎨 color</button>
     <div class="card-actions">
       <button class="card-action-btn" type="button" aria-label="Move earlier"${atStart ? ' disabled title="Already first"' : ' title="Move earlier"'}
         onclick="trainerMoveCustomChord(${idx},-1)">◀</button>
@@ -385,23 +393,168 @@ function customControlsHTML(entry, idx, t){
 }
 
 function customDiagramsInnerHTML(t){
+  if (!t.chords.length){
+    return `<div class="trainer-track-empty">Drop a shape from the chord table here, or add one below.</div>`;
+  }
   const parts = [];
   t.chords.forEach((c, i) => {
     // Wrap the diagram + its controls together so they stack as one flex
     // item (the diagrams row itself is a flex row of side-by-side chords).
-    parts.push(`<div class="trainer-custom-chord-block">${diagHTML(customDiagSpec(c, i), i)}${customControlsHTML(c, i, t)}</div>`);
+    // The diagram itself is the drag handle (the controls under it hold
+    // inputs, which must stay selectable), and the block carries its
+    // index so drops can land before/after it.
+    parts.push(`<div class="trainer-custom-chord-block" data-track-idx="${i}">
+      <div class="trainer-track-handle" draggable="true" title="Drag to reorder, or drag down to the chord table to keep this shape">${diagHTML(customDiagSpec(c, i), i)}</div>
+      ${customControlsHTML(c, i, t)}</div>`);
     if (i < t.chords.length - 1) parts.push(lickHTML(t, i));
   });
   return parts.join('');
 }
 function customDiagramsHTML(t){
-  if (!t.chords.length) return '';
-  return `<div class="trainer-diagrams" id="trainer-custom-diagrams">${customDiagramsInnerHTML(t)}</div>`;
+  return `<div class="trainer-diagrams trainer-track-drop${t.chords.length ? '' : ' empty'}" id="trainer-custom-diagrams"
+    aria-label="Track chords — drop zone">${customDiagramsInnerHTML(t)}</div>`;
 }
 function redrawCustomDiagrams(){
   const c = $('trainer-custom-diagrams'), t = getActiveTrack();
-  if (!c || !t) return;
-  c.innerHTML = customDiagramsInnerHTML(t);
+  if (c && t){
+    c.innerHTML = customDiagramsInnerHTML(t);
+    c.classList.toggle('empty', !t.chords.length);
+  }
+  redrawPalette();
+}
+
+/* ---- drag + drop on the track ------------------------------------------
+   Two sources land here: a chord-table card (insert a copy of that exact
+   voicing) or another track chord (reorder). Drop position is decided by
+   the pointer's x against the hovered block's midpoint; a drop on the
+   row's empty space appends. Delegated on #trainer-question once, so
+   re-renders never lose it; the chord table wires its own side the same
+   way (chordpalette.initPaletteDrag). */
+let trackDropHint = null;           // { idx, before } while hovering
+function clearTrackDropHint(){
+  document.querySelectorAll('.trainer-custom-chord-block.drop-before, .trainer-custom-chord-block.drop-after, .trainer-lick.drop-target')
+    .forEach(b => b.classList.remove('drop-before', 'drop-after', 'drop-target'));
+  const c = $('trainer-custom-diagrams');
+  if (c) c.classList.remove('drop-target');
+  trackDropHint = null;
+}
+function trackDropIndexFrom(e, zone){
+  const block = e.target.closest && e.target.closest('.trainer-custom-chord-block');
+  if (!block){
+    // Hovering the lick between chords N and N+1 means "between them".
+    const lick = e.target.closest && e.target.closest('.trainer-lick');
+    const gap = lick ? parseInt(String(lick.id).replace('trainer-lick-', ''), 10) : NaN;
+    if (!Number.isNaN(gap)) return { idx: gap + 1, before: true, block: null, lick };
+    return { idx: null, before: false, block: null };
+  }
+  const r = block.getBoundingClientRect();
+  return { idx: parseInt(block.dataset.trackIdx, 10), before: e.clientX < r.left + r.width / 2, block };
+}
+function insertChordAt(entry, idx, before){
+  const t = getActiveTrack();
+  if (!t) return;
+  let at = (idx === null || Number.isNaN(idx)) ? t.chords.length : (before ? idx : idx + 1);
+  at = Math.max(0, Math.min(t.chords.length, at));
+  t.chords.splice(at, 0, entry);
+  if (editingCustomIdx !== null){ editingCustomIdx = null; customEditError = null; }
+  saveTracks();
+  renderCustomView();
+}
+function moveChordTo(from, idx, before){
+  const t = getActiveTrack();
+  if (!t || !t.chords[from]) return;
+  let at = (idx === null || Number.isNaN(idx)) ? t.chords.length : (before ? idx : idx + 1);
+  if (at === from || at === from + 1) return;          // dropped back where it was
+  const [moved] = t.chords.splice(from, 1);
+  if (at > from) at--;
+  t.chords.splice(at, 0, moved);
+  if (editingCustomIdx !== null){ editingCustomIdx = null; customEditError = null; }
+  saveTracks();
+  renderCustomView();
+}
+function initTrackDrag(root){
+  if (!root || root.__trackDragWired) return;
+  root.__trackDragWired = true;
+
+  root.addEventListener('dragstart', e => {
+    const handle = e.target.closest && e.target.closest('.trainer-track-handle');
+    if (!handle) return;
+    const block = handle.closest('.trainer-custom-chord-block');
+    const t = getActiveTrack();
+    const idx = block ? parseInt(block.dataset.trackIdx, 10) : NaN;
+    const entry = t && t.chords[idx];
+    if (!entry) return;
+    const payload = { source: 'track', idx, name: entry.name, frets: resolvedFretsFor(entry) };
+    setDragPayload(payload);
+    try {
+      e.dataTransfer.setData(DRAG_MIME, JSON.stringify(payload));
+      e.dataTransfer.setData('text/plain', entry.name);
+      e.dataTransfer.effectAllowed = 'copyMove';
+    } catch { /* ignore */ }
+    block.classList.add('dragging');
+  });
+  root.addEventListener('dragend', () => {
+    document.querySelectorAll('.trainer-custom-chord-block.dragging').forEach(b => b.classList.remove('dragging'));
+    clearTrackDropHint();
+    clearDragPayload();
+  });
+  root.addEventListener('dragover', e => {
+    const zone = e.target.closest && e.target.closest('#trainer-custom-diagrams');
+    const p = getDragPayload();
+    if (!zone || !p) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = p.source === 'track' ? 'move' : 'copy';
+    clearTrackDropHint();
+    const { idx, before, block, lick } = trackDropIndexFrom(e, zone);
+    if (block && !(p.source === 'track' && idx === p.idx)){
+      block.classList.add(before ? 'drop-before' : 'drop-after');
+      trackDropHint = { idx, before };
+    } else if (lick){
+      lick.classList.add('drop-target');
+      trackDropHint = { idx, before };
+    } else if (!block){
+      zone.classList.add('drop-target');
+      trackDropHint = { idx: null, before: false };
+    }
+  });
+  root.addEventListener('dragleave', e => {
+    const zone = e.target.closest && e.target.closest('#trainer-custom-diagrams');
+    if (zone && !zone.contains(e.relatedTarget)) clearTrackDropHint();
+  });
+  root.addEventListener('drop', e => {
+    const zone = e.target.closest && e.target.closest('#trainer-custom-diagrams');
+    const p = getDragPayload();
+    if (!zone || !p) return;
+    e.preventDefault();
+    const hint = trackDropHint || trackDropIndexFrom(e, zone);
+    clearTrackDropHint();
+    if (p.source === 'palette' || p.source === 'colormap'){
+      insertChordAt({ name: p.name, frets: (p.pinned && p.frets) ? [...p.frets] : null }, hint.idx, hint.before);
+    } else if (p.source === 'track'){
+      moveChordTo(p.idx, hint.idx, hint.before);
+    }
+    clearDragPayload();
+  });
+}
+
+/* "+ add to table": the fret squares double as the chord table's own
+   fret entry, so a fingering you typed can go straight to the table
+   instead of the track. */
+export function trainerAddPaletteFromFrets(){
+  const { frets, midis } = readCustomFretSquares();
+  const errEl = $('trainer-custom-err');
+  if (!midis.length){
+    if (errEl) errEl.textContent = 'Enter at least one fret (0 = open, x/blank = muted) to add a shape.';
+    return;
+  }
+  const info = detectChordAndKey(midis);
+  if (!info || !info.symbol){
+    if (errEl) errEl.textContent = "Couldn't identify a chord from those frets.";
+    return;
+  }
+  if (errEl) errEl.textContent = paletteAdd(info.symbol, frets) ? '' : `"${info.symbol}" with that fingering is already on the table.`;
+  clearCustomFretSquares();
+  redrawPalette();
 }
 
 export function trainerPlayLick(gapIdx){
@@ -479,6 +632,7 @@ function renderCustomView(){
       <span class="trainer-track-name">${escHtml(t.name)}</span>
       <button class="pb-btn" type="button" onclick="trainerRenameTrack()">rename</button>
       <button class="pb-btn" type="button" onclick="trainerDeleteTrack()">delete track</button>
+      ${t.chords.length ? `<button class="pb-btn recolor-btn" type="button" onclick="trainerRecolorTrack()" title="Move every in-key chord up the color map: triads → sevenths → extended → spice → triads">🎨 recolor → ${LEVEL_NAMES[((t.colorLevel || 0) + 1) % LEVEL_NAMES.length]}</button>` : ''}
       ${t.chords.length ? `<button class="btn btn-ghost" type="button" onclick="trainerClearCustomChords()">clear chords</button>` : ''}
     </div>
     ${fitMsg ? `<div class="trainer-custom-status">${escHtml(fitMsg)}</div>` : ''}
@@ -490,11 +644,17 @@ function renderCustomView(){
     <div class="fret-inputs trainer-custom-fret-inputs" role="group" aria-label="Or add a chord by frets, low E to high e">
       ${customFretCellsHTML()}
       <button class="btn btn-primary" type="button" onclick="trainerAddCustomChordFromFrets()">+ add from frets</button>
+      <button class="btn btn-ghost" type="button" onclick="trainerAddPaletteFromFrets()" title="Keep this exact fingering on the chord table below">+ add to table</button>
     </div>
     <div class="trainer-custom-err" id="trainer-custom-err"></div>
     <div class="trainer-chips" id="trainer-chips">${customChipsHTML(t)}</div>
     ${customDiagramsHTML(t)}
-    ${suggestionHTML(t)}`;
+    ${suggestionHTML(t)}
+    ${colorMapHTML()}
+    ${paletteHTML($('rail-key')?.value || 'C')}`;
+  initTrackDrag(q);
+  initPaletteDrag(q);
+  initColorMapDrag(q);
   if (a) a.innerHTML = '';
   if (f){ f.className = 'trainer-feedback'; f.innerHTML = ''; }
   updateStats();
@@ -532,6 +692,56 @@ export function trainerAddCustomChordFromFrets(){
   if (errEl) errEl.textContent = '';
   addChordToActiveTrack({ name: info.symbol, frets });
   clearCustomFretSquares();
+  renderCustomView();
+}
+
+/* ---- color map: recolor a whole track / cycle one chord -------------------
+   Key: the app key when every chord's root is diatonic there (so what you
+   see in the color map is what you get), else a key guessed from the track. */
+function trackColorKey(t){
+  const app = getAppKey() || $('rail-key')?.value || 'C';
+  if (t.chords.every(c => degreeOf(c.name, app) >= 0)) return app;
+  return guessKey(t.chords.map(c => c.name)) || app;
+}
+function setColored(entry, name){
+  if (!name || name === entry.name) return false;
+  entry.name = name;
+  entry.frets = pinnedFretsFor(name);     // root-in-bass shape when the default isn't
+  return true;
+}
+export function trainerRecolorTrack(){
+  const t = getActiveTrack();
+  if (!t || !t.chords.length) return;
+  const key = trackColorKey(t);
+  const level = ((t.colorLevel || 0) + 1) % LEVEL_NAMES.length;
+  let changed = 0, skipped = 0;
+  t.chords.forEach(c => {
+    const n = recolorName(c.name, key, level);
+    if (n === null){ skipped++; return; }
+    if (setColored(c, n)) changed++;
+  });
+  t.colorLevel = level;
+  if (editingCustomIdx !== null){ editingCustomIdx = null; customEditError = null; }
+  customFitMessage = `Recolored to ${LEVEL_NAMES[level]} in ${keyLabel(key)}` +
+    (changed ? ` — ${changed} chord${changed === 1 ? '' : 's'} changed` : ' — nothing to change') +
+    (skipped ? `; ${skipped} outside the key left alone.` : '.');
+  saveTracks();
+  renderCustomView();
+}
+export function trainerColorChord(idx){
+  const t = getActiveTrack();
+  const entry = t && t.chords[idx];
+  if (!entry) return;
+  const key = trackColorKey(t);
+  const n = nextColorName(entry.name, key);
+  if (n === null){
+    customFitMessage = `"${entry.name}" isn't on a degree of ${keyLabel(key)} — try 🔑 make in key first.`;
+  } else {
+    setColored(entry, n);
+    customFitMessage = null;
+  }
+  if (editingCustomIdx !== null){ editingCustomIdx = null; customEditError = null; }
+  saveTracks();
   renderCustomView();
 }
 
@@ -789,6 +999,15 @@ function redrawDiagrams(){
   const c = $('trainer-diagrams');
   if (!c || !current || !current.diagrams) return;
   c.innerHTML = current.diagrams.map(diagHTML).join('');
+}
+
+/* Repaint whichever fretboard view is on screen. Used by the app-wide
+   notation toggles (labels.js) so the diagrams re-label without losing
+   the current question, track or explore state. */
+export function trainerRedraw(){
+  if (mode === 'custom') redrawCustomDiagrams();
+  else if (exploring()) redrawExploreDiagrams();
+  else redrawDiagrams();
 }
 
 export function trainerToggleLayer(which, on){
@@ -1158,11 +1377,25 @@ export function trainerResetStats(){
   trainerNext();
 }
 
+/* Read-only snapshot for the practice stepper (practice.js). */
+export function trainerState(){
+  const t = getActiveTrack();
+  return {
+    mode,
+    exploring: exploring(),
+    session: { ...session },
+    tracks: tracks.length,
+    track: t ? { id: t.id, name: t.name, chords: t.chords.length } : null,
+  };
+}
+
 export function initTrainer(){
   if (!$('trainer-question')) return;
   loadLayers();
   loadViewPref();
   loadTracks();
+  initPalette();
+  configureColorMap({ add: (name, frets) => { addChordToActiveTrack({ name, frets: frets || null }); renderCustomView(); } });
   configureExplore(() => layers);
   syncLayerCheckboxes();
   updateViewToggle();

@@ -14,6 +14,7 @@ import { cycleCardLoop, stopAllCardLoopers } from './loopers.js';
 import { guitarSeq, pianoSeq, updateSeqBtn } from './sequencer.js';
 import { store } from './store.js';
 import { QUALITY_LABELS, withQuality, getVoicing, parseChordName } from './chordbook.js';
+import { chordLabel } from './labels.js';
 import { validateChordList } from './theory.js';
 
 /* Which card (if any) is mid-edit, per instrument — drives buildChordCardHTML
@@ -22,6 +23,12 @@ import { validateChordList } from './theory.js';
 const editingCard = { guitar: null, piano: null };
 /* Inline error shown in the open edit form (e.g. an unresolvable chord name). */
 let editError = null;
+
+/* The key the given panel is generating in — the reference for scale-degree
+   labels when the app-wide chord toggle is set to degrees. */
+function panelKey(instrument){
+  return document.getElementById(`${instrument}-key`)?.value || 'C';
+}
 
 /* Build one chord card. instrument: 'guitar' | 'piano'. */
 export function buildChordCardHTML(c, i, instrument, total = Infinity){
@@ -53,6 +60,12 @@ export function buildChordCardHTML(c, i, instrument, total = Infinity){
   // frets tool, or produced by the AI tab generator) — can be swapped for
   // its 7th/9th/11th/sus/etc. counterpart in one click. The new voicing
   // always comes from the chord book, so it stays a real, playable shape.
+  // When the panel is showing degrees, keep the letter name visible underneath
+  // — a numeral alone is hard to play from.
+  const shown = chordLabel(c.name || '', panelKey(instrument));
+  const nameSub = (shown === (c.name || '')) ? ''
+    : `<div class="card-name-alt">${escHtml(c.name || '')}</div>`;
+
   let qualityPicker = '';
   if (instrument === 'guitar'){
     const p = parseChordName(c.name || '');
@@ -69,7 +82,8 @@ export function buildChordCardHTML(c, i, instrument, total = Infinity){
       onclick="handleCardClick(event,'${uid}',${freqsJSON})">
     <span class="drag-handle">⠿</span>
     <span class="card-play-hint">▶ tap</span>
-    <div class="card-name">${escHtml(c.name || '')}</div>
+    <div class="card-name" title="${escHtml(c.name || '')}">${escHtml(chordLabel(c.name || '', panelKey(instrument)))}</div>
+    ${nameSub}
     ${qualityPicker}
     ${body}
     ${badge}

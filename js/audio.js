@@ -13,8 +13,37 @@ let audioCtx = null;
    by a user gesture the first time, per browser autoplay rules). */
 export function getCtx(){
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  // 'suspended' is the desktop autoplay gate; iOS also parks the context in
+  // 'interrupted' after a phone call, app switch or screen lock and never
+  // resumes it on its own — so resume from anything that isn't running.
+  if (audioCtx.state !== 'running'){
+    const r = audioCtx.resume();
+    if (r && r.catch) r.catch(() => {});
+  }
   return audioCtx;
+}
+
+/* iOS unlock: Safari only lets a context start from inside a user gesture,
+   and on some versions only once a sound has actually been started in that
+   gesture. Play one silent sample on the first touch/click/key anywhere so
+   every later playback (buttons, card taps, sequencers) just works. */
+function unlockAudio(){
+  try {
+    const ctx = getCtx();
+    const src = ctx.createBufferSource();
+    src.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+    src.connect(ctx.destination);
+    src.start(0);
+  } catch { /* best effort */ }
+  UNLOCK_EVENTS.forEach(ev => document.removeEventListener(ev, unlockAudio, true));
+}
+const UNLOCK_EVENTS = ['touchend', 'pointerdown', 'keydown'];
+if (typeof document !== 'undefined'){
+  UNLOCK_EVENTS.forEach(ev => document.addEventListener(ev, unlockAudio, { capture: true, passive: true }));
+  // Re-arm after iOS interrupts the context (call, lock, app switch).
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && audioCtx && audioCtx.state !== 'running') getCtx();
+  });
 }
 
 /* One plucked/struck voice at frequency hz starting at time t. */

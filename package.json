@@ -9,6 +9,7 @@
     "web": "vite --port 5500 --open",
     "build:single": "node build/build-single-file.mjs",
     "verify:single": "node build/verify-single-file.mjs dist/genre-bender.html",
+    "verify:clips": "node build/verify-clips.mjs",
     "share": "npm run build:single && npm run verify:single",
     "setup": "npm install && npm install --prefix server",
     "postinstall": "npm install --prefix server"

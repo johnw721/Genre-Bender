@@ -6,6 +6,14 @@
 .logo-sub{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px}
 .header-right{font-size:11px;color:var(--muted);text-align:right;line-height:1.8;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
 
+.header-meta{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--muted);white-space:nowrap}
+.header-dot{opacity:0.5}
+.header-actions{display:flex;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:3px}
+.hbtn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px 6px 9px;border-radius:999px;border:1px solid transparent;background:none;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:11px;line-height:1;transition:all 0.15s;white-space:nowrap}
+.hbtn:hover{color:var(--text);background:var(--surface2)}
+.hbtn.on,.hbtn[aria-pressed="true"]{color:var(--accent);border-color:var(--border2);background:var(--surface3)}
+.hbtn-ico{font-size:12px;line-height:1;opacity:0.9}
+@media (max-width:560px){ .hbtn{padding:6px 8px} .hbtn-ico+*{display:none} .hbtn{font-size:0} .hbtn-ico{font-size:13px} }
 .settings-btn{margin-top:8px;padding:8px 12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-family:var(--mono);font-size:11px;transition:all 0.15s}
 .settings-btn:hover{border-color:var(--accent2);background:var(--surface2)}
 
@@ -30,6 +38,8 @@ body.modal-open{overflow:hidden}
 .modal-body{padding:0 24px 24px;display:grid;gap:18px}
 .modal-field{display:flex;flex-direction:column;gap:8px;font-size:11px;color:var(--muted)}
 .modal-field input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);font-family:var(--mono);font-size:12px;outline:none}
+.modal-row{display:flex;gap:8px;flex-wrap:wrap}
+.modal-row .btn{font-size:11px;padding:8px 12px;cursor:pointer}
 .modal-note{font-size:11px;color:var(--muted);line-height:1.6}
 .modal-status{min-height:18px;font-size:12px;color:var(--accent)}
 .modal-actions{display:flex;gap:10px;justify-content:flex-end;padding:0 24px 24px}

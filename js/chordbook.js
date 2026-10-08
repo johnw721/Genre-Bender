@@ -32,7 +32,10 @@ export const QUALITY_INTERVALS = {
   dom13:[0,4,10,14,21], min13:[0,3,10,14,21], maj13:[0,4,11,14,21],
   // altered dominants (gospel / neo-soul tension)
   dom7s9:[0,4,10,15],   dom7b9:[0,4,10,13],
-  dom7s5:[0,4,8,10],    dom7b5:[0,4,6,10]
+  dom7s5:[0,4,8,10],    dom7b5:[0,4,6,10],
+  // diatonic "color" substitutes (colormap.js): iii with a #5 is the I
+  // chord over its 3rd (G#m#5 = E/G#); vii° with a b9 puts the tonic on top
+  minS5:[0,3,8],        dimb9:[0,3,6,13]
 };
 
 /* ---- chord-type selector metadata ----------------------------------------- */
@@ -52,6 +55,7 @@ export const QUALITY_LABELS = {
   dom11: '11',                min11: 'Minor 11',         maj11: 'Major 11',
   dom13: '13',                min13: 'Minor 13',         maj13: 'Major 13',
   dom7s9: '7♯9',              dom7b9: '7♭9',              dom7s5: '7♯5',            dom7b5: '7♭5',
+  minS5: 'Minor ♯5',          dimb9: 'Dim ♭9',
 };
 export const QUALITY_SUFFIX = {
   maj: '',      min: 'm',    dim: 'dim',   aug: 'aug',
@@ -64,6 +68,7 @@ export const QUALITY_SUFFIX = {
   dom11: '11',  min11: 'm11', maj11: 'maj11',
   dom13: '13',  min13: 'm13', maj13: 'maj13',
   dom7s9: '7#9', dom7b9: '7b9', dom7s5: '7#5', dom7b5: '7b5',
+  minS5: 'm#5', dimb9: 'dim(b9)',
 };
 
 /* Swap a chord's quality, keeping its root exactly as spelled (e.g. "Bb"
@@ -96,7 +101,7 @@ export const OPEN_VOICINGS = {
   // add9 / colour
   'Cadd9':[null,3,2,0,3,0],'Gadd9':[3,2,0,2,0,3],'Dadd9':[null,null,0,2,3,0],
   // sixths
-  'C6':[null,3,2,2,1,0],'G6':[3,2,0,0,0,0],'A6':[null,0,2,2,2,2],'Em6':[0,2,2,0,2,0],
+  'C6':[null,3,2,2,1,0],'G6':[3,2,0,0,0,0],'A6':[null,0,2,2,2,2],'E6':[0,2,2,1,2,0],'Em6':[0,2,2,0,2,0],
   // ninths
   'A9':[null,0,2,4,2,3],'E9':[0,2,0,1,0,2],'D9':[null,5,4,5,5,5]
 };
@@ -155,9 +160,11 @@ export function parseChordName(name){
   // --- half-diminished / diminished / augmented --------------------------
   else if (/^(m7b5|min7b5|ø)/.test(s))   quality = 'm7b5';
   else if (/^(dim7|°7|o7)/.test(s))      quality = 'dim7';
+  else if (/^(dim\(?b9\)?|°\(?b9\)?)/.test(s)) quality = 'dimb9';
   else if (/^(dim|°|o(?!m))/.test(s))    quality = 'dim';
   else if (/^(aug|\+)/.test(s))          quality = 'aug';
   // --- minor family (lowercase m / "min") --------------------------------
+  else if (/^(m#5|m\+5|min#5)/.test(s))  quality = 'minS5';
   else if (/^(m13|min13)/.test(s))       quality = 'min13';
   else if (/^(m11|min11)/.test(s))       quality = 'min11';
   else if (/^(m9|min9)/.test(s))         quality = 'min9';
@@ -336,6 +343,19 @@ export function getVoicing(name, opts = {}){
 
   const p = parseChordName(name);
   const rootPc = p ? p.rootPc : null;
+  // opts.rootBass: only voicings whose lowest note is the root (colour
+  // chords like m#5 / dim(b9) / 11 lose their identity over another bass).
+  // Adds a few extra compact string sets to the pool; opt-in, so every
+  // existing caller keeps exactly the voicing it had.
+  if (opts.rootBass && p){
+    const extra = [];
+    [0, 3, 5, 7, 9].forEach(c => [[0,1,2,3], [1,2,3,4], [2,3,4,5]].forEach(set => {
+      const d = decorate(name, compactVoicing(name, c, set));
+      if (d && d.span <= MAX_PLAYABLE_SPAN){ d.style = 'compact'; extra.push(d); }
+    }));
+    const rb = [...cands, ...extra].filter(v => v.midis.length && Math.min(...v.midis) % 12 === rootPc);
+    if (rb.length) cands = rb;
+  }
   const wantPcs = p ? [...new Set(p.intervals.map(iv => (rootPc + iv) % 12))] : [];
 
   const score = (c) => {

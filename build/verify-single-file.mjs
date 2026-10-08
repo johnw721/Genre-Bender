@@ -116,6 +116,103 @@ try {
   check('tab switch + chip click + trainerNext ran', false, e.message);
 }
 
+
+// Every data-action / data-on-* name in the markup (and in rendered clip markup)
+// must be registered with actions.js.
+{
+  const names = new Set();
+  const attrs = ['data-action', 'data-on-change', 'data-on-input', 'data-on-enter'];
+  for (const el of d.querySelectorAll(attrs.map(a => `[${a}]`).join(','))) {
+    for (const a of attrs) if (el.hasAttribute(a)) names.add(el.getAttribute(a));
+  }
+  const missing = [...names].filter(n => !w.GenreBender?.hasAction(n));
+  check('all data-action handlers registered', names.size > 0 && missing.length === 0,
+        missing.length ? missing.join(', ') : `${names.size} actions`);
+}
+
+// Two-pane shell: rail holds tempo keeper + session + clip player, outside the panels.
+check('rail contains tempo keeper + clip player',
+      !!d.querySelector('.rail #bpm-slider') && !!d.querySelector('.rail #clip-dock') && !d.querySelector('.panel #clip-dock'));
+
+// Reference clips: paste → embed, save, tags, BPM hand-off, seed mixer, survives tab switch.
+// jsdom reports a 1024px viewport, so the player runs in floating mode here.
+try {
+  const $ = id => d.getElementById(id);
+  const click = el => el.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  const change = (el, v) => { el.value = v; el.dispatchEvent(new w.Event('change', { bubbles: true })); };
+  check('clip player floating + closed at boot (narrow viewport)',
+        $('clip-dock').classList.contains('floating') && $('clip-dock').classList.contains('closed'));
+  click($('clips-btn'));
+  check('header button opens player', !$('clip-dock').classList.contains('closed'));
+  $('clip-url').value = 'https://www.tiktok.com/@u/video/7301234567890123456';
+  click(d.querySelector('[data-action="clips:add"]'));
+  const ifr = $('clip-frame').querySelector('iframe');
+  check('clip embeds via official endpoint', ifr?.src === 'https://www.tiktok.com/embed/v2/7301234567890123456');
+  $('clip-url').value = 'https://x.com/a/status/42'; click(d.querySelector('[data-action="clips:add"]'));
+  $('clip-url').value = 'https://www.tiktok.com/@u/video/7301234567890123456'; click(d.querySelector('[data-action="clips:add"]'));
+  check('clips saved + deduped by url', d.querySelectorAll('.clip-item').length === 2);
+  const active = d.querySelector('.clip-item.active');
+  const id = active?.dataset.id;
+  change(d.querySelector('#clip-meta [data-field="bpm"]'), '140');
+  change(d.querySelector('#clip-meta [data-field="genres"]'), 'phonk, jersey club, not-a-genre');
+  change(d.querySelector('#clip-meta [data-field="key"]'), 'G major');
+  const tagInputs = [...d.querySelectorAll('#clip-meta .clip-tags input')].map(i => i.value);
+  check('clip tags round-trip', tagInputs.includes('140') && tagInputs.includes('phonk, jersey club, not-a-genre'));
+  click(d.querySelector('[data-action="clips:usebpm"]'));
+  check('clip bpm → tempo keeper', $('bpm-slider')?.value === '140');
+  w.setBPM(92);
+  click(d.querySelector('[data-action="clips:seed"]'));
+  const sel = [...d.querySelectorAll('.chip.selected')].map(c => c.dataset.genre).sort();
+  check('seed mixer selects catalog genres', sel.join('|') === 'Jersey club|Phonk', sel.join(', '));
+  check('seed mixer sets key everywhere', $('guitar-key').value === 'G' && $('rail-key').value === 'G' && $('piano-key').value === 'G');
+  check('seed mixer sets tempo', $('bpm-slider').value === '140');
+  check('rail mirrors selection + reference',
+        d.querySelectorAll('#rail-genres .rail-genre').length === 2 && $('rail-reference').style.display !== 'none');
+  check('seed lands on mixer tab', $('panel-mixer').classList.contains('active'));
+  w.switchTab('guided');
+  check('clip player survives tab switch', !$('clip-dock').classList.contains('closed') && !!$('clip-frame').querySelector('iframe'));
+  click(d.querySelector('[data-action="clips:clear-ref"]'));
+  check('reference clears', $('rail-reference').style.display === 'none');
+  $('clip-url').value = 'https://example.com/x'; click(d.querySelector('[data-action="clips:add"]'));
+  check('unknown link falls back to open-in-tab', !!$('clip-frame').querySelector('a[target="_blank"]'));
+  click(d.querySelector('[data-action="clips:remove"]'));
+  check('clip removal', d.querySelectorAll('.clip-item').length === 2);
+  // Analyze picker follows the clips list
+  check('analyze picker lists saved clips', d.querySelectorAll('#analyze-clip option').length === 2);
+  // Guided workflow reflects live state
+  w.switchTab('guided');
+  const steps = () => [...d.querySelectorAll('#guided-steps .gstep')];
+  check('guided stepper renders 6 steps', steps().length === 6);
+  // (the tagged clip was removed above, so "tag" is the open step; seed stays done via the reference)
+  check('guided marks clip + seed done, tag current',
+        steps()[0].classList.contains('done') && steps()[2].classList.contains('done') && steps()[1].classList.contains('current'),
+        steps().map(s => s.className.replace('gstep ', '')).join(', '));
+  w.clearAll();
+  check('clearAll empties rail', d.querySelectorAll('#rail-genres .rail-genre').length === 0);
+  w.switchTab('guided');
+  check('guided re-evaluates after clear', !steps()[2].classList.contains('done'));
+  check('header tools in one row', d.querySelectorAll('.header-actions .hbtn').length === 3);
+  // Practice stepper reflects live state
+  w.switchTab('practice');
+  check('practice panel shows', $('panel-practice').classList.contains('active'));
+  const psteps = () => [...d.querySelectorAll('#practice-steps .pstep')];
+  check('practice plan B renders 5–6 steps', psteps().length >= 5 && psteps().length <= 6, String(psteps().length));
+  click(d.querySelector('.practice-plan[data-plan="A"]'));
+  check('practice plan switch → A (7 steps)', psteps().length === 7 && d.querySelector('.practice-plan[data-plan="A"]').classList.contains('selected'));
+  check('practice step 1 not done with no open clip', !psteps()[0].classList.contains('done'));
+  click(d.querySelector('.pstep-tick'));
+  check('manual tick marks a step done', psteps().some(li => li.classList.contains('done') && li.querySelector('.pstep-tick')?.textContent === 'undo'));
+  click(d.querySelector('.pstep-tick[data-step]'));
+  click(d.querySelector('.practice-plan[data-plan="B"]'));
+  check("practice B names today's drill", /Today's drill/.test(psteps()[1].textContent));
+  click(psteps()[1].querySelector('.gstep-btn'));
+  check('practice mode button selects the drill', psteps()[1].classList.contains('done') && $('panel-mixer').classList.contains('active'));
+  w.switchTab('practice');
+  check('practice stat line renders', /today: \d+ card/.test($('practice-stat').textContent));
+} catch (e) {
+  check('clips / seed / rail interaction ran', false, e.message);
+}
+
 check('no runtime errors during boot', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 let failed = 0;

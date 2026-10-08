@@ -1,4 +1,6 @@
 import { getSavedApiConfig, saveApiConfig } from './api.js';
+import { exportAll, importAll, downloadJSON, registeredStores } from './storage.js';
+import { registerActions } from './actions.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -41,3 +43,38 @@ export function saveSettings(){
   }, 2500);
   closeSettings();
 }
+
+/* ---- whole-app backup ------------------------------------------------------
+   Everything registered in storage.js (session, clips, trainer progress,
+   label prefs) in one JSON file. API credentials are never included. */
+export function backupExport(){
+  downloadJSON(exportAll(), `genre-bender-backup-${new Date().toISOString().slice(0, 10)}.json`);
+  const status = $('settings-status');
+  if (status) status.textContent = `Backup written (${registeredStores().length} stores).`;
+}
+
+export function backupImportFile(inputEl){
+  const file = inputEl?.files?.[0];
+  if (!file) return;
+  const status = $('settings-status');
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const written = importAll(JSON.parse(reader.result));
+      if (status) status.textContent = `Restored ${written.length} store${written.length === 1 ? '' : 's'} — reloading…`;
+      setTimeout(() => location.reload(), 600);
+    } catch (e) {
+      if (status) status.textContent = e.message || 'Could not read that backup.';
+    }
+    inputEl.value = '';
+  };
+  reader.readAsText(file);
+}
+
+registerActions({
+  'settings:open':  () => openSettings(),
+  'settings:close': () => closeSettings(),
+  'settings:save':  () => saveSettings(),
+  'backup:export':  () => backupExport(),
+  'backup:import':  (el) => backupImportFile(el),
+});

@@ -20,7 +20,9 @@ genre-bender/
 │   ├── header-tabs.css     # Header, logo, top-level tabs, panels, section labels
 │   ├── mixer.css           # Genre library, chips, selected bar, sliders, blend output
 │   ├── metronome.css       # Metronome, beat grid, swing row, chord-count row
-│   └── notation.css        # Tab panel, playback toolbar, chord cards, loopers, compose banner
+│   ├── notation.css        # Tab panel, playback toolbar, chord cards, loopers, compose banner
+│   ├── clips.css           # Reference-clips player (docked / floating modes)
+│   └── shell.css           # Two-pane layout: sticky left rail + main column; analyze panel
 │
 └── js/                     # ES modules (no bundler)
     ├── config.js           # Static config: GENRES, MAX_GENRES, API_CONFIG, LOOP_RATES/LABELS
@@ -40,6 +42,14 @@ genre-bender/
     ├── midi.js             # Pure-JS Standard MIDI File (type-1) export
     ├── ui.js               # Tab / inner-tab view switching
     ├── library.js          # Genre library UI, selection, ratios, sync
+    ├── storage.js          # loadJSON/saveJSON + store registry → exportAll/importAll backup
+    ├── actions.js          # data-action event delegation (replacement for the window bridge)
+    ├── clips.js            # Reference-clips player: URL→embed parser, saved list, seed mixer, JSON I/O
+    ├── analyze.js          # Analyze Track v1: AI genre/BPM/key inference from clip text
+    ├── guided.js           # Guided Workflow: stepper deriving done/current from store + clips; buttons call existing actions
+    ├── chordpalette.js     # "Chord table": persisted draggable chord-diagram cards inside the trainer's "My chords" track view
+    ├── colormap.js         # "Color map": per-degree color ladders (in scale / out of scale / parallel views) + recolor helpers
+    ├── practice.js         # 04 — Practice: three daily plans as live steppers (auto steps read store/clips/trainer/SRS; manual ticks per day)
     └── main.js             # Entry point: imports modules, bridges handlers to window, boots
 ```
 
@@ -117,6 +127,12 @@ in the feature layer.
 | `fretchords.js` | Frets → live progressions (local, no AI; per-progression loop via loopscheduler) | `initFretChords`, `updateFretChords`, `fretToggleProg`, `fretToggleLoop`, `fretPlayChord`, `clearFrets`, `randomFrets` |
 | `midi.js` | Export | `exportMidi` |
 | `ui.js` | View switching | `switchTab`, `switchInnerTab` |
+| `storage.js` | One door to localStorage; registry of stores for backup | `registerStore`, `loadJSON`, `saveJSON`, `removeKey`, `exportAll`, `importAll`, `downloadJSON` |
+| `actions.js` | `data-action` / `data-on-change` / `data-on-input` / `data-on-enter` delegation | `registerActions`, `initActions`, `hasAction`, `actionNames` |
+| `clips.js` | Reference clips player (X / Instagram / TikTok / YouTube embeds; list under `GenreBenderClips_v1`, dock prefs under `GenreBenderClipDock_v1`); seed mixer → `store.reference` | `parseClipUrl`, `matchGenres`, `normalizeKey`, `initClips`, `clipsAdd`, `clipsOpen`, `clipsRemove`, `clipsUpdate`, `clipsSeedMixer`, `clipsClearReference`, `clipsUseBpm`, `clipsCaptureBpm`, `clipsExport`, `clipsImport`, `getClips`, `getClip`, `getActiveClip`, `onClipsChange` |
+| `analyze.js` | Analyze Track v1 (text-based inference; writes tags back, seeds mixer) | `initAnalyze`, `analyzeClip` |
+| `guided.js` | Guided Workflow stepper (no state of its own; re-renders on tab show, clip changes, light poll) | `initGuided`, `renderGuided`, `guidedOnTab` |
+| `practice.js` | Practice plans A/B/C (`GenreBenderPractice_v1`: chosen plan, per-day manual ticks, completion log → streak); plan B rotates the drill mode by weekday | `initPractice`, `renderPractice`, `practiceOnTab`, `practiceSetPlan`, `todaysMode` |
 | `library.js` | Genre selection | `buildLibrary`, `toggleGenre`, `clearAll`, `syncUI`, `removeByIdx`, `updateRatio`, `blendDescriptor` |
 | `main.js` | Boot + bridge | (none — side effects only) |
 
@@ -143,7 +159,41 @@ writes the *same* live values. `metroBPM` and `swingAmount` stay private to
 their modules and are exposed through accessors (`getBPM()`,
 `swingOffsetSec()`) instead.
 
-### c. The `cards.js ⇄ sequencer.js` cycle is safe
+### c. The shell: rail vs. main
+`index.html` is `.header` → `.shell` (`aside.rail` + `main.main`). The
+rail holds what should never disappear: the tempo keeper (moved out of
+the mixer panel; same element ids, so `metronome.js`/`persist.js` are
+untouched), the Session card (`#rail-key` joins `keysync`'s mirrored
+selects; `#rail-genres` / `#rail-reference` are painted by
+`library.syncUI`), and `#clip-dock`. Because none of that is inside a
+`.panel`, `switchTab` never hides it and an embedded clip keeps playing
+across tab changes. `clips.js` decides the player's *mode*: `docked`
+(static in the rail) or `floating` (fixed, draggable, resizable); below
+1180px the rail stacks above the tabs and the player is forced floating.
+
+### d. Clip → mixer is the "reference" hand-off
+`clipsSeedMixer` maps a clip's free-text genre tags onto catalog names
+(`matchGenres`), its key onto the app's 10 keys (`normalizeKey`), pushes
+BPM, and sets `store.reference`. `blend.referenceLine()` folds that into
+the prompt so the creative direction is anchored to something the
+producer actually heard; `clearAll` / the rail's ✕ clear it. `analyze.js`
+is the same loop from the other side: AI proposes tags → apply → seed.
+
+### e. Two ways handlers reach the DOM (transitional)
+Older markup uses inline `onclick` + the window bridge. Newer modules
+(`clips`, `analyze`, settings backup) register with `actions.js` and use
+`data-action` markup, so nothing lands on `window`. The build verifier
+checks that every `data-action` in the page resolves. Migrate a module
+by swapping its inline handlers for data attributes and moving its
+`Object.assign(window, …)` entries into a `registerActions({...})`.
+
+### f. Persistence goes through `storage.js`
+Every module that saves state registers its key (`registerStore`) and
+uses `loadJSON`/`saveJSON`; keys are unchanged, so old saves load. The
+registry is what makes ⚙ → *export everything* / *import backup* work.
+API credentials are intentionally unregistered.
+
+### g. The `cards.js ⇄ sequencer.js` cycle is safe
 These two import from each other. This is fine because each only *calls* the
 other's functions at runtime (inside event handlers / playback ticks), never
 at module top-level during evaluation. By the time any handler fires, both
@@ -234,8 +284,10 @@ holds the answer, so it stays hidden until the reveal.
 | Module | Owns | Key exports |
 |---|---|---|
 | `fretdiagram.js` | Layered fretboard SVG (scale + chord layers, per-row fret numbers, windows) — pure | `layeredFretSVG`, `windowFor` |
-| `trainersrs.js` | Leitner boxes, due-card picking, deck stats (pure, testable) | `srsRecord`, `srsPick`, `srsStats`, `srsResetAll` |
+| `trainersrs.js` | Leitner boxes, due-card picking, deck stats, per-day answer tally (`GenreBenderTrainerToday_v1`) (pure, testable) | `srsRecord`, `srsPick`, `srsStats`, `srsToday`, `localDay`, `srsResetAll` |
 | `trainer.js` | Decks, question builders, answer checking, layer toggles, quiz⇄explore view pref, trainer UI | `initTrainer`, `trainerSetMode`, `trainerNext`, `trainerAnswer`, `trainerCheckShape`, `trainerGiveUp`, `trainerPlay`, `trainerToggleLayer`, `trainerToggleView`, `trainerResetStats` |
+| `chordpalette.js` | The "chord table": a curated, persisted set of chord shapes (`{id,name,frets}`) shown as draggable diagram cards inside the "My chords" track view — add by name/frets, quick-fill a key's triads or sevenths, reorder by drag, accept shapes dragged off a track | `initPalette`, `paletteHTML`, `redrawPalette`, `initPaletteDrag`, `paletteAdd`, `paletteFillKey`, `get/set/clearDragPayload`, `DRAG_MIME` |
+| `colormap.js` | The diatonic "color ladder": for the app key, each degree's triad + same-function richer chords (I → maj7/6/maj9, iii → m7/m♯5 = I/3, V → 7/11/13, vii° → m7♭5/dim♭9). A 3-way switch (`GenreBenderColorMapView_v1`) shows **In scale** (diatonic only), **Out of scale** (same roots with borrowed/altered tones — secondary dominants, V7♭9/♯9, borrowed iv — outside notes flagged) or **Parallel** (the parallel key's ladder measured against the home key, ♭III/♭VI/♭VII marked, plus "⇄ modulate"). Chips play, drag (payload `source:'colormap'`, accepted by the track and the chord table) or append. Colour chords are voiced root-in-bass (`getVoicing(name,{rootBass:true})`) and pinned only when that differs from the default voicing. The track's 🎨 recolor (levels triads → sevenths → extended → spice) and per-chord 🎨 color cycle use `recolorName` / `nextColorName`. Follows the app key via `keysync.onAppKeyChange`. | `colorLadder`, `mapColumns`, `parallelKey`, `recolorName`, `nextColorName`, `degreeOf`, `pinnedFretsFor`, `colorMapHTML`, `initColorMap`, `initColorMapDrag`, `setColorMapView` |
 | `trainerexplore.js` | Per-mode explore sandboxes: fret entry + live chord/degree/scale analysis, degree chips, movable barre, progression stepper, scale-box picker | `renderExplore`, `redrawExploreDiagrams`, `configureExplore`, `explore*` handlers |
 
 Each drill mode also has a **quiz ⇄ explore toggle** (persisted per mode):
@@ -243,7 +295,24 @@ explore swaps the quiz for a sandbox where the Number→Shape fret-entry
 element is always present and live-identifies whatever you play (chord
 symbol via `fretchords.detectChordAndKey`, Roman numeral in the chosen
 key, out-of-scale count), while mode-specific controls auto-fill the
-frets. Explore never records SRS progress. `trainer.js ⇄ trainerexplore.js`
+frets. Explore never records SRS progress.
+
+**"My chords" drag-and-drop.** The track view renders each chord block
+with `data-track-idx` and a draggable handle (the diagram itself — the
+controls under it hold inputs that must stay selectable), and always
+renders the `#trainer-custom-diagrams` row as a drop zone. Two sources
+drop there: a chord-table card (inserts a copy of that *exact* voicing
+before/after the hovered block, between two chords when hovering the
+lick, or at the end on empty space) and another track chord (reorder).
+The table (`#palette-grid`) accepts the reverse — a track chord dragged
+down is saved with its resolved frets pinned. Both sides use one
+delegated listener set on `#trainer-question` (wired once, survives
+re-renders) and share a payload `{source:'palette'|'track', name, frets,
+id|idx}` mirrored in module state, because `dragover` cannot read
+`dataTransfer` contents. Position within the row is decided by pointer x
+against the hovered block's midpoint (`.drop-before` / `.drop-after`).
+
+`trainer.js ⇄ trainerexplore.js`
 is a runtime-only circular pair (same pattern as cards ⇄ sequencer).
 
 Questions are built entirely from the two frozen books

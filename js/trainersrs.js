@@ -10,7 +10,11 @@
    Persisted to localStorage. No DOM, no audio — unit-testable.
    ============================================================ */
 
-const STORE_KEY = 'GenreBenderTrainerSRS_v1';
+import { registerStore, loadJSON, saveJSON, removeKey } from './storage.js';
+const STORE_KEY = registerStore('trainerSrs', 'GenreBenderTrainerSRS_v1');
+/* Per-day answer tally (for the practice stepper): { date, answered,
+   right, byKind: { s2n: n, … } }. Resets itself when the date changes. */
+const TODAY_KEY = registerStore('trainerToday', 'GenreBenderTrainerToday_v1');
 
 /* Review intervals per box. Box 0/1 keep cards inside the current
    session; boxes 2+ push them out across days. */
@@ -27,16 +31,39 @@ let cache = null;
 
 function load(){
   if (cache) return cache;
-  try { cache = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }
-  catch { cache = {}; }
+  cache = loadJSON(STORE_KEY, {});
   return cache;
 }
 function save(){
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(cache)); } catch { /* private mode etc. */ }
+  saveJSON(STORE_KEY, cache);
+}
+
+export function localDay(ts = Date.now()){
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+let today = null;
+function loadToday(){
+  const day = localDay();
+  if (today && today.date === day) return today;
+  const s = loadJSON(TODAY_KEY, null);
+  today = (s && s.date === day) ? s : { date: day, answered: 0, right: 0, byKind: {} };
+  return today;
+}
+/* Today's quiz tally. `byKind` is keyed by the card-id prefix
+   (s2n / n2s / mv / prog / sc), which is the drill mode. */
+export function srsToday(){
+  const t = loadToday();
+  return { date: t.date, answered: t.answered, right: t.right, byKind: { ...t.byKind } };
 }
 
 /* Record an answer for a card. Returns the updated card record. */
 export function srsRecord(id, correct){
+  const t = loadToday();
+  t.answered++; if (correct) t.right++;
+  const kind = String(id).split('|')[0];
+  t.byKind[kind] = (t.byKind[kind] || 0) + 1;
+  saveJSON(TODAY_KEY, t);
   const db = load();
   const c = db[id] || { box: 0, due: 0, seen: 0, right: 0, wrong: 0 };
   c.seen++;
@@ -107,5 +134,5 @@ export function srsStats(candidates){
 /* Wipe all trainer progress. */
 export function srsResetAll(){
   cache = {};
-  try { localStorage.removeItem(STORE_KEY); } catch { /* ignore */ }
+  removeKey(STORE_KEY);
 }

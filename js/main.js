@@ -35,7 +35,7 @@ import {
 import {
   initFretChords, updateFretChords, fretToggleProg, fretPlayProg, fretToggleLoop,
   fretPlayChord, fretShowChord, fretReplayChord, fretStop, clearFrets, randomFrets,
-  fretChangeQuality
+  fretChangeQuality, refreshFretLabels
 } from './fretchords.js';
 import {
   initTrainer, trainerSetMode, trainerNext, trainerAnswer, trainerCheckShape,
@@ -46,16 +46,52 @@ import {
   trainerChangeCustomChordQuality, trainerSetCustomChordPosition, trainerResetCustomChordPosition,
   trainerFitChordToKey,
   trainerSwitchTrack, trainerNewTrack, trainerRenameTrack, trainerDeleteTrack,
-  trainerPlayLick, trainerRerollLick
+  trainerPlayLick, trainerRerollLick, trainerRedraw, trainerAddPaletteFromFrets,
+  trainerRecolorTrack, trainerColorChord
 } from './trainer.js';
+import { initColorMap } from './colormap.js';
+import {
+  palettePlay, paletteRemove, paletteAddByName, paletteFillFromControls, paletteClear
+} from './chordpalette.js';
 import { toggleExplore, exploreOnInnerTab } from './explore.js';
 import { initPersistence } from './persist.js';
-import { syncKey } from './keysync.js';
+import { initActions, hasAction, actionNames } from './actions.js';
+import { initClips } from './clips.js';
+import { initAnalyze } from './analyze.js';
+import { initGuided, guidedOnTab } from './guided.js';
+import { initPractice, practiceOnTab } from './practice.js';
+import {
+  toggleFretLabels, toggleChordLabels, onLabelsChange, syncLabelToggleUI
+} from './labels.js';
+import { store } from './store.js';
+import { renderGuitarTab } from './guitar.js';
+import { renderPianoChart } from './piano.js';
+import { restorePhraseView } from './composer.js';
+import { syncKey, initKeySync } from './keysync.js';
+import { connectHooktheory, isHooktheoryAuthed } from './hooktheory.js';
 import {
   exploreFretInput, exploreSetKey, exploreLoadDegree, exploreMv,
   exploreSetProg, exploreLoadProgChord, explorePlayProg, exploreStopProg,
   exploreSetScale, explorePlayBox, explorePlayShape, exploreClearFrets
 } from './trainerexplore.js';
+
+/* Prompts to connect (or disconnects if already connected) and
+   updates the header button to reflect the new state. */
+async function connectHooktheoryUI(){
+  const btn = document.getElementById('hooktheory-btn');
+  await connectHooktheory();
+  if (btn) {
+    const connected = isHooktheoryAuthed();
+    btn.innerHTML = `<span class="hbtn-ico">🎵</span>Hooktheory${connected ? ' ✓' : ''}`;
+    btn.classList.toggle('on', connected);
+    btn.setAttribute('aria-pressed', String(connected));
+  }
+}
+
+/* Newer modules (clips, analyze, settings backup) register handlers with
+   actions.js and use data-action markup instead of this bridge. The one
+   namespaced global below is for the build verifier + devtools. */
+window.GenreBender = { hasAction, actionNames };
 
 Object.assign(window, {
   // mixer / library
@@ -64,11 +100,15 @@ Object.assign(window, {
   // generators
   generateGuitar, generatePiano, exportMidi,
   // view switching (inner-tab switches feed explore mode's re-roll)
-  switchTab,
+  switchTab: (id) => { switchTab(id); guidedOnTab(id); practiceOnTab(id); },
   switchInnerTab: (id, btn) => { switchInnerTab(id, btn); exploreOnInnerTab(id); },
   toggleExplore,
   // shared current key
   syncKey,
+  // notation labelling (fret numbers <-> notes, chord names <-> degrees)
+  toggleFretLabels, toggleChordLabels,
+  // Hooktheory (optional progression realism / seeding layer)
+  connectHooktheoryUI,
   // metronome + swing
   setBPM, setTimeSig, toggleMetronome, tapTempo,
   setSwing, applySwingPreset,
@@ -94,16 +134,49 @@ Object.assign(window, {
   trainerChangeCustomChordQuality, trainerSetCustomChordPosition, trainerResetCustomChordPosition,
   trainerFitChordToKey,
   trainerSwitchTrack, trainerNewTrack, trainerRenameTrack, trainerDeleteTrack,
-  trainerPlayLick, trainerRerollLick,
+  trainerPlayLick, trainerRerollLick, trainerAddPaletteFromFrets,
+  trainerRecolorTrack, trainerColorChord,
+  // chord table (drag-and-drop palette inside "My chords")
+  palettePlay, paletteRemove, paletteAddByName, paletteFillFromControls, paletteClear,
   // trainer explore sandbox
   exploreFretInput, exploreSetKey, exploreLoadDegree, exploreMv,
   exploreSetProg, exploreLoadProgChord, explorePlayProg, exploreStopProg,
   exploreSetScale, explorePlayBox, explorePlayShape, exploreClearFrets,
 });
 
+/* ---- notation labelling ---------------------------------------------------
+   The two header toggles are global, so one subscriber repaints every panel
+   that renders a fret number or a chord name. Each repaint is guarded: a
+   panel with no content (or one that throws) must not stop the others. */
+function repaintForLabels(){
+  const val = (id) => document.getElementById(id)?.value;
+  if (store.guitarTabData){
+    try { renderGuitarTab(store.guitarTabData, val('guitar-style') || 'chord_progression'); }
+    catch (e) { console.error('relabel guitar:', e); }
+  }
+  if (store.pianoChordData){
+    try { renderPianoChart(store.pianoChordData, val('piano-style') || 'chord_voicings'); }
+    catch (e) { console.error('relabel piano:', e); }
+  }
+  if (store.phraseData){
+    try { restorePhraseView(); } catch (e) { console.error('relabel phrase:', e); }
+  }
+  try { refreshFretLabels(); } catch (e) { console.error('relabel frets:', e); }
+  try { trainerRedraw(); } catch (e) { console.error('relabel trainer:', e); }
+}
+onLabelsChange(repaintForLabels);
+
 /* Boot */
+initActions();       // data-action delegation must exist before any module registers
 buildLibrary();
 buildBeatGrid();
 initFretChords();
 initTrainer();
-initPersistence();   // last: restore reads the UI the inits above built
+initColorMap();      // color map handlers (data-action) + follow the app key
+syncLabelToggleUI();   // light the toggles to match the saved preference
+initClips();         // reference clips player (restores saved list + dock mode)
+initAnalyze();       // "03 — Analyze Track" (reads the clips list)
+initGuided();        // "02 — Guided Workflow" stepper over existing actions
+initPractice();      // "04 — Practice" daily plans (reads trainer / clips / store)
+initPersistence();   // restore reads the UI the inits above built
+initKeySync();       // last: mirror the restored guitar key into the rail + other selects

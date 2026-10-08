@@ -4,7 +4,7 @@
    ============================================================ */
 
 export function switchTab(id){
-  const ids = ['mixer', 'guided', 'upload'];
+  const ids = ['mixer', 'guided', 'upload', 'practice'];
   document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ids[i] === id));
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   const panel = document.getElementById('panel-' + id);

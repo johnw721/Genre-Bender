@@ -16,6 +16,9 @@ export const store = {
   phraseData: null,
   /* most recent blend creative-direction result (or null) */
   blendData: null,
+  /* reference clip the mixer was seeded from (or null):
+     { clipId, label, url, platform, key, bpm, genres, notes } */
+  reference: null,
 };
 
 /* Empty the selection in place so imported references stay valid. */

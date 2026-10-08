@@ -12,11 +12,23 @@
    ============================================================ */
 import { setExploreKey } from './trainerexplore.js';
 
-const KEY_SELECT_IDS = ['guitar-key', 'piano-key', 'composer-key'];
+const KEY_SELECT_IDS = ['rail-key', 'guitar-key', 'piano-key', 'composer-key'];
 
 let currentKey = null;
 
 export function getAppKey(){ return currentKey; }
+
+/* Views that render from the app key without owning a mirrored <select>
+   (e.g. the color map) subscribe here instead of being listed above. */
+const listeners = [];
+export function onAppKeyChange(fn){ if (typeof fn === 'function') listeners.push(fn); }
+
+/* Called after persistence restores the generator selects: pick up the
+   guitar key as the app key so every mirror (rail included) agrees. */
+export function initKeySync(){
+  const el = document.getElementById('guitar-key');
+  if (el && el.value) syncKey(el.value, 'guitar-key');
+}
 
 /* Called from any key <select> (onchange) or the explore sandbox.
    sourceId identifies the caller so we don't write back into it. */
@@ -31,4 +43,5 @@ export function syncKey(key, sourceId){
     if (!options.length || options.some(o => o.value === key)) el.value = key;
   });
   if (sourceId !== 'trainer-explore') setExploreKey(key);
+  if (sourceId !== 'colormap-key') listeners.forEach(fn => { try { fn(key); } catch (e) { console.error('keysync listener:', e); } });
 }

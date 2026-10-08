@@ -16,6 +16,7 @@
    Pure string-in → SVG-out; no DOM, no state.
    ============================================================ */
 import { STRING_OPEN_MIDI } from './theory.js';
+import { fretLabel, showingNotes, noteAt } from './labels.js';
 
 const STRING_LABELS = ['E', 'A', 'D', 'G', 'B', 'e'];
 
@@ -93,11 +94,14 @@ export function layeredFretSVG(opts = {}){
       if (v === null || v === undefined){
         svg += `<text x="${x}" y="${y0 - 12}" class="cb-mute" text-anchor="middle">×</text>`;
       } else if (v === 0){
-        svg += `<circle cx="${x}" cy="${y0 - 16}" r="5" class="cb-open"/>`;
+        svg += showingNotes()
+          ? `<text x="${x}" y="${y0 - 11}" class="cb-open-label" text-anchor="middle">${noteAt(s, 0)}</text>`
+          : `<circle cx="${x}" cy="${y0 - 16}" r="5" class="cb-open"/>`;
       } else if (v >= startFret && v <= startFret + rows - 1){
         const y = yFor(v);
-        svg += `<circle cx="${x}" cy="${y}" r="8" class="cb-dot"/>`;
-        svg += `<text x="${x}" y="${y + 4}" class="cb-dot-label" text-anchor="middle">${v}</text>`;
+        const label = fretLabel(s, v);
+        svg += `<circle cx="${x}" cy="${y}" r="${label.length > 1 ? 9.5 : 8}" class="cb-dot"/>`;
+        svg += `<text x="${x}" y="${y + 4}" class="cb-dot-label" text-anchor="middle">${label}</text>`;
       }
     }
   }

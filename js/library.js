@@ -61,6 +61,7 @@ function rebuildIndices(){
 
 export function clearAll(){
   clearSelected();
+  store.reference = null;
   store.blendData = null;                 // keep persisted session in step
   store.guitarTabData = null;
   store.pianoChordData = null;
@@ -98,6 +99,28 @@ export function syncUI(){
 
   const gen = document.getElementById('gen-btn');
   if (gen) gen.disabled = store.selected.length < 2;
+
+  renderRail();
+}
+
+/* Left-rail "Session" card: compact mirror of the selection + the reference
+   clip the mixer was seeded from. Read-only except for the reference's ✕. */
+function renderRail(){
+  const g = document.getElementById('rail-genres');
+  if (g){
+    g.innerHTML = store.selected.length === 0
+      ? '<span class="rail-empty">no genres yet</span>'
+      : store.selected.map(s => `<span class="rail-genre"><span>${s.name}</span><em>${s.ratio}%</em></span>`).join('');
+  }
+  const r = document.getElementById('rail-reference');
+  if (r){
+    const ref = store.reference;
+    r.style.display = ref ? '' : 'none';
+    r.innerHTML = ref
+      ? `<span class="rail-ref-label" title="Blending toward this clip">⇢ ${ref.label.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</span>
+         <button type="button" class="rail-ref-clear" data-action="clips:clear-ref" title="Stop blending toward this clip">×</button>`
+      : '';
+  }
 }
 
 export function removeByIdx(idx){

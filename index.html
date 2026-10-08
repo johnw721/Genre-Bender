@@ -21,6 +21,8 @@
 <link rel="stylesheet" href="css/metronome.css">
 <link rel="stylesheet" href="css/notation.css">
 <link rel="stylesheet" href="css/trainer.css">
+<link rel="stylesheet" href="css/clips.css">
+<link rel="stylesheet" href="css/shell.css">
 </head>
 <body>
 <div class="app">
@@ -31,25 +33,22 @@
       <div class="logo">Genre Bender</div>
     </div>
     <div class="header-right">
-      <div id="sel-count">0 / 4 genres selected</div>
-      <div style="margin-top:4px">bedroom producer mode</div>
-      <button class="settings-btn" type="button" onclick="openSettings()" aria-label="Open AI settings">⚙ AI</button>
+      <div class="header-meta"><span id="sel-count">0 / 4 genres selected</span><span class="header-dot">·</span><span>bedroom producer mode</span></div>
+      <div class="header-actions" role="toolbar" aria-label="App tools">
+        <button class="hbtn" type="button" id="clips-btn" data-action="clips:toggle" aria-pressed="false" aria-label="Toggle reference clips player" title="Reference clips: paste X / Instagram / TikTok / YouTube links and watch them while you work"><span class="hbtn-ico">▶</span>clips</button>
+        <button class="hbtn" type="button" id="hooktheory-btn" onclick="connectHooktheoryUI()" aria-label="Connect Hooktheory for progression realism checks" title="Optional: layers real chord-trend data from Hooktheory on top of AI-generated progressions"><span class="hbtn-ico">🎵</span>Hooktheory</button>
+        <button class="hbtn" type="button" onclick="openSettings()" aria-label="Open AI settings and backup" title="AI endpoint, model, key · backup / restore"><span class="hbtn-ico">⚙</span>AI</button>
+      </div>
     </div>
   </div>
 
-  <div class="tabs" role="tablist">
-    <button class="tab active" onclick="switchTab('mixer')">01 — Visual Mixer</button>
-    <button class="tab" onclick="switchTab('guided')">02 — Guided Workflow</button>
-    <button class="tab" onclick="switchTab('upload')">03 — Analyze Track</button>
-    <button class="explore-toggle" id="explore-btn" onclick="toggleExplore()" aria-pressed="false"
-      title="Explore mode: shuffles genres, tempo, keys and settings everywhere, jumps you somewhere new, and keeps re-rolling each panel you wander into. Never calls the AI — hit Generate when a roll intrigues you.">✦ explore</button>
-  </div>
-
-  <!-- MIXER TAB -->
-  <div class="panel active" id="panel-mixer">
-
-    <!-- METRONOME -->
-    <div class="section-label">Tempo keeper</div>
+  <div class="shell">
+    <!-- LEFT RAIL — always-on controls. Lives outside the tab panels so the
+         tempo keeper, current key/genres and the clip player stay put (and
+         keep running) whatever tab is active. -->
+    <aside class="rail" aria-label="Session controls">
+      <section class="rail-card">
+        <div class="section-label">Tempo keeper</div>
     <div class="metronome-wrap">
     <div class="metronome-bar">
       <div class="metro-bpm-display">
@@ -90,6 +89,67 @@
       </div>
     </div>
     </div><!-- end metronome-wrap -->
+      </section>
+
+      <section class="rail-card" id="rail-session">
+        <div class="section-label">Session</div>
+        <div class="rail-row">
+          <span class="rail-k">key</span>
+          <select class="tab-key-select rail-key" id="rail-key" aria-label="Current key" onchange="syncKey(this.value, this.id)">
+            <option value="Am">A minor</option><option value="Em">E minor</option>
+            <option value="Dm">D minor</option><option value="Cm">C minor</option>
+            <option value="Gm">G minor</option><option value="A">A major</option>
+            <option value="C">C major</option><option value="D">D major</option>
+            <option value="E">E major</option><option value="G">G major</option>
+          </select>
+        </div>
+        <div class="rail-row rail-row-top">
+          <span class="rail-k">blend</span>
+          <div class="rail-genres" id="rail-genres"><span class="rail-empty">no genres yet</span></div>
+        </div>
+        <div class="rail-reference" id="rail-reference" style="display:none"></div>
+      </section>
+
+      <aside class="clip-dock docked" id="clip-dock" role="complementary" aria-label="Reference clips">
+        <div class="clip-head" id="clip-drag">
+          <span class="clip-title">▶ Clips</span>
+          <span class="clip-count" id="clip-count"></span>
+          <span class="spacer"></span>
+          <button type="button" id="clip-mode-btn" data-action="clips:mode" aria-label="Dock or float the player" title="Float the player">⇱</button>
+          <button type="button" data-action="clips:collapse" aria-label="Collapse or expand player" title="Collapse / expand">▾</button>
+          <button type="button" class="clip-close" data-action="clips:toggle" aria-label="Close player" title="Close (clips stay saved)">×</button>
+        </div>
+        <div class="clip-body">
+          <div class="clip-paste">
+            <input id="clip-url" type="url" placeholder="Paste an X / Instagram / TikTok / YouTube link…" aria-label="Clip link" autocomplete="off" spellcheck="false" data-on-enter="clips:add-enter">
+            <button class="btn btn-primary" type="button" data-action="clips:add">Open</button>
+          </div>
+          <div class="clip-status" id="clip-status" aria-live="polite"></div>
+          <div class="clip-frame" id="clip-frame" data-aspect="card"></div>
+          <div class="clip-meta" id="clip-meta"></div>
+          <div class="clip-list-head">
+            <div class="section-label">Saved clips</div>
+            <button type="button" data-action="clips:export" title="Download the saved list as JSON">export</button>
+            <label title="Merge a JSON export into this list">import<input type="file" accept="application/json,.json" style="display:none" data-on-change="clips:import"></label>
+          </div>
+          <div class="clip-list" id="clip-list"></div>
+        </div>
+      </aside>
+    </aside>
+
+    <main class="main">
+  <div class="tabs" role="tablist">
+    <button class="tab active" onclick="switchTab('mixer')">01 — Visual Mixer</button>
+    <button class="tab" onclick="switchTab('guided')">02 — Guided Workflow</button>
+    <button class="tab" onclick="switchTab('upload')">03 — Analyze Track</button>
+      <button class="tab" onclick="switchTab('practice')">04 — Practice</button>
+    <button class="explore-toggle" id="explore-btn" onclick="toggleExplore()" aria-pressed="false"
+      title="Explore mode: shuffles genres, tempo, keys and settings everywhere, jumps you somewhere new, and keeps re-rolling each panel you wander into. Never calls the AI — hit Generate when a roll intrigues you.">✦ explore</button>
+  </div>
+
+  <!-- MIXER TAB -->
+  <div class="panel active" id="panel-mixer">
+
 
     <!-- GENRE COLS -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-bottom:32px">
@@ -137,6 +197,12 @@
           <button class="tab-inner-tab" onclick="switchInnerTab('frets',this)">Frets → chords</button>
           <button class="tab-inner-tab" onclick="switchInnerTab('trainer',this)">Shape trainer</button>
         </div>
+        <div class="label-toggles" role="group" aria-label="Notation labelling">
+          <button class="label-toggle" type="button" id="label-fret-toggle" onclick="toggleFretLabels()" aria-pressed="false"
+            title="Fret numbers ⇄ note names. Swaps every fret number for the note it actually sounds — chord boxes, tab, phrases, basslines, trainer fretboards. Playback and MIDI export are unchanged.">#&nbsp;fret numbers</button>
+          <button class="label-toggle" type="button" id="label-chord-toggle" onclick="toggleChordLabels()" aria-pressed="false"
+            title="Chord names ⇄ scale degrees. Swaps chord labels for their numeral in the current key (Am in C → vi), on AI-generated and hand-entered chords alike.">A&nbsp;chord names</button>
+        </div>
       </div>
       <div class="tab-panel-body">
 
@@ -162,6 +228,10 @@
               <input type="range" id="guitar-chord-count" min="2" max="8" step="1" value="4" aria-label="Number of guitar chords" oninput="document.getElementById('guitar-chord-count-val').textContent=this.value">
               <span class="chord-count-val" id="guitar-chord-count-val">4</span>
             </div>
+            <label class="composer-ai-toggle" title="Seed generation with a real, commonly-occurring chord skeleton from Hooktheory's Trends corpus, for the AI to reharmonize. Requires connecting Hooktheory (top right).">
+              <input type="checkbox" id="guitar-hooktheory" aria-label="Seed with a Hooktheory chord skeleton">
+              <span>Hooktheory skeleton</span>
+            </label>
           </div>
           <div class="tab-output" id="guitar-output">Select key and style, then generate a tab based on your blend.</div>
         </div>
@@ -188,6 +258,10 @@
               <input type="range" id="piano-chord-count" min="2" max="8" step="1" value="4" aria-label="Number of piano chords" oninput="document.getElementById('piano-chord-count-val').textContent=this.value">
               <span class="chord-count-val" id="piano-chord-count-val">4</span>
             </div>
+            <label class="composer-ai-toggle" title="Seed generation with a real, commonly-occurring chord skeleton from Hooktheory's Trends corpus, for the AI to reharmonize. Requires connecting Hooktheory (top right).">
+              <input type="checkbox" id="piano-hooktheory" aria-label="Seed with a Hooktheory chord skeleton">
+              <span>Hooktheory skeleton</span>
+            </label>
           </div>
           <div class="tab-output" id="piano-output">Select key and style, then generate a piano chart based on your blend.</div>
         </div>
@@ -347,19 +421,70 @@
 
   <!-- GUIDED TAB -->
   <div class="panel" id="panel-guided">
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:260px;gap:12px;color:var(--muted)">
-      <div style="font-family:var(--display);font-size:18px;color:var(--text)">Guided Workflow</div>
-      <div>Step-by-step production path — coming in next iteration</div>
+    <div class="tab-panel-wrap">
+      <div class="tab-panel-header">
+        <span class="tab-panel-title">Guided workflow — reference to riff</span>
+        <span class="guided-progress-wrap">
+          <span class="tab-panel-sub" id="guided-progress-label">0 / 6</span>
+          <span class="guided-progress" id="guided-progress" role="progressbar" aria-valuemin="0" aria-valuemax="6" aria-valuenow="0" style="--p:0%"></span>
+        </span>
+      </div>
+      <div class="tab-panel-body">
+        <p class="guided-intro">Every step is just a shortcut to something already on the bench — the list updates as you work, in any order.</p>
+        <ol class="gsteps" id="guided-steps"></ol>
+      </div>
     </div>
   </div>
 
-  <!-- UPLOAD TAB -->
+  <!-- ANALYZE TAB -->
   <div class="panel" id="panel-upload">
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:260px;gap:12px;color:var(--muted)">
-      <div style="font-family:var(--display);font-size:18px;color:var(--text)">Analyze a Track</div>
-      <div>Upload .mp3 / .wav to detect genre fingerprints — coming in next iteration</div>
+    <div class="tab-panel-wrap">
+      <div class="tab-panel-header">
+        <span class="tab-panel-title">Analyze a reference clip</span>
+        <span class="tab-panel-sub">reads your tags + caption — it can't hear the audio (yet)</span>
+      </div>
+      <div class="tab-panel-body">
+        <div class="tab-generate-row">
+          <select class="tab-style-select" id="analyze-clip" aria-label="Clip to analyze" data-on-change="analyze:pick"></select>
+          <button class="btn btn-primary" id="analyze-btn" type="button" data-action="analyze:run">Analyze ↗</button>
+          <span class="clip-status" id="analyze-status" aria-live="polite"></span>
+        </div>
+        <textarea class="analyze-notes" id="analyze-notes" rows="3" placeholder="Paste the post's caption, or describe what you hear: instruments, groove, mood, era, artists it reminds you of…"></textarea>
+        <div class="tab-output placeholder" id="analyze-output">Pick a saved clip, add what you hear, then analyze. Results can be written back to the clip's tags and used to seed the mixer.</div>
+        <div class="modal-note" style="margin-top:14px">Upload .mp3 / .wav for real audio fingerprinting — coming in a later iteration; it will land in this same panel.</div>
+      </div>
     </div>
   </div>
+
+  <!-- PRACTICE TAB -->
+  <div class="panel" id="panel-practice">
+    <div class="tab-panel-wrap">
+      <div class="tab-panel-header">
+        <span class="tab-panel-title">Practice — 10–20 minutes a day</span>
+        <span class="guided-progress-wrap">
+          <span class="tab-panel-sub" id="practice-progress-label">0 / 6</span>
+          <span class="guided-progress" id="practice-progress" role="progressbar" aria-valuemin="0" aria-valuemax="6" aria-valuenow="0" style="--p:0%"></span>
+        </span>
+      </div>
+      <div class="tab-panel-body">
+        <div class="tab-generate-row practice-plans" role="group" aria-label="Practice plan">
+          <button class="fret-chord practice-plan" type="button" data-action="practice:plan" data-plan="B" aria-pressed="true" title="Daily default — spaced-repetition drills with a clip in your ear">B · Trainer-first</button>
+          <button class="fret-chord practice-plan" type="button" data-action="practice:plan" data-plan="A" aria-pressed="false" title="Twice a week — transcribe a clip into a My chords track">A · Clip → chart</button>
+          <button class="fret-chord practice-plan" type="button" data-action="practice:plan" data-plan="C" aria-pressed="false" title="Saturday — seed, blend, notate, rebuild, play">C · Blend &amp; play</button>
+          <span class="clip-status practice-stat" id="practice-stat" aria-live="polite"></span>
+        </div>
+        <p class="guided-intro" id="practice-sub"></p>
+        <ol class="gsteps" id="practice-steps"></ol>
+        <p class="guided-intro practice-foot">Auto steps read the app; “mark done” steps are yours. Trainer explore never records, so do the card count in quiz. Box 2+ cards (1 / 3 / 7-day intervals) only advance if you show up — don't skip two days in a row.</p>
+      </div>
+    </div>
+  </div>
+  </div>
+
+
+
+    </main>
+  </div><!-- end shell -->
 
   <div class="modal" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" style="display:none">
     <div class="modal-card">
@@ -384,6 +509,13 @@
           <input id="settings-api-key" type="password" placeholder="x-api-key...">
         </label>
         <div class="modal-note">If you use the direct Anthropic endpoint, the key is stored locally in your browser. For production, use a proxy endpoint instead.</div>
+        <div class="modal-field">
+          <span>Backup</span>
+          <div class="modal-row">
+            <button class="btn btn-ghost" type="button" data-action="backup:export" title="Download session, clips, trainer progress and label prefs as one JSON file (never your API key)">↓ export everything</button>
+            <label class="btn btn-ghost" title="Restore a backup file and reload">↑ import backup<input type="file" accept="application/json,.json" style="display:none" data-on-change="backup:import"></label>
+          </div>
+        </div>
         <div id="settings-status" class="modal-status"></div>
       </div>
       <div class="modal-actions">

@@ -19,6 +19,44 @@ MIDI.
 - **Notation generator** — AI-generated guitar tab + piano chord chart, validated against music theory with [Tonal.js](https://github.com/tonaljs/tonal).
 - **Playback** — tempo-locked sequencer, per-card loopers, drag-to-reorder cards, and a **Compose** mode that plays guitar and piano on one clock.
 - **MIDI export** — pure-JS Standard MIDI File (type-1) writer, no dependencies.
+- **Reference clips** — paste X / Instagram / TikTok / YouTube links (or just
+  Ctrl/Cmd+V anywhere on the page) and they play in the left rail — or in a
+  floating, draggable window (⇱) — while you work; the metronome and loopers keep
+  running across tab switches. Clips save locally with a label, key / BPM / genre
+  tags and notes, hand their BPM to the tempo keeper (or capture the BPM you tapped
+  along), and export/import as JSON. **Seed mixer** turns a clip into input: its
+  genre tags become the mixer selection, its key the app key, its BPM the tempo,
+  and *Generate blend* is told to blend toward it. Platforms block their normal
+  pages inside frames, so the player uses each one's official embed endpoint —
+  the one place the app makes third-party requests (only once you open a clip).
+  Short links like `vm.tiktok.com/…` can't be resolved in-browser; paste the full URL.
+- **Analyze Track (v1)** — pick a saved clip, paste its caption or describe what you
+  hear, and the AI proposes catalog genres with confidence, a BPM/key guess and a
+  feel. Write the result back to the clip's tags or seed the mixer from it in one
+  click. It reasons from text — it cannot hear the embed. Real audio fingerprinting
+  (upload) is still to come and will land in the same panel.
+- **Two-pane shell** — a sticky left rail holds the always-on things (tempo keeper,
+  current key, selected genres, the reference you're blending toward, the clip
+  player); the tabs live in the main column. Below 1180px the rail stacks on top.
+- **Guided Workflow** — tab 02 is a live stepper over the actions above: drop in a
+  reference → tag it → seed the mixer → generate the blend → get a tab → play along.
+  Each step reads the real app state (done / current / locked) and its button is a
+  shortcut to the existing action, so you can work in any order.
+- **Chord table** — inside Shape trainer → *My chords*, every track sits above a
+  customizable table of chord diagrams. Add shapes by name, pin an exact fingering
+  from the fret squares (*+ add to table*), or fill a key's triads / sevenths in one
+  click; then drag a diagram onto the track to drop it in exactly that spot (the
+  voicing comes with it), drag track chords to reorder, or drag one down to the
+  table to keep its shape. The table is shared across tracks and persists locally.
+- **Practice** — tab 04 holds three 10–20 minute plans (see [`PRACTICE.md`](./PRACTICE.md)):
+  *Trainer-first* (daily; the drill mode rotates by weekday and the step counts today's
+  quiz answers), *Clip → chart* (transcribe a reference into a My chords track) and
+  *Blend & play* (the whole pipeline). Steps the app can observe tick themselves off;
+  the rest are one-click "mark done" ticks stored per day. A fully done plan counts
+  toward a streak shown in the header.
+- **Backup** — ⚙ AI → *export everything* writes session, clips, trainer progress,
+  the chord table and label prefs to one JSON file (never your API key); *import
+  backup* restores it.
 
 ---
 
@@ -118,10 +156,10 @@ export const API_CONFIG = {
 ```
 genre-bender/
 ├── index.html
-├── css/        # tokens, base, header-tabs, mixer, metronome, notation
-└── js/         # config, util, store, api, theory, swing, audio, metronome,
-                # sequencer, loopers, cards, blend, guitar, piano, midi, ui,
-                # library, main
+├── css/        # tokens, base, header-tabs, mixer, metronome, notation, trainer, clips, shell
+└── js/         # config, util, store, storage, actions, api, theory, swing, audio,
+                # metronome, sequencer, loopers, cards, blend, guitar, piano, midi,
+                # ui, library, clips, analyze, guided, main
 ```
 
 Full module responsibilities and the dependency graph are in

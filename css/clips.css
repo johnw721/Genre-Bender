@@ -1,0 +1,90 @@
+/* ============================================================
+   clips.css — reference-clips player.
+   Two modes set by clips.js: .docked (a card in the left rail) or
+   .floating (fixed, draggable, resizable window). .closed hides a
+   floating player; .collapsed keeps only the header in either mode.
+   ============================================================ */
+.clip-dock{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;font-family:var(--mono)}
+.clip-dock.docked{position:static;width:auto;height:auto}
+.clip-dock.docked .clip-frame{flex:none;height:440px}
+.clip-dock.docked .clip-list{flex:none;max-height:180px}
+.clip-dock.docked .clip-head{cursor:default}
+.clip-dock.docked .clip-close{display:none}
+.clip-dock.floating{position:fixed;right:24px;bottom:24px;width:380px;height:640px;min-width:300px;min-height:200px;
+  max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);border-color:var(--border2);border-radius:16px;
+  box-shadow:0 24px 60px rgba(0,0,0,0.45),0 0 0 1px rgba(0,0,0,0.4);z-index:40;resize:both}
+.clip-dock.floating.closed{display:none}
+.clip-dock.floating .clip-head{cursor:grab}
+.clip-dock.floating .clip-head:active{cursor:grabbing}
+.clip-dock.dragging{user-select:none;opacity:0.96}
+.clip-dock.collapsed{height:auto!important;min-height:0;width:260px!important;resize:none}
+.clip-dock.collapsed .clip-body{display:none}
+
+.clip-head{display:flex;align-items:center;gap:8px;padding:8px 10px 8px 12px;border-bottom:1px solid var(--border);
+  background:var(--surface2);touch-action:none;flex:0 0 auto}
+.clip-head .clip-title{font-family:var(--display);font-size:13px;font-weight:700;color:var(--text);letter-spacing:0.02em}
+.clip-head .clip-count{font-size:10px;color:var(--muted);margin-left:2px}
+.clip-head .spacer{flex:1}
+.clip-head button{border:none;background:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:4px 6px;border-radius:6px}
+.clip-head button:hover{color:var(--text);background:var(--surface3)}
+
+.clip-body{display:flex;flex-direction:column;flex:1;min-height:0}
+.clip-paste{display:flex;gap:6px;padding:10px 10px 4px;flex:0 0 auto}
+.clip-paste input{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);
+  color:var(--text);font-family:var(--mono);font-size:11px;outline:none}
+.clip-paste input:focus{border-color:var(--accent2);box-shadow:0 0 0 3px var(--accent-glow)}
+.clip-paste .btn{padding:8px 12px;font-size:11px}
+.clip-status{font-size:10px;color:var(--amber);padding:0 12px;min-height:14px;flex:0 0 auto}
+
+.clip-frame{position:relative;flex:1 1 auto;min-height:160px;margin:6px 10px 0;background:#000;border-radius:10px;
+  overflow:hidden;border:1px solid var(--border)}
+.clip-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+.clip-frame[data-aspect="card"] iframe{background:var(--surface2)}
+.clip-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  text-align:center;color:var(--muted);font-size:11px;padding:16px;line-height:1.7}
+.clip-empty span{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;opacity:0.7}
+
+.clip-meta{display:flex;flex-direction:column;gap:6px;padding:8px 10px 4px;flex:0 0 auto}
+.clip-notes{width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:10px;outline:none}
+.clip-notes:focus{border-color:var(--accent2)}
+.clip-label{width:100%;padding:6px 8px;border:1px solid transparent;border-radius:8px;background:none;color:var(--text);
+  font-family:var(--display);font-size:13px;font-weight:600;outline:none}
+.clip-label:hover,.clip-label:focus{border-color:var(--border);background:var(--bg)}
+.clip-tags{display:grid;grid-template-columns:64px 72px 1fr;gap:6px}
+.clip-tags label{display:flex;flex-direction:column;gap:2px;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted)}
+.clip-tags label.wide{grid-column:auto}
+.clip-tags input{width:100%;padding:5px 7px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);
+  font-family:var(--mono);font-size:11px;outline:none;-moz-appearance:textfield}
+.clip-tags input::-webkit-outer-spin-button,.clip-tags input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.clip-tags input:focus{border-color:var(--accent2)}
+.clip-actions{display:flex;gap:6px;align-items:center}
+.clip-mini{padding:5px 9px;border-radius:999px;border:1px solid var(--border2);background:none;color:var(--muted);
+  font-family:var(--mono);font-size:10px;cursor:pointer;text-decoration:none;line-height:1.2;transition:all 0.15s}
+.clip-mini:hover:not(:disabled){color:var(--accent);border-color:var(--accent2);background:var(--accent-glow)}
+.clip-mini:disabled{opacity:0.35;cursor:not-allowed}
+.clip-mini.primary{color:var(--accent);border-color:var(--accent2)}
+.clip-mini.primary.on{background:var(--accent-glow)}
+.clip-mini.danger{margin-left:auto}
+.clip-mini.danger:hover{color:var(--coral);border-color:var(--coral);background:rgba(255,124,124,0.1)}
+
+.clip-list-head{display:flex;align-items:center;gap:8px;padding:8px 12px 4px;flex:0 0 auto}
+.clip-list-head .section-label{margin:0;flex:1}
+.clip-list-head button,.clip-list-head label{border:none;background:none;color:var(--muted);font-family:var(--mono);font-size:10px;
+  cursor:pointer;padding:2px 4px;border-radius:4px}
+.clip-list-head button:hover,.clip-list-head label:hover{color:var(--text)}
+.clip-list{overflow-y:auto;flex:0 1 30%;min-height:56px;max-height:200px;padding:0 6px 8px;display:flex;flex-direction:column;gap:2px}
+.clip-list-empty{font-size:10px;color:var(--muted);padding:8px 6px}
+.clip-item{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:8px;align-items:center;text-align:left;
+  padding:6px 8px;border:1px solid transparent;border-radius:8px;background:none;color:var(--text);cursor:pointer;
+  font-family:var(--mono);transition:all 0.15s}
+.clip-item:hover{background:var(--surface2);border-color:var(--border)}
+.clip-item.active{background:var(--surface3);border-color:var(--border2)}
+.clip-badge{grid-row:1 / span 2;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;padding:3px 6px;border-radius:5px;
+  background:var(--surface3);color:var(--muted);border:1px solid var(--border)}
+.clip-badge.x{color:var(--text)}.clip-badge.instagram{color:#ff8ac4}.clip-badge.tiktok{color:var(--green)}.clip-badge.youtube{color:var(--coral)}
+.clip-item-label{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.clip-item-tags{font-size:9px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+@media (max-width:600px){
+  .clip-dock.floating{right:8px;bottom:8px;width:calc(100vw - 16px);height:70vh}
+}

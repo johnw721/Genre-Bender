@@ -22,8 +22,9 @@ import { renderGuitarTab } from './guitar.js';
 import { renderPianoChart } from './piano.js';
 import { restorePhraseView } from './composer.js';
 import { updateComposeBanner } from './sequencer.js';
+import { registerStore, loadJSON, removeKey } from './storage.js';
 
-const SESSION_KEY = 'GenreBenderSession_v1';
+const SESSION_KEY = registerStore('session', 'GenreBenderSession_v1');
 
 /* Form controls worth remembering across sessions. */
 const FORM_IDS = [
@@ -42,6 +43,7 @@ function snapshot(){
     v: 1,
     selected: store.selected,
     blendData: store.blendData,
+    reference: store.reference,
     guitarTabData: store.guitarTabData,
     pianoChordData: store.pianoChordData,
     phraseData: store.phraseData,
@@ -62,10 +64,8 @@ export function saveSession(){
 }
 
 export function restoreSession(){
-  let s;
-  try { s = JSON.parse(localStorage.getItem(SESSION_KEY)); }
-  catch { return; }
-  if (!s || s.v !== 1) return;
+  const s = loadJSON(SESSION_KEY, null, { version: 1 });
+  if (!s) return;
 
   /* form controls first — panel renders read them */
   Object.entries(s.forms || {}).forEach(([id, v]) => {
@@ -75,6 +75,8 @@ export function restoreSession(){
       if (el.dispatchEvent && typeof Event !== 'undefined') el.dispatchEvent(new Event('input'));
     }
   });
+
+    store.reference = s.reference && typeof s.reference === 'object' ? s.reference : null;
 
   if (Array.isArray(s.selected) && s.selected.length){
     store.selected.length = 0;
@@ -126,7 +128,7 @@ export function restoreSession(){
 }
 
 export function clearSession(){
-  try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
+  removeKey(SESSION_KEY);
   lastSaved = '';
 }
 

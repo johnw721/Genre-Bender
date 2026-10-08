@@ -18,6 +18,7 @@ import { scalePcs } from './scales.js';
 import { parseChordName } from './chordbook.js';
 import { leadToken } from './techniques.js';
 import { escHtml } from './util.js';
+import { fretLabel, fretFormatter, chordLabel, bendMark } from './labels.js';
 
 export const LAYER_ORDER = ['both', 'bass', 'lick'];
 export const LAYER_LABEL = { both: 'Bass+Lick', bass: 'Bass', lick: 'Lick' };
@@ -133,10 +134,10 @@ function barColumns(bar){
   return items.map(({ ev, ei }) => {
     if (ev.type === 'chord'){
       const cells = [];
-      ev.frets.forEach((f, si) => { if (f != null) cells.push({ si, token: String(f), kind: 'bass', ei }); });
+      ev.frets.forEach((f, si) => { if (f != null) cells.push({ si, token: fretLabel(si, f), kind: 'bass', ei }); });
       return { ev, ei, cells };
     }
-    return { ev, ei, cells: [{ si: ev.string, token: leadToken(ev), kind: 'lick', ei }] };
+    return { ev, ei, cells: [{ si: ev.string, token: leadToken(ev, fretFormatter(ev.string), bendMark()), kind: 'lick', ei }] };
   });
 }
 
@@ -153,7 +154,10 @@ export function phraseGridHTML(timeline){
     html += `<div class="ctab-bar layer-${layer}" data-bar="${bi}">`;
     html += `<button type="button" class="ctab-layer" onclick="cycleBarLayer(${bi})" ` +
             `title="Click to change this bar: Bass+Lick / Bass / Lick">${escHtml(LAYER_LABEL[layer])}</button>`;
-    html += `<div class="ctab-chord">${escHtml(bar.chordName || '')}</div>`;
+    // Chord label follows the app-wide names ⇄ degrees toggle; the degree is
+    // read against the phrase's own key, so it stays right after a key change.
+    html += `<div class="ctab-chord" title="${escHtml(bar.chordName || '')}">` +
+            `${escHtml(chordLabel(bar.chordName || '', timeline.key))}</div>`;
     html += '<table class="ctab"><tbody>';
     for (let topRow = 0; topRow < 6; topRow++){
       const si = 5 - topRow;

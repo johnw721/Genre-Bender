@@ -8,6 +8,7 @@
    top->bottom as e B G D A E (high to low), standard tab order.
    ============================================================ */
 import { leadToken } from './techniques.js';
+import { fretLabel, fretFormatter, bendMark } from './labels.js';
 
 const STRING_LABELS = ['e','B','G','D','A','E']; // top(high e) -> bottom(low E)
 const BARS_PER_SYSTEM = 4;
@@ -23,10 +24,10 @@ function barColumns(bar){
   const cols = evs.map(ev => {
     if (ev.type === 'chord'){
       const col = {};
-      ev.frets.forEach((f, s) => { if (f !== null) col[s] = String(f); });
+      ev.frets.forEach((f, s) => { if (f !== null) col[s] = fretLabel(s, f); });
       return col;
     }
-    return { [ev.string]: leadToken(ev) };
+    return { [ev.string]: leadToken(ev, fretFormatter(ev.string), bendMark()) };
   });
   if (!cols.length) cols.push({});
   return cols;

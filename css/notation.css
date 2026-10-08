@@ -11,6 +11,15 @@
 .tab-inner-tab{padding:5px 14px;border-radius:6px;border:1px solid var(--border);background:none;font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;transition:all 0.15s}
 .tab-inner-tab:hover{color:var(--text);background:var(--surface3)}
 .tab-inner-tab.active{border-color:var(--accent2);color:var(--accent);background:var(--accent-glow)}
+
+/* Global notation labelling toggles (fret numbers ⇄ notes, chord names ⇄ degrees).
+   They live in the panel header because they apply to every sub-tab. */
+.label-toggles{display:flex;gap:4px;margin-left:auto}
+.label-toggle{padding:5px 12px;border-radius:6px;border:1px dashed var(--border2);background:none;font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;transition:all 0.15s;white-space:nowrap}
+.label-toggle:hover{color:var(--text);background:var(--surface3);border-color:var(--accent2)}
+.label-toggle.on{border-style:solid;border-color:var(--accent2);color:var(--accent);background:var(--accent-glow)}
+.label-toggle:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+
 .tab-panel-body{padding:20px}
 .tab-generate-row{display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap}
 .tab-key-select,.tab-style-select{padding:7px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--mono);font-size:12px;cursor:pointer;outline:none}
@@ -51,6 +60,8 @@
 .chord-card-item .card-play-hint{position:absolute;top:6px;right:8px;font-size:10px;color:var(--muted);opacity:0}
 .chord-card-item:hover .card-play-hint{opacity:1}
 .chord-card-item .card-name{font-family:var(--display);font-size:15px;font-weight:700;color:var(--amber);margin-bottom:6px;padding-top:2px}
+/* Letter name kept under the numeral when the degrees toggle is on. */
+.chord-card-item .card-name-alt{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:-4px;margin-bottom:6px}
 .chord-card-item .card-sub{font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:2px}
 .chord-card-item .card-notes{font-size:11px;color:var(--accent);line-height:1.5}
 .card-quality-select{margin-top:8px;width:100%;padding:4px 6px;border-radius:5px;border:1px solid var(--border2);
@@ -195,6 +206,7 @@
 .fret-diagram-card{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%}
 .fret-diagram-meta{display:flex;flex-direction:column;align-items:center;gap:5px}
 .fret-diagram-name{font-family:var(--mono);font-size:16px;font-weight:600;color:var(--accent)}
+.fret-diagram-alt{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:-2px}
 .fret-diagram-notes{font-family:var(--mono);font-size:10px;color:var(--text);letter-spacing:0.06em;text-align:center}
 .fret-diagram-style{font-family:var(--mono);font-size:9px;color:var(--muted);font-style:italic}
 .fret-diagram-quality-label{display:flex;flex-direction:column;align-items:center;gap:3px;font-family:var(--mono);
@@ -209,6 +221,8 @@
 .chord-box .cb-dot{fill:var(--accent)}
 .chord-box .cb-dot-label{fill:var(--bg);font-family:var(--mono);font-size:9px;font-weight:600}
 .chord-box .cb-open{fill:none;stroke:var(--muted);stroke-width:1.5}
+/* Open string shown as its note name when the note-names toggle is on. */
+.chord-box .cb-open-label{fill:var(--muted);font-family:var(--mono);font-size:9px;font-weight:600}
 .chord-box .cb-mute{fill:var(--muted);font-family:var(--mono);font-size:13px}
 .chord-box .cb-pos{fill:var(--muted);font-family:var(--mono);font-size:11px}
 .chord-box .cb-strname{fill:var(--muted);font-family:var(--mono);font-size:9px}

@@ -21,6 +21,7 @@ import { store } from './store.js';
 import { escHtml } from './util.js';
 import { getVoicing, parseChordName, withQuality, QUALITY_LABELS } from './chordbook.js';
 import { makeLooper } from './loopscheduler.js';
+import { fretLabel, chordLabel, showingNotes, noteAt } from './labels.js';
 
 /* ---- scales & constants ---------------------------------- */
 const MAJOR = [0, 2, 4, 5, 7, 9, 11];
@@ -33,10 +34,27 @@ const STRING_LABELS = ['E', 'A', 'D', 'G', 'B', 'e']; // low -> high
    replay), the index of the progression that's playing, and which
    progressions have their per-row loop toggle switched on. */
 let currentProgs = [];
+let currentKey = 'C';              // key the on-screen progressions are in
 let lastVoiceFreqs = null;
 let lastShownName = null;         // chord currently in the fingering viewport
+let lastShownIdx = null;          // [progIdx, chordIdx] of the selected chip
 let activeProgIdx = -1;
 const progLoop = {};               // progression index -> loop on?
+let lastDetect = null;             // last detectChordAndKey() result, for re-labelling
+
+/* Paint the detected-chord line. Split out so the notation toggles can
+   re-label it (the chord symbol follows the names/degrees switch). */
+function updateDetectReadout(){
+  const detect = document.getElementById('fret-detect');
+  if (!detect) return;
+  if (!lastDetect){ detect.innerHTML = ''; return; }
+  const info = lastDetect;
+  const keyName = pcToName(info.keyPc) + (info.isMinor ? ' minor' : ' major');
+  detect.innerHTML =
+    `<span class="fret-chip-name" title="${escHtml(info.symbol)}">${escHtml(chordLabel(info.symbol, currentKey))}</span>` +
+    `<span class="fret-detect-key">key of ${escHtml(keyName)}</span>` +
+    `<span class="fret-detect-notes">${info.noteNames.map(escHtml).join(' ')}</span>`;
+}
 
 /* ---- fret reading ---------------------------------------- */
 /* Read the six inputs into { midis:[], tokens:[] }.
@@ -212,6 +230,7 @@ function buildProgression(tpl, keyPc, keyMinor, source){
   return {
     label: tpl.label,
     source,
+    key: pcToName(keyPc) + (keyMinor ? 'm' : ''),   // for degree labelling
     romans: chords.map(c => c.roman).join('–'),
     chords,
   };
@@ -258,6 +277,7 @@ export function updateFretChords(){
   const { midis } = readFrets();
   if (!midis.length){
     currentProgs = [];
+    lastDetect = null;
     if (detect) detect.innerHTML = '';
     out.className = 'tab-output placeholder';
     out.innerHTML = 'Enter fret numbers above (use <code>x</code> for muted strings). Progressions appear as you type.';
@@ -277,16 +297,22 @@ export function updateFretChords(){
   for (const k in progLoop) delete progLoop[k];  // reset loop toggles
 
   // Header readout: detected chord + inferred key + entered notes.
-  const keyName = pcToName(info.keyPc) + (info.isMinor ? ' minor' : ' major');
-  if (detect){
-    detect.innerHTML =
-      `<span class="fret-chip-name">${escHtml(info.symbol)}</span>` +
-      `<span class="fret-detect-key">key of ${escHtml(keyName)}</span>` +
-      `<span class="fret-detect-notes">${info.noteNames.map(escHtml).join(' ')}</span>`;
-  }
+  lastDetect = info;
+  currentKey = pcToName(info.keyPc) + (info.isMinor ? 'm' : '');
+  updateDetectReadout();
 
-  out.className = 'tab-output has-content';
-  out.innerHTML = progs.map((p, i) => `
+  renderProgs();
+  clearDiagram();
+}
+
+/* Paint currentProgs into #fret-output. Split out of updateFretChords so the
+   notation toggles can re-label the chips without recomputing progressions
+   (which would stop playback and reset the loop switches). */
+function renderProgs(){
+  const out = document.getElementById('fret-output');
+  if (!out) return;
+  out.className = currentProgs.length ? 'tab-output has-content' : 'tab-output placeholder';
+  out.innerHTML = currentProgs.map((p, i) => `
     <div class="fret-prog">
       <div class="fret-prog-head">
         <button class="pb-btn fret-play" onclick="fretToggleProg(${i})" id="fret-play-${i}">▶ play</button>
@@ -297,12 +323,34 @@ export function updateFretChords(){
       </div>
       <div class="fret-prog-chords">
         ${p.chords.map((c, j) =>
-          `<button class="fret-chord" onclick="fretShowChord(${i},${j})">${escHtml(c.name)}</button>`
+          `<button class="fret-chord" onclick="fretShowChord(${i},${j})" title="${escHtml(c.name)}">` +
+          `${escHtml(chordLabel(c.name, p.key || currentKey))}</button>`
         ).join('')}
       </div>
     </div>`).join('');
+  restoreProgButtonState();
+  markSelectedChip();
+}
 
-  clearDiagram();
+/* Re-apply loop / playing state to freshly-rendered buttons. */
+function restoreProgButtonState(){
+  currentProgs.forEach((_, i) => {
+    const lb = document.getElementById('fret-loop-' + i);
+    if (lb){ lb.classList.toggle('looping', !!progLoop[i]); lb.setAttribute('aria-pressed', String(!!progLoop[i])); }
+  });
+  if (activeProgIdx >= 0 && fretLooper && fretLooper.playing){
+    const btn = document.getElementById('fret-play-' + activeProgIdx);
+    if (btn){ btn.classList.add('playing'); btn.textContent = '■ stop'; }
+  }
+}
+
+/* Re-label everything on screen after a notation toggle: the chord chips,
+   the fingering diagram, and the detected-chord readout. Cheap and
+   non-destructive — no regeneration, no playback interruption. */
+export function refreshFretLabels(){
+  if (currentProgs.length) renderProgs();
+  if (lastShownName) renderDiagram(lastShownName);
+  updateDetectReadout();
 }
 
 /* ---- chord-fingering viewport ---------------------------- */
@@ -344,13 +392,16 @@ export function chordDiagramSVG(frets){
     if (v === null){
       svg += `<text x="${x}" y="${y0 - 12}" class="cb-mute" text-anchor="middle">×</text>`;
     } else if (v === 0){
-      svg += `<circle cx="${x}" cy="${y0 - 16}" r="5" class="cb-open"/>`;
+      svg += showingNotes()
+        ? `<text x="${x}" y="${y0 - 11}" class="cb-open-label" text-anchor="middle">${noteAt(s, 0)}</text>`
+        : `<circle cx="${x}" cy="${y0 - 16}" r="5" class="cb-open"/>`;
     } else {
       const pos = v - startFret + 1;
       if (pos >= 1 && pos <= NUM){
         const y = y0 + (pos - 0.5) * dy;
-        svg += `<circle cx="${x}" cy="${y}" r="8" class="cb-dot"/>`;
-        svg += `<text x="${x}" y="${y + 4}" class="cb-dot-label" text-anchor="middle">${v}</text>`;
+        const label = fretLabel(s, v);
+        svg += `<circle cx="${x}" cy="${y}" r="${label.length > 1 ? 9.5 : 8}" class="cb-dot"/>`;
+        svg += `<text x="${x}" y="${y + 4}" class="cb-dot-label" text-anchor="middle">${label}</text>`;
       }
     }
     svg += `<text x="${x}" y="${y0 + NUM * dy + 16}" class="cb-strname" text-anchor="middle">${STRING_LABELS[s]}</text>`;
@@ -364,6 +415,7 @@ function clearDiagram(){
   if (!el) return;
   lastVoiceFreqs = null;
   lastShownName = null;
+  lastShownIdx = null;
   el.className = 'fret-diagram-wrap empty';
   el.innerHTML = '<span class="fret-diagram-hint">Click any chord above to see its fingering.</span>';
 }
@@ -389,7 +441,8 @@ function renderDiagram(name){
     `<div class="fret-diagram-card">
        ${chordDiagramSVG(frets)}
        <div class="fret-diagram-meta">
-         <div class="fret-diagram-name">${escHtml(name)}</div>
+         <div class="fret-diagram-name" title="${escHtml(name)}">${escHtml(chordLabel(name, currentKey))}</div>
+         ${chordLabel(name, currentKey) === name ? '' : `<div class="fret-diagram-alt">${escHtml(name)}</div>`}
          <div class="fret-diagram-notes">${escHtml(v ? v.notes : '')}</div>
          <div class="fret-diagram-style">${escHtml(v ? (v.style + ' voicing') : 'no voicing found')}</div>
          <label class="fret-diagram-quality-label">chord type
@@ -422,13 +475,19 @@ export function fretShowChord(progIdx, chordIdx){
   const c = currentProgs[progIdx] && currentProgs[progIdx].chords[chordIdx];
   if (!c) return;
   const v = renderDiagram(c.name);
+  lastShownIdx = [progIdx, chordIdx];
   playChordNow((v && lastVoiceFreqs) ? lastVoiceFreqs : c.freqs);
+  markSelectedChip();
+}
+
+/* Re-apply the .selected highlight after the chips are re-rendered. */
+function markSelectedChip(){
   document.querySelectorAll('.fret-chord.selected').forEach(e => e.classList.remove('selected'));
-  const row = document.querySelectorAll('.fret-prog')[progIdx];
-  if (row){
-    const chip = row.querySelectorAll('.fret-chord')[chordIdx];
-    if (chip) chip.classList.add('selected');
-  }
+  if (!lastShownIdx) return;
+  const row = document.querySelectorAll('.fret-prog')[lastShownIdx[0]];
+  if (!row) return;
+  const chip = row.querySelectorAll('.fret-chord')[lastShownIdx[1]];
+  if (chip) chip.classList.add('selected');
 }
 
 /* ---- playback (shared loop engine) ----------------------- */
