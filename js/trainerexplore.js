@@ -27,7 +27,7 @@ import { playChordNow, playNote, getCtx } from './audio.js';
 import { makeLooper } from './loopscheduler.js';
 import { escHtml } from './util.js';
 import {
-  KEYS, romansFor, keyLabel, MV_QUALS, MV_SUFFIX, MV_QUAL_LABEL,
+  KEYS, ALL_KEYS, isKey, romansFor, keyLabel, MV_QUALS, MV_SUFFIX, MV_QUAL_LABEL,
   SC_CENTERS, PROG_TEMPLATES, scaleNotesWindow
 } from './theorydata.js';
 import { syncKey } from './keysync.js';
@@ -146,8 +146,8 @@ export function redrawExploreDiagrams(){
 /* ---- controls markup ----------------------------------------- */
 function keySelectHTML(){
   return `<label class="trainer-ex-ctl">key
-      <select class="tab-style-select" onchange="exploreSetKey(this.value)">
-        ${KEYS.map(k => `<option value="${k}"${k === exKey ? ' selected' : ''}>${escHtml(keyLabel(k))}</option>`).join('')}
+      <select class="tab-style-select" data-keypick aria-label="Explore key" onchange="exploreSetKey(this.value)">
+        ${ALL_KEYS.map(k => `<option value="${k}"${k === exKey ? ' selected' : ''}>${escHtml(keyLabel(k))}</option>`).join('')}
       </select></label>`;
 }
 function progChords(){
@@ -257,7 +257,7 @@ export function exploreSetKey(v){
 
 /* Key change without echoing back to keysync (used BY keysync). */
 export function setExploreKey(v){
-  if (!KEYS.includes(v) || v === exKey) return;
+  if (!isKey(v) || v === exKey) return;
   exKey = v;
   /* degree chips and progression templates depend on the key's mode */
   if ($('trainer-explore-readout')){

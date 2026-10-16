@@ -111,3 +111,19 @@
 .pstep-btns{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
 .practice-foot{margin-top:14px;margin-bottom:0}
 @media (max-width:640px){ .pstep-btns{grid-column:2;justify-content:flex-start} .practice-stat{margin-left:0;flex-basis:100%} }
+
+/* ---- sidebar: Shape trainer card (trainernav.js) ----------------------- */
+.rail-trainer-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.rail-trainer-head .section-label{margin-bottom:10px}
+.rail-trainer-stat{font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap}
+.rail-trainer-stat.has-due{color:var(--amber)}
+.rail-trainer-btns{display:flex;flex-wrap:wrap;gap:6px}
+.rail-tbtn{flex:1 1 auto;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 10px;border-radius:8px;
+  border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:var(--mono);font-size:11px;cursor:pointer;
+  transition:border-color .15s,background .15s}
+.rail-tbtn:hover{border-color:var(--accent2);background:var(--surface3)}
+.rail-tbtn.primary{flex-basis:100%;background:var(--accent2);border-color:var(--accent2);color:#fff}
+.rail-tbtn.primary:hover{background:var(--accent)}
+.rail-tbtn.here{box-shadow:inset 0 0 0 1px var(--accent)}
+.rail-tbtn.primary.here{box-shadow:0 0 0 2px var(--accent-glow)}
+.rail-tcount{font-size:10px;padding:0 6px;border-radius:9px;background:var(--surface3);color:var(--accent)}

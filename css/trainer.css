@@ -206,3 +206,205 @@
   .cm-switch-btn{flex:1;padding:7px 6px}
   .cm-triad{font-size:15px}
 }
+
+/* ---- color map v2: edit mode, in-between roots, key labels -------------- */
+.trainer-mode-link{border-style:dashed;color:var(--amber)}
+.palette-key-label{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.cm-edit-toggle.on{background:rgba(255,203,107,0.12);border-color:rgba(255,203,107,0.5);color:var(--amber)}
+.cm-edit-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 10px;padding:8px 10px;
+  border:1px dashed var(--accent2);border-radius:8px;font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--accent-glow)}
+.cm-edit-bar strong{color:var(--accent)}
+.cm-err{margin:0 0 8px}
+.cm-col.cm-edited{box-shadow:inset 0 0 0 1px rgba(255,203,107,0.25)}
+.cm-col.drop-target{border-color:var(--accent2);background:var(--accent-glow)}
+.cm-col-empty{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;padding:6px 0}
+.cm-chip.cm-editing{cursor:default;padding:3px 4px;gap:4px;flex-wrap:nowrap}
+.cm-grip{cursor:grab;color:var(--muted);font-size:12px;padding:0 2px;user-select:none}
+.cm-grip:active{cursor:grabbing}
+.cm-name-input{flex:1;min-width:0;width:100%;background:transparent;border:1px solid transparent;border-radius:5px;padding:3px 4px;
+  font-family:var(--mono);font-size:12px;color:var(--accent)}
+.cm-name-input:hover{border-color:var(--border2)}
+.cm-name-input:focus{outline:none;border-color:var(--accent2);background:var(--surface3)}
+.cm-chip.cm-editing .cm-out{flex:none}
+.cm-mini{flex:none;border:none;background:none;color:var(--muted);font-size:11px;width:20px;height:20px;border-radius:5px;cursor:pointer;line-height:1}
+.cm-mini:hover{color:var(--text);background:var(--surface3)}
+.cm-del:hover{color:var(--coral)}
+.cm-add-row{margin-bottom:2px}
+.cm-add-input{width:100%;box-sizing:border-box;padding:5px 7px;border-radius:7px;border:1px dashed var(--border2);background:var(--surface);
+  font-family:var(--mono);font-size:11px;color:var(--text)}
+.cm-add-input:focus{outline:none;border-color:var(--accent2);border-style:solid}
+.cm-note-anchor{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;border-radius:7px;
+  border:1px dashed rgba(255,203,107,0.45);background:rgba(255,203,107,0.05)}
+.cm-note-name{font-family:var(--display);font-size:18px;font-weight:700;color:var(--amber)}
+.cm-between{font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center}
+.cm-grid{grid-template-columns:repeat(var(--cols,7),minmax(104px,1fr))}
+.cm-is-editing{grid-template-columns:repeat(var(--cols,7),minmax(132px,1fr))}
+.cm-chromatic .cm-roman{color:var(--amber)}
+
+/* ---- dynamic fret position ---------------------------------------------- */
+.trainer-pos{display:flex;flex-direction:column;gap:3px;width:100%}
+.trainer-pos-row{display:flex;align-items:center;gap:4px}
+.trainer-pos-step{padding:3px 6px;flex:none}
+.trainer-pos-slider{flex:1;min-width:60px;accent-color:var(--accent2);cursor:pointer}
+.trainer-pos-meta{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.trainer-pos-readout{font-family:var(--mono);font-size:9px;letter-spacing:0.03em;color:var(--muted)}
+.trainer-pos-meta .card-action-btn:disabled{opacity:0.4;cursor:default}
+@media (max-width:560px){ .cm-is-editing{grid-template-columns:repeat(var(--cols,7),minmax(140px,1fr))} }
+.trainer-pos{padding:5px 6px;border:1px solid var(--border2);border-radius:8px;background:var(--surface2)}
+.trainer-pos-label{font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
+.trainer-pos-readout{color:var(--accent)}
+.trainer-pos-step{font-size:14px;line-height:1;padding:2px 7px}
+.trainer-pos-auto{flex:none;font-size:10px;padding:3px 6px}
+.trainer-pos.is-auto .trainer-pos-auto{color:var(--green);border-color:rgba(111,255,196,0.35);opacity:1}
+.trainer-pos-row{gap:3px}
+.trainer-pos-slider{min-width:0}
+.trainer-pos-readout{font-size:10px;text-align:center}
+/* edit-mode chips: name row first, outside-note badge wraps underneath */
+.cm-chip.cm-editing{flex-wrap:wrap}
+.cm-chip.cm-editing .cm-grip{order:0}
+.cm-chip.cm-editing .cm-name-input{order:1;flex:1 1 60px}
+.cm-chip.cm-editing .cm-mini{order:2}
+.cm-chip.cm-editing .cm-out{order:3;margin:0 0 2px 20px}
+
+/* ---- melody lens (colormap.js + melody.js) ------------------------------ */
+.cm-melody{display:flex;flex-direction:column;gap:6px;margin:0 0 10px;padding:8px 10px;border:1px solid var(--border2);border-radius:10px;background:var(--surface2)}
+.cm-mrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cm-mel-label{font-family:var(--mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted)}
+.cm-mel-input{flex:1 1 220px;min-width:0;height:34px;padding:0 10px;border-radius:8px;border:1px solid var(--border2);background:var(--surface);
+  color:var(--text);font-family:var(--mono);font-size:13px;letter-spacing:0.02em}
+.cm-mel-input:focus{outline:none;border-color:var(--accent2)}
+.cm-mel-readout{display:flex;flex-direction:column;gap:5px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.cm-mel-readout code{color:var(--accent);background:var(--surface3);padding:0 4px;border-radius:4px}
+.cm-mline{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cm-mline:empty{display:none}
+.cm-mnote{padding:2px 7px;border-radius:6px;border:1px solid var(--border2);color:var(--text);background:var(--surface)}
+.cm-mnote.out{color:var(--amber);border-color:rgba(255,203,107,0.45)}
+.cm-mbad{color:var(--coral)}
+.cm-mstat.ok{color:var(--green)}
+.cm-mstat.warn{color:var(--amber)}
+.cm-mstat+.cm-mstat::before{content:'·';margin-right:6px;color:var(--muted)}
+.cm-mkeys{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+.cm-mk-label{margin-right:2px}
+.cm-mkey{border:1px solid var(--border2);border-radius:6px;font-size:11px;padding:4px 8px}
+.cm-mkey+.cm-mkey{border-left:1px solid var(--border2)}
+/* chip fit levels */
+.cm-fitb{flex:none;font-size:9px;border-radius:4px;padding:0 4px;line-height:14px;color:var(--muted);border:1px solid var(--border2)}
+.cm-fitb.clash{color:var(--coral);border-color:rgba(255,124,124,0.45)}
+.cm-chip.cm-fit-3{border-color:var(--green);background:rgba(111,255,196,0.08)}
+.cm-chip.cm-fit-3 .cm-fitb{color:var(--green);border-color:rgba(111,255,196,0.5)}
+.cm-chip.cm-fit-2{border-color:rgba(124,212,255,0.55)}
+.cm-chip.cm-fit-2 .cm-fitb{color:var(--blue);border-color:rgba(124,212,255,0.45)}
+.cm-chip.cm-fit-0{opacity:0.4}
+.cm-chip.cm-clash{opacity:0.5}
+.cm-chip.cm-fit-0:hover,.cm-chip.cm-clash:hover{opacity:1}
+.cm-chip.cm-best{box-shadow:0 0 0 2px rgba(111,255,196,0.35),0 0 14px rgba(111,255,196,0.18)}
+.cm-chip.cm-best .cm-fitb{color:#0a0a0f;background:var(--green);border-color:var(--green)}
+.cm-spell .cm-mhit{color:var(--green);font-weight:600}
+.cm-note-anchor.cm-hit{border-style:solid;border-color:var(--green);background:rgba(111,255,196,0.08)}
+.cm-key-label{flex-wrap:wrap;max-width:100%}
+
+/* ---- 05 — Shape Trainer tab (trainernav.js) ---------------------------- */
+.trainer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;
+  padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface2)}
+.trainer-subtabs{display:inline-flex;gap:4px;padding:3px;border:1px solid var(--border2);border-radius:10px;background:var(--surface)}
+.trainer-subtab{border:none;background:none;color:var(--muted);font-family:var(--mono);font-size:12px;padding:8px 16px;border-radius:7px;cursor:pointer;
+  transition:background .15s,color .15s}
+.trainer-subtab:hover{color:var(--text)}
+.trainer-subtab.active{background:var(--accent2);color:#fff}
+.trainer-subtab:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.trainer-panel{display:flex;flex-direction:column;gap:10px}
+/* which pieces each sub-tab shows */
+.trainer-panel[data-sub="drills"] #colormap-host{display:none}
+.trainer-panel[data-sub="chords"] .trainer-intro,
+.trainer-panel[data-sub="chords"] .trainer-mode-row,
+.trainer-panel[data-sub="chords"] .trainer-stats-row label{display:none}
+.trainer-panel[data-sub="colormap"] .trainer-intro,
+.trainer-panel[data-sub="colormap"] .trainer-mode-row,
+.trainer-panel[data-sub="colormap"] .trainer-stats-row,
+.trainer-panel[data-sub="colormap"] #trainer-card{display:none}
+.trainer-panel[data-sub="colormap"] .colormap{margin-top:0;padding-top:0;border-top:none}
+.trainer-panel[data-sub="chords"] #colormap-host{margin-top:4px}
+@media (max-width:560px){
+  .trainer-subtabs{display:flex;width:100%}
+  .trainer-subtab{flex:1;padding:8px 6px}
+}
+
+/* ---- color map session: inline reference clip + melody ------------------ */
+.cm-session{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:10px;align-items:start;margin:0 0 10px}
+.cm-session .cm-melody{margin:0}
+.cm-clip{display:flex;flex-direction:column;gap:6px;padding:8px 10px;border:1px solid var(--border2);border-radius:10px;background:var(--surface2);min-width:0}
+.cm-clip-select{flex:1 1 auto;min-width:0;height:32px}
+.cm-clip-url{height:30px;font-size:11px}
+.cm-clip-frame{position:relative;width:100%;border-radius:8px;overflow:hidden;background:#000;border:1px solid var(--border)}
+.cm-clip-frame[data-aspect="none"]{background:var(--surface);border-style:dashed}
+.cm-clip-frame[data-aspect="landscape"]{aspect-ratio:16/9}
+.cm-clip-frame[data-aspect="portrait"]{aspect-ratio:9/16;max-height:440px;width:auto;margin:0 auto;max-width:100%}
+.cm-clip-frame[data-aspect="card"]{height:380px}
+.cm-clip-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+.cm-clip-frame[data-aspect="card"] iframe{background:var(--surface2)}
+.cm-clip-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;
+  padding:16px 12px;font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.6;min-height:90px}
+.cm-clip-frame:not([data-aspect="none"]) .cm-clip-empty{position:absolute;inset:0}
+.cm-clip-tags{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-family:var(--mono);font-size:10px}
+.cm-clip-tags:empty{display:none}
+.cm-clip-tags .pb-btn{font-size:10px;padding:4px 8px}
+.cm-clip-plat{font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border2);border-radius:4px;padding:1px 5px}
+.cm-clip-err{font-family:var(--mono);font-size:10px;color:var(--amber);min-height:0}
+.cm-clip-err:empty{display:none}
+@media (max-width:900px){ .cm-session{grid-template-columns:1fr} }
+
+/* ---- harmony row (melody → a chord per bar) ---------------------------- */
+.cm-harmony{display:flex;flex-direction:column;gap:6px;margin-top:4px;padding-top:8px;border-top:1px dashed var(--border2)}
+.cm-barsize-label{display:inline-flex;align-items:center;gap:6px}
+.cm-barsize{height:28px;font-size:11px}
+.cm-hint-inline{margin:0;font-size:10px}
+.cm-hbars{display:flex;gap:6px;flex-wrap:wrap}
+.cm-hbar{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:74px;padding:6px 6px 5px;border:1px solid var(--border2);
+  border-radius:8px;background:var(--surface);position:relative}
+.cm-hnum{position:absolute;top:2px;left:5px;font-size:8px;color:var(--muted)}
+.cm-hchord{border:1px solid var(--border2);background:var(--surface2);color:var(--accent);font-family:var(--mono);font-size:13px;
+  padding:4px 10px;border-radius:7px;cursor:pointer;margin-top:6px}
+.cm-hchord.cm-fit-3{border-color:var(--green);color:var(--green)}
+.cm-hchord.cm-fit-2{border-color:rgba(124,212,255,0.6)}
+.cm-hchord.outside{border-style:dashed;color:var(--amber);border-color:rgba(255,203,107,0.55)}
+.cm-hcycle{position:absolute;top:1px;right:2px}
+.cm-hnotes{font-size:9px;color:var(--muted);text-align:center;max-width:110px}
+/* ---- melody on the neck -------------------------------------------------- */
+.cm-neck{margin-top:4px;padding-top:6px;border-top:1px dashed var(--border2)}
+.cm-neck>summary{cursor:pointer;list-style:none}
+.cm-neck>summary::-webkit-details-marker{display:none}
+.cm-neck>summary .cm-mk-label::before{content:'▸ '}
+.cm-neck[open]>summary .cm-mk-label::before{content:'▾ '}
+.cm-neck-tools{margin:4px 0}
+.cm-neck-svg{overflow-x:auto;padding-bottom:2px}
+.mn-svg{display:block;max-width:none}
+.mn-svg .mn-fret{stroke:var(--border2);stroke-width:1}
+.mn-svg .mn-fret.nut{stroke:var(--text);stroke-width:3}
+.mn-svg .mn-string{stroke:var(--muted);stroke-width:1;opacity:0.7}
+.mn-svg .mn-slabel,.mn-svg .mn-fnum{fill:var(--muted);font-family:var(--mono);font-size:9px;text-anchor:middle}
+.mn-svg .mn-inlay{fill:var(--border2)}
+.mn-svg .mn-scale{fill:none;stroke:var(--muted);stroke-width:1;opacity:0.55}
+.mn-svg .mn-scale.root{stroke:var(--accent);stroke-width:1.6;opacity:0.9}
+.mn-svg .mn-path{fill:none;stroke:var(--accent2);stroke-width:1.5;opacity:0.55;stroke-dasharray:3 3}
+.mn-svg .mn-note circle,.mn-svg .mn-note rect{fill:var(--accent2);stroke:var(--bg);stroke-width:1.5}
+.mn-svg .mn-note.root circle,.mn-svg .mn-note.root rect{fill:var(--green)}
+.mn-svg .mn-note.out circle,.mn-svg .mn-note.out rect{fill:var(--amber)}
+.mn-svg .mn-note text{fill:#fff;font-family:var(--mono);font-size:9px;font-weight:700;text-anchor:middle}
+.mn-svg .mn-note.root text,.mn-svg .mn-note.out text{fill:#0a0a0f}
+/* ---- clip A–B loop + speed ------------------------------------------------ */
+.cm-clip-loop{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.cm-clip-loop:empty{display:none}
+.cm-time-l{display:inline-flex;align-items:center;gap:4px}
+.cm-time{width:52px;height:26px;padding:0 6px;border-radius:6px;border:1px solid var(--border2);background:var(--surface);color:var(--text);
+  font-family:var(--mono);font-size:11px}
+.cm-time.bad{border-color:var(--coral)}
+.cm-rate{height:26px;font-size:11px}
+.cm-loop-toggle.on{background:rgba(111,255,196,0.12);border-color:var(--green);color:var(--green)}
+#cm-loop-now{min-width:36px}
+/* ---- edit export / import ------------------------------------------------ */
+.cm-edit-io{display:inline-flex;gap:6px;flex-wrap:wrap}
+.cm-import{cursor:pointer}
+/* ---- sync (clips between devices) — shared with the dock ----------------- */
+.cm-sync{font-family:var(--mono);font-size:11px}
+.cm-sync>summary{cursor:pointer;color:var(--muted);font-size:10px;letter-spacing:0.04em}
+.cm-sync>summary:hover{color:var(--text)}

@@ -30,12 +30,52 @@ export function keyInfo(key){
   return { rootPc: nameToPc(m[1]), mode: m[2] === 'm' ? 'minor' : 'major', rootName: m[1] };
 }
 
+/* Sharp or flat spelling for a key: a key spelled with ♭ (Bb, Ebm) or
+   one of the natural-root flat keys (F major; D/G/C/F minor) uses flats,
+   everything else sharps. Not full letter-correct spelling (no Cb/E#),
+   just "never A# in B♭". */
+const FLAT_NAMES = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+export function prefersFlats(key){
+  const { rootName, mode } = keyInfo(key);
+  if (rootName.includes('b')) return true;
+  if (rootName.includes('#')) return false;
+  return mode === 'major' ? rootName === 'F' : ['D', 'G', 'C', 'F'].includes(rootName);
+}
+/* Letter-correct names for the key's seven scale notes: each degree gets
+   the next letter, so G♭ major spells C♭ (not B) and F♯ major spells E♯
+   (not F). Double sharps / flats fall back to the simple spelling. */
+const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+const LETTER_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const spellCache = new Map();
+export function scaleSpelling(key){
+  if (spellCache.has(key)) return spellCache.get(key);
+  const { rootName, rootPc, mode } = keyInfo(key);
+  const L = LETTERS.indexOf(rootName[0]);
+  const map = new Map();
+  SCALE_STEPS[mode].forEach((st, i) => {
+    const pc = (rootPc + st) % 12;
+    const letter = LETTERS[(L + i) % 7];
+    let d = ((pc - LETTER_PC[letter]) % 12 + 12) % 12;
+    if (d > 6) d -= 12;
+    const acc = d === 0 ? '' : d === 1 ? '#' : d === -1 ? 'b' : null;
+    if (acc !== null) map.set(pc, letter + acc);
+  });
+  spellCache.set(key, map);
+  return map;
+}
+export function spellPc(pc, key){
+  const i = ((pc % 12) + 12) % 12;
+  const inScale = scaleSpelling(key).get(i);
+  if (inScale) return inScale;
+  return prefersFlats(key) ? FLAT_NAMES[i] : NOTE_NAMES[i];
+}
+
 /* The 7 diatonic triad names for a key, e.g. Am -> [Am,Bdim,C,Dm,Em,F,G]. */
 export function diatonicChords(key){
-  const { rootPc, mode } = keyInfo(key);
+  const { rootPc, rootName, mode } = keyInfo(key);
   const steps = SCALE_STEPS[mode];
   const quals = DIATONIC_QUALITY[mode];
-  return steps.map((st, i) => pcToName(rootPc + st) + quals[i]);
+  return steps.map((st, i) => (st === 0 ? rootName : spellPc(rootPc + st, key)) + quals[i]);
 }
 
 /* Guess the most likely key (e.g. "G" or "Em") for a short list of

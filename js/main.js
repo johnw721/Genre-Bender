@@ -47,8 +47,11 @@ import {
   trainerFitChordToKey,
   trainerSwitchTrack, trainerNewTrack, trainerRenameTrack, trainerDeleteTrack,
   trainerPlayLick, trainerRerollLick, trainerRedraw, trainerAddPaletteFromFrets,
-  trainerRecolorTrack, trainerColorChord
+  trainerRecolorTrack, trainerColorChord,
+  trainerPreviewCustomChordPosition, trainerStepCustomChordPosition
 } from './trainer.js';
+import { trainerNav, trainerOpenColorMap, trainerOnTab, initTrainerNav } from './trainernav.js';
+import { initShortcuts, toggleShortcutHelp } from './shortcuts.js';
 import { initColorMap } from './colormap.js';
 import {
   palettePlay, paletteRemove, paletteAddByName, paletteFillFromControls, paletteClear
@@ -56,6 +59,7 @@ import {
 import { toggleExplore, exploreOnInnerTab } from './explore.js';
 import { initPersistence } from './persist.js';
 import { initActions, hasAction, actionNames } from './actions.js';
+import { initKeyPickers } from './keypicker.js';
 import { initClips } from './clips.js';
 import { initAnalyze } from './analyze.js';
 import { initGuided, guidedOnTab } from './guided.js';
@@ -100,7 +104,7 @@ Object.assign(window, {
   // generators
   generateGuitar, generatePiano, exportMidi,
   // view switching (inner-tab switches feed explore mode's re-roll)
-  switchTab: (id) => { switchTab(id); guidedOnTab(id); practiceOnTab(id); },
+  switchTab: (id) => { switchTab(id); guidedOnTab(id); practiceOnTab(id); trainerOnTab(id); },
   switchInnerTab: (id, btn) => { switchInnerTab(id, btn); exploreOnInnerTab(id); },
   toggleExplore,
   // shared current key
@@ -136,6 +140,8 @@ Object.assign(window, {
   trainerSwitchTrack, trainerNewTrack, trainerRenameTrack, trainerDeleteTrack,
   trainerPlayLick, trainerRerollLick, trainerAddPaletteFromFrets,
   trainerRecolorTrack, trainerColorChord,
+  trainerPreviewCustomChordPosition, trainerStepCustomChordPosition, trainerOpenColorMap, trainerNav,
+  toggleShortcutHelp,
   // chord table (drag-and-drop palette inside "My chords")
   palettePlay, paletteRemove, paletteAddByName, paletteFillFromControls, paletteClear,
   // trainer explore sandbox
@@ -168,11 +174,14 @@ onLabelsChange(repaintForLabels);
 
 /* Boot */
 initActions();       // data-action delegation must exist before any module registers
+initKeyPickers();    // split every key <select> into letter · accidental · mode (before persistence restores values)
 buildLibrary();
 buildBeatGrid();
 initFretChords();
 initTrainer();
 initColorMap();      // color map handlers (data-action) + follow the app key
+initTrainerNav();    // 05 — Shape Trainer sub-tabs, color map mount, sidebar trainer card
+initShortcuts();     // T / C / M, 1–7, N, Space, H, ? (keyboard)
 syncLabelToggleUI();   // light the toggles to match the saved preference
 initClips();         // reference clips player (restores saved list + dock mode)
 initAnalyze();       // "03 — Analyze Track" (reads the clips list)

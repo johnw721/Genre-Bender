@@ -10,12 +10,35 @@
 import { keyInfo, scalePcs, pentPcs } from './scales.js';
 import { STRING_OPEN_MIDI } from './theory.js';
 
+/* KEYS: the quiz decks' key set (kept small on purpose — SRS card ids
+   depend on it). ALL_KEYS: every key the pickers can choose — all twelve
+   roots in both spellings (C#/Db …), major and minor. */
 export const KEYS = ['C', 'G', 'D', 'A', 'E', 'Am', 'Em', 'Dm', 'Gm', 'Cm'];
+export const KEY_ROOTS_ALL = ['C','C#','Db','D','D#','Eb','E','F','F#','Gb','G','G#','Ab','A','A#','Bb','B'];
+export const ALL_KEYS = [...KEY_ROOTS_ALL, ...KEY_ROOTS_ALL.map(r => r + 'm')];
+export function isKey(k){ return ALL_KEYS.includes(k); }
+
+/* Split a key into the three picker parts, and join them back.
+   Letter + accidental combos that aren't real roots (E#, Fb, B#, Cb)
+   are folded onto their enharmonic natural. */
+export const KEY_LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+export function splitKey(key){
+  const m = String(key || '').match(/^([A-G])([#b]?)(m?)$/);
+  if (!m) return { letter: 'C', acc: '', minor: false };
+  return { letter: m[1], acc: m[2], minor: m[3] === 'm' };
+}
+const ENHARMONIC_FOLD = { 'E#': 'F', 'Fb': 'E', 'B#': 'C', 'Cb': 'B' };
+export function joinKey(letter, acc, minor){
+  let root = (letter || 'C') + (acc || '');
+  root = ENHARMONIC_FOLD[root] || root;
+  return root + (minor ? 'm' : '');
+}
+export function prettyRoot(root){ return String(root).replace('#', '♯').replace(/^([A-G])b/, '$1♭'); }
 
 export const ROMAN_MAJ = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];
 export const ROMAN_MIN = ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII'];
 export function romansFor(key){ return keyInfo(key).mode === 'minor' ? ROMAN_MIN : ROMAN_MAJ; }
-export function keyLabel(key){ const k = keyInfo(key); return `${k.rootName} ${k.mode}`; }
+export function keyLabel(key){ const k = keyInfo(key); return `${prettyRoot(k.rootName)} ${k.mode}`; }
 
 /* Movable barre-shape drill vocabulary. */
 export const MV_QUALS  = ['maj', 'min', 'dom7', 'min7'];

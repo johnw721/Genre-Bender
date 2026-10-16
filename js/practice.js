@@ -28,6 +28,7 @@ import { toggleMetronome, getBPM } from './metronome.js';
 import { getSwing } from './swing.js';
 import { getAppKey } from './keysync.js';
 import { trainerSetMode, trainerToggleView, trainerState } from './trainer.js';
+import { trainerNav } from './trainernav.js';
 import { srsToday, localDay } from './trainersrs.js';
 import { paletteSize } from './chordpalette.js';
 import { registerActions } from './actions.js';
@@ -84,11 +85,8 @@ function state(){
 /* ---- navigation helpers ---- */
 function innerBtn(re){ return [...document.querySelectorAll('.tab-inner-tab')].find(b => re.test(b.textContent)); }
 function goTrainer(mode){
-  switchTab('mixer');
-  switchInnerTab('trainer', innerBtn(/shape trainer/i));
-  if (mode) trainerSetMode(mode);
-  const el = $('inner-trainer');
-  if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (mode === 'custom') trainerNav('chords');
+  else trainerNav('drills', mode || null);
 }
 function goMyChords(){ goTrainer('custom'); }
 function openPlayer(){ switchTab('mixer'); clipsToggleDock(); setTimeout(() => $('clip-url')?.focus(), 80); }

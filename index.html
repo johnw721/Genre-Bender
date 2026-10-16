@@ -95,7 +95,7 @@
         <div class="section-label">Session</div>
         <div class="rail-row">
           <span class="rail-k">key</span>
-          <select class="tab-key-select rail-key" id="rail-key" aria-label="Current key" onchange="syncKey(this.value, this.id)">
+          <select class="tab-key-select rail-key" id="rail-key" data-keypick aria-label="Current key" onchange="syncKey(this.value, this.id)">
             <option value="Am">A minor</option><option value="Em">E minor</option>
             <option value="Dm">D minor</option><option value="Cm">C minor</option>
             <option value="Gm">G minor</option><option value="A">A major</option>
@@ -108,6 +108,18 @@
           <div class="rail-genres" id="rail-genres"><span class="rail-empty">no genres yet</span></div>
         </div>
         <div class="rail-reference" id="rail-reference" style="display:none"></div>
+      </section>
+
+      <section class="rail-card" id="rail-trainer" aria-label="Shape trainer shortcuts">
+        <div class="rail-trainer-head">
+          <div class="section-label">Shape trainer</div>
+          <span class="rail-trainer-stat" id="rail-trainer-stat" aria-live="polite"></span>
+        </div>
+        <div class="rail-trainer-btns">
+          <button type="button" class="rail-tbtn primary" id="rail-trainer-drill" onclick="trainerNav('drills','today')">▶ Drill</button>
+          <button type="button" class="rail-tbtn" id="rail-trainer-chords" onclick="trainerNav('chords')">My chords</button>
+          <button type="button" class="rail-tbtn" id="rail-trainer-map" onclick="trainerNav('colormap')">🎨 Color map</button>
+        </div>
       </section>
 
       <aside class="clip-dock docked" id="clip-dock" role="complementary" aria-label="Reference clips">
@@ -131,7 +143,9 @@
             <div class="section-label">Saved clips</div>
             <button type="button" data-action="clips:export" title="Download the saved list as JSON">export</button>
             <label title="Merge a JSON export into this list">import<input type="file" accept="application/json,.json" style="display:none" data-on-change="clips:import"></label>
+            <button type="button" data-action="clips:synctoggle" title="Sync clips with another device (iPhone ⇄ PC)">⇄ sync</button>
           </div>
+          <div class="clip-sync-dock" id="clip-sync-dock" hidden></div>
           <div class="clip-list" id="clip-list"></div>
         </div>
       </aside>
@@ -143,6 +157,7 @@
     <button class="tab" onclick="switchTab('guided')">02 — Guided Workflow</button>
     <button class="tab" onclick="switchTab('upload')">03 — Analyze Track</button>
       <button class="tab" onclick="switchTab('practice')">04 — Practice</button>
+    <button class="tab" onclick="switchTab('trainer')">05 — Shape Trainer</button>
     <button class="explore-toggle" id="explore-btn" onclick="toggleExplore()" aria-pressed="false"
       title="Explore mode: shuffles genres, tempo, keys and settings everywhere, jumps you somewhere new, and keeps re-rolling each panel you wander into. Never calls the AI — hit Generate when a roll intrigues you.">✦ explore</button>
   </div>
@@ -195,12 +210,11 @@
           <button class="tab-inner-tab" onclick="switchInnerTab('piano',this)">Piano / chord chart</button>
           <button class="tab-inner-tab" onclick="switchInnerTab('composer',this)">Phrase composer</button>
           <button class="tab-inner-tab" onclick="switchInnerTab('frets',this)">Frets → chords</button>
-          <button class="tab-inner-tab" onclick="switchInnerTab('trainer',this)">Shape trainer</button>
         </div>
         <div class="label-toggles" role="group" aria-label="Notation labelling">
-          <button class="label-toggle" type="button" id="label-fret-toggle" onclick="toggleFretLabels()" aria-pressed="false"
+          <button class="label-toggle" type="button" id="label-fret-toggle" data-label-toggle="fret" onclick="toggleFretLabels()" aria-pressed="false"
             title="Fret numbers ⇄ note names. Swaps every fret number for the note it actually sounds — chord boxes, tab, phrases, basslines, trainer fretboards. Playback and MIDI export are unchanged.">#&nbsp;fret numbers</button>
-          <button class="label-toggle" type="button" id="label-chord-toggle" onclick="toggleChordLabels()" aria-pressed="false"
+          <button class="label-toggle" type="button" id="label-chord-toggle" data-label-toggle="chord" onclick="toggleChordLabels()" aria-pressed="false"
             title="Chord names ⇄ scale degrees. Swaps chord labels for their numeral in the current key (Am in C → vi), on AI-generated and hand-entered chords alike.">A&nbsp;chord names</button>
         </div>
       </div>
@@ -209,7 +223,7 @@
         <!-- GUITAR -->
         <div id="inner-guitar" class="inner-panel" style="display:block">
           <div class="tab-generate-row">
-            <select class="tab-key-select" id="guitar-key" aria-label="Guitar key" onchange="syncKey(this.value, this.id)">
+            <select class="tab-key-select" id="guitar-key" data-keypick aria-label="Guitar key" onchange="syncKey(this.value, this.id)">
               <option value="Am">A minor</option><option value="Em">E minor</option>
               <option value="Dm">D minor</option><option value="Cm">C minor</option>
               <option value="Gm">G minor</option><option value="A">A major</option>
@@ -239,7 +253,7 @@
         <!-- PIANO -->
         <div id="inner-piano" class="inner-panel" style="display:none">
           <div class="tab-generate-row">
-            <select class="tab-key-select" id="piano-key" aria-label="Piano key" onchange="syncKey(this.value, this.id)">
+            <select class="tab-key-select" id="piano-key" data-keypick aria-label="Piano key" onchange="syncKey(this.value, this.id)">
               <option value="Am">A minor</option><option value="Em">E minor</option>
               <option value="Dm">D minor</option><option value="Cm">C minor</option>
               <option value="Gm">G minor</option><option value="A">A major</option>
@@ -276,7 +290,7 @@
             progression only.
           </div>
           <div class="tab-generate-row">
-            <select class="tab-key-select" id="composer-key" aria-label="Phrase key" onchange="syncKey(this.value, this.id)">
+            <select class="tab-key-select" id="composer-key" data-keypick aria-label="Phrase key" onchange="syncKey(this.value, this.id)">
               <option value="Am">A minor</option><option value="Em">E minor</option>
               <option value="Dm">D minor</option><option value="Cm">C minor</option>
               <option value="Gm">G minor</option><option value="A">A major</option>
@@ -368,45 +382,6 @@
         </div>
 
         <!-- SHAPE TRAINER -->
-        <div id="inner-trainer" class="inner-panel" style="display:none">
-          <div class="composer-intro">
-            Drills that connect <strong>scale shapes ⇄ chord shapes ⇄ chords ⇄ numbers</strong>.
-            Every fretboard has two independent layers — the scale box and the
-            chord shape — so you can see chords living inside positions.
-            Questions come from the app's own chord and scale books — pure
-            theory, no AI. A spaced-repetition queue (saved in this browser)
-            brings back the cards you miss and retires the ones you know.
-          </div>
-          <div class="tab-generate-row trainer-mode-row" role="group" aria-label="Trainer mode">
-            <button class="fret-chord trainer-mode selected" id="trainer-mode-mixed" onclick="trainerSetMode('mixed')">Mixed (SRS)</button>
-            <button class="fret-chord trainer-mode" id="trainer-mode-sc" onclick="trainerSetMode('sc')">Scale shapes</button>
-            <button class="fret-chord trainer-mode" id="trainer-mode-s2n" onclick="trainerSetMode('s2n')">Shape → Number</button>
-            <button class="fret-chord trainer-mode" id="trainer-mode-n2s" onclick="trainerSetMode('n2s')">Number → Shape</button>
-            <button class="fret-chord trainer-mode" id="trainer-mode-mv" onclick="trainerSetMode('mv')">Moving shapes</button>
-            <button class="fret-chord trainer-mode" id="trainer-mode-prog" onclick="trainerSetMode('prog')">Progression ID</button>
-            <button class="fret-chord trainer-mode" id="trainer-mode-custom" onclick="trainerSetMode('custom')" title="Build your own set of chords and see all their diagrams side by side">My chords</button>
-            <button class="pb-btn trainer-view" id="trainer-view-toggle" type="button" onclick="trainerToggleView()" style="display:none"
-              title="Flip this drill between quiz and a free-exploration sandbox (remembered per drill)">🧭 explore this drill</button>
-          </div>
-          <div class="trainer-stats-row">
-            <span id="trainer-stats" aria-live="polite"></span>
-            <label class="composer-ai-toggle" title="Show/hide chord shapes on the fretboards">
-              <input type="checkbox" id="trainer-layer-chord" checked onchange="trainerToggleLayer('chord', this.checked)">
-              <span>chord layer</span>
-            </label>
-            <label class="composer-ai-toggle" id="trainer-layer-scale-wrap" title="Show/hide scale boxes on the fretboards">
-              <input type="checkbox" id="trainer-layer-scale" checked onchange="trainerToggleLayer('scale', this.checked)">
-              <span>scale layer</span>
-            </label>
-            <button class="pb-btn" id="trainer-reset-btn" type="button" onclick="trainerResetStats()">reset progress</button>
-          </div>
-          <div class="trainer-card">
-            <div id="trainer-question" class="trainer-question"></div>
-            <div id="trainer-answers" class="trainer-answers"></div>
-            <div id="trainer-feedback" class="trainer-feedback" aria-live="polite"></div>
-          </div>
-        </div>
-
       </div>
     </div>
 
@@ -479,9 +454,66 @@
       </div>
     </div>
   </div>
+
+
+
+
+  <!-- SHAPE TRAINER TAB -->
+  <div class="panel" id="panel-trainer">
+    <div class="trainer-head">
+      <div class="trainer-subtabs" role="tablist" aria-label="Shape trainer sections">
+        <button type="button" role="tab" class="trainer-subtab" data-sub="drills" aria-selected="true" onclick="trainerNav('drills')">Drills</button>
+        <button type="button" role="tab" class="trainer-subtab" data-sub="chords" aria-selected="false" onclick="trainerNav('chords')">My chords</button>
+        <button type="button" role="tab" class="trainer-subtab" data-sub="colormap" aria-selected="false" onclick="trainerNav('colormap')">🎨 Color map</button>
+      </div>
+      <div class="label-toggles" role="group" aria-label="Notation labelling">
+        <button class="label-toggle" type="button" data-label-toggle="fret" onclick="toggleFretLabels()" aria-pressed="false"
+          title="Fret numbers ⇄ note names on every fretboard and tab.">#&nbsp;fret numbers</button>
+        <button class="label-toggle" type="button" data-label-toggle="chord" onclick="toggleChordLabels()" aria-pressed="false"
+          title="Chord names ⇄ scale degrees in the current key.">A&nbsp;chord names</button>
+        <button class="label-toggle trainer-kbd" type="button" onclick="toggleShortcutHelp()" title="Keyboard shortcuts (press ?)" aria-label="Keyboard shortcuts">⌨&nbsp;?</button>
+      </div>
+    </div>
+    <div id="inner-trainer" class="trainer-panel" data-sub="drills">
+      <div class="composer-intro trainer-intro">
+        Drills that connect <strong>scale shapes ⇄ chord shapes ⇄ chords ⇄ numbers</strong>.
+        Every fretboard has two independent layers — the scale box and the
+        chord shape — so you can see chords living inside positions.
+        Questions come from the app's own chord and scale books — pure
+        theory, no AI. A spaced-repetition queue (saved in this browser)
+        brings back the cards you miss and retires the ones you know.
+      </div>
+      <div class="tab-generate-row trainer-mode-row" role="group" aria-label="Trainer mode">
+        <button class="fret-chord trainer-mode selected" id="trainer-mode-mixed" onclick="trainerSetMode('mixed')">Mixed (SRS)</button>
+        <button class="fret-chord trainer-mode" id="trainer-mode-sc" onclick="trainerSetMode('sc')">Scale shapes</button>
+        <button class="fret-chord trainer-mode" id="trainer-mode-s2n" onclick="trainerSetMode('s2n')">Shape → Number</button>
+        <button class="fret-chord trainer-mode" id="trainer-mode-n2s" onclick="trainerSetMode('n2s')">Number → Shape</button>
+        <button class="fret-chord trainer-mode" id="trainer-mode-mv" onclick="trainerSetMode('mv')">Moving shapes</button>
+        <button class="fret-chord trainer-mode" id="trainer-mode-prog" onclick="trainerSetMode('prog')">Progression ID</button>
+        <button class="fret-chord trainer-mode" id="trainer-mode-cm" onclick="trainerSetMode('cm')" title="Name the degree + job of chords from your color map">Color map</button>
+        <button class="pb-btn trainer-view" id="trainer-view-toggle" type="button" onclick="trainerToggleView()" style="display:none"
+          title="Flip this drill between quiz and a free-exploration sandbox (remembered per drill)">🧭 explore this drill</button>
+      </div>
+      <div class="trainer-stats-row">
+        <span id="trainer-stats" aria-live="polite"></span>
+        <label class="composer-ai-toggle" title="Show/hide chord shapes on the fretboards">
+          <input type="checkbox" id="trainer-layer-chord" checked onchange="trainerToggleLayer('chord', this.checked)">
+          <span>chord layer</span>
+        </label>
+        <label class="composer-ai-toggle" id="trainer-layer-scale-wrap" title="Show/hide scale boxes on the fretboards">
+          <input type="checkbox" id="trainer-layer-scale" checked onchange="trainerToggleLayer('scale', this.checked)">
+          <span>scale layer</span>
+        </label>
+        <button class="pb-btn" id="trainer-reset-btn" type="button" onclick="trainerResetStats()">reset progress</button>
+      </div>
+      <div class="trainer-card" id="trainer-card">
+        <div id="trainer-question" class="trainer-question"></div>
+        <div id="trainer-answers" class="trainer-answers"></div>
+        <div id="trainer-feedback" class="trainer-feedback" aria-live="polite"></div>
+      </div>
+      <div id="colormap-host" class="colormap-host" aria-label="Color map"></div>
+    </div>
   </div>
-
-
 
     </main>
   </div><!-- end shell -->

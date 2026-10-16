@@ -20,7 +20,7 @@
    ============================================================ */
 import { getVoicing, parseChordName, withQuality } from './chordbook.js';
 import { diatonicChords } from './scales.js';
-import { KEYS, keyLabel } from './theorydata.js';
+import { ALL_KEYS, keyLabel } from './theorydata.js';
 import { layeredFretSVG, windowFor } from './fretdiagram.js';
 import { STRING_OPEN_MIDI, midiToHz } from './theory.js';
 import { playChordNow } from './audio.js';
@@ -290,7 +290,7 @@ export function redrawPalette(){
 /* Whole section. Called from the track view's render. `railKey` seeds
    the fill selector with the session key so "fill key" is one click. */
 export function paletteHTML(railKey){
-  const keyOpts = KEYS.map(k => `<option value="${k}"${k === railKey ? ' selected' : ''}>${escHtml(keyLabel(k))}</option>`).join('');
+  const keyOpts = ALL_KEYS.map(k => `<option value="${k}"${k === railKey ? ' selected' : ''}>${escHtml(keyLabel(k))}</option>`).join('');
   return `
   <div class="palette" id="chord-palette" aria-label="Chord table">
     <div class="palette-head">
@@ -303,7 +303,10 @@ export function paletteHTML(railKey){
         onkeydown="if(event.key==='Enter'){event.preventDefault();paletteAddByName();}">
       <button class="pb-btn" type="button" onclick="paletteAddByName()">+ add</button>
       <span class="palette-sep" aria-hidden="true"></span>
-      <select id="palette-key" class="tab-style-select palette-key" aria-label="Key to fill from">${keyOpts}</select>
+      <label class="palette-key-label">key
+        <select id="palette-key" data-keypick class="tab-style-select palette-key" aria-label="Key — changes the app key; fill buttons use it"
+          onchange="syncKey(this.value,'palette-key')">${keyOpts}</select>
+      </label>
       <button class="pb-btn" type="button" onclick="paletteFillFromControls('triads')" title="Add the key's seven diatonic triads">fill key</button>
       <button class="pb-btn" type="button" onclick="paletteFillFromControls('sevenths')" title="Add the key's seven diatonic seventh chords">fill 7ths</button>
       <span class="palette-sep" aria-hidden="true"></span>

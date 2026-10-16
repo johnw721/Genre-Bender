@@ -6,7 +6,7 @@
    window.Tonal). No DOM, no audio — safe to unit test.
    ============================================================ */
 
-const NOTE_PC = {C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11};
+const NOTE_PC = {C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11,Cb:11,'B#':0,Fb:4,'E#':5};
 
 export function noteToMidi(note){
   const m = String(note).match(/^([A-G]#?b?)(\d)$/);
@@ -85,5 +85,5 @@ export function stringFretToMidi(stringIdx, fret){
 export function pcToName(pc){ return NOTE_NAMES[((pc % 12) + 12) % 12]; }
 
 /* Pitch class for a note name (sharps or flats). */
-const _PC = {C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11};
+const _PC = {C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11,Cb:11,'B#':0,Fb:4,'E#':5};
 export function nameToPc(name){ return _PC[name] ?? 0; }

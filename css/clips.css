@@ -88,3 +88,21 @@
 @media (max-width:600px){
   .clip-dock.floating{right:8px;bottom:8px;width:calc(100vw - 16px);height:70vh}
 }
+
+/* ---- sync between devices (clips.js clipsSyncHTML) ------------------------ */
+.clip-sync{display:flex;flex-direction:column;gap:6px;padding:6px 0}
+.clip-sync-dock{padding:0 10px 8px}
+.clip-sync-help{margin:0;font-size:10px;color:var(--muted);line-height:1.5}
+.clip-sync-row{display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start}
+.clip-sync-paste{flex:1 1 180px;min-width:0;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);
+  font-family:var(--mono);font-size:10px;resize:vertical;outline:none}
+.clip-sync-paste:focus{border-color:var(--accent2)}
+.clip-sync-status{font-size:10px;color:var(--green);min-height:12px}
+.clip-sync-status:empty{display:none}
+.clip-list-head button{border:none;background:none;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:10px}
+.clip-list-head button:hover{color:var(--text)}
+/* toast (sync link arrivals) */
+.gb-toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;pointer-events:none;z-index:60;
+  padding:10px 16px;border-radius:10px;background:var(--surface3);border:1px solid var(--green);color:var(--text);
+  font-family:var(--mono);font-size:12px;box-shadow:0 12px 30px rgba(0,0,0,0.4);transition:opacity .2s,transform .2s;max-width:calc(100vw - 32px)}
+.gb-toast.show{opacity:1;transform:translate(-50%,0)}

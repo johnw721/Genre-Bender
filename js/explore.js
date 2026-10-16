@@ -23,6 +23,7 @@ import { setSwing } from './swing.js';
 import { randomFrets } from './fretchords.js';
 import { trainerSetMode } from './trainer.js';
 import { switchInnerTab } from './ui.js';
+import { getTrainerSub } from './trainernav.js';
 
 const $ = (id) => document.getElementById(id);
 const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -116,13 +117,14 @@ export function exploreOnInnerTab(id){
   if (on) exploreRollPanel(id);
 }
 
-const INNER_TABS = ['guitar', 'piano', 'composer', 'frets', 'trainer'];
+const INNER_TABS = ['guitar', 'piano', 'composer', 'frets'];   // the trainer has its own top tab now
 
 /* The big roll: everything at once, then jump somewhere random. */
 export function exploreShuffle(){
   rollGenres();
   rollTempo();
   INNER_TABS.forEach(exploreRollPanel);
+  if (getTrainerSub() === 'drills') exploreRollPanel('trainer');
   const dest = rand(INNER_TABS);
   const btns = document.querySelectorAll('.tab-inner-tab');
   switchInnerTab(dest, btns[INNER_TABS.indexOf(dest)] || null);

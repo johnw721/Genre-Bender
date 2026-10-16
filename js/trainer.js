@@ -25,13 +25,16 @@ import {
   KEYS, romansFor, keyLabel, MV_QUALS, MV_SUFFIX, MV_QUAL_LABEL,
   SC_CENTERS, PROG_TEMPLATES, scaleNotesWindow
 } from './theorydata.js';
-import { getVoicing, parseChordName, E_SHAPES, A_SHAPES, QUALITY_LABELS, QUALITY_SUFFIX, withQuality } from './chordbook.js';
+import {
+  getVoicing, parseChordName, E_SHAPES, A_SHAPES, QUALITY_LABELS, QUALITY_SUFFIX, withQuality,
+  voicingCandidates, MAX_PLAYABLE_SPAN
+} from './chordbook.js';
 import { layeredFretSVG, windowFor } from './fretdiagram.js';
 import { STRING_OPEN_MIDI, midiToHz, pcToName } from './theory.js';
 import { playChordNow, playNote, playLeadEvent, getCtx } from './audio.js';
 import { makeLooper } from './loopscheduler.js';
 import { escHtml } from './util.js';
-import { srsPick, srsRecord, srsStats, srsResetAll } from './trainersrs.js';
+import { srsPick, srsRecord, srsStats, srsResetAll, srsToday } from './trainersrs.js';
 import { renderExplore, redrawExploreDiagrams, configureExplore } from './trainerexplore.js';
 import { detectChordAndKey } from './fretchords.js';
 import { buildLick } from './phrase.js';
@@ -43,7 +46,7 @@ import {
   getDragPayload, setDragPayload, clearDragPayload, DRAG_MIME
 } from './chordpalette.js';
 import {
-  colorMapHTML, initColorMapDrag, configureColorMap, recolorName, nextColorName,
+  configureColorMap, recolorName, nextColorName, mapColumns, colorVoicing, FN_LABEL,
   degreeOf, pinnedFretsFor, LEVEL_NAMES
 } from './colormap.js';
 import { getAppKey } from './keysync.js';
@@ -79,7 +82,50 @@ function deckFor(mode){
   if (mode === 'sc'){
     return KEYS.flatMap(k => SC_TYPES.flatMap(ty => SC_CENTERS.map(c => `sc|${k}|${c}|${ty}`)));
   }
-  return ['s2n','n2s','mv','prog','sc'].flatMap(deckFor);
+  if (mode === 'cm') return cmDeck();
+  return ['s2n','n2s','mv','prog','sc','cm'].flatMap(deckFor);
+}
+
+/* ---- Color map drill ---------------------------------------------------
+   Cards come from the color map itself (your edits included): in-scale
+   columns (triad + the first two colours) and the out-of-scale roots
+   (first two chords). Question: hear / see the chord in a key, name its
+   degree and job — "Emaj7 in E → I · tonic", "C in E → ♭VI · outside". */
+const CM_VIEWS = ['in', 'out'];
+function cmCards(key, view){
+  return mapColumns(key, view).flatMap(col => {
+    const qs = col.items.filter(i => i.off === 0).slice(0, 2).map(i => i.q);
+    return (view === 'in' ? ['tri', ...qs] : qs).map(q => `cm|${key}|${view}|${col.id}|${q}`);
+  });
+}
+function cmDeck(){ return KEYS.flatMap(k => CM_VIEWS.flatMap(v => cmCards(k, v))); }
+function cmLabel(col){ return `${col.roman} · ${FN_LABEL[col.fn]}${col.chromatic ? ' (outside)' : ''}`; }
+function buildCM(id, key, view, colId, q){
+  const cols = mapColumns(key, view);
+  const col = cols.find(c => c.id === colId) || cols[0];
+  if (!col) return null;
+  const item = q === 'tri' ? null : col.items.find(i => i.off === 0 && i.q === q);
+  const chord = item ? item.name : (col.anchor || (col.items[0] && col.items[0].name));
+  if (!chord) return null;
+  const v = colorVoicing(chord) || getVoicing(chord);
+  const correct = cmLabel(col);
+  const pool = [...new Set(CM_VIEWS.flatMap(vw => mapColumns(key, vw)).map(cmLabel))].filter(l => l !== correct);
+  const options = shuffle([correct, ...shuffle(pool).slice(0, 3)]);
+  const note = item && item.note ? ` <span class="trainer-hint">${escHtml(item.note)}</span>` : '';
+  return {
+    id, kind: 'cm', correctIdx: options.indexOf(correct),
+    playFreqs: v ? v.midis.map(midiToHz) : null,
+    diagrams: [{ chordFrets: v ? v.frets : null, scaleKey: key, scaleType: 'full', revealLabel: chord }],
+    questionHTML: `
+      <div class="trainer-prompt">Key of <strong>${escHtml(keyLabel(key))}</strong> — where does <strong>${escHtml(chord)}</strong> live, and what job does it do?
+        <span class="trainer-hint">From your color map${view === 'out' ? ' · out-of-scale roots included' : ''}.</span>
+      </div>
+      ${DIAGRAMS_DIV}
+      <button class="pb-btn" type="button" onclick="trainerPlay()">▶ hear it</button>`,
+    answersHTML: options.map((n, i) =>
+      `<button class="fret-chord trainer-opt" id="trainer-opt-${i}" onclick="trainerAnswer(${i})">${escHtml(n)}</button>`).join(''),
+    revealHTML: `<strong>${escHtml(chord)}</strong> is <strong>${escHtml(correct)}</strong> in ${escHtml(keyLabel(key))}.${note}`,
+  };
 }
 
 /* ---- module state ----------------------------------------- */
@@ -100,11 +146,11 @@ function loadViewPref(){
 function saveViewPref(){
   saveJSON(VIEW_KEY, viewPref);
 }
-function exploring(){ return mode !== 'mixed' && mode !== 'custom' && viewPref[mode] === 'explore'; }
+function exploring(){ return mode !== 'mixed' && mode !== 'custom' && mode !== 'cm' && viewPref[mode] === 'explore'; }
 function updateViewToggle(){
   const b = $('trainer-view-toggle');
   if (!b) return;
-  b.style.display = (mode === 'mixed' || mode === 'custom') ? 'none' : '';
+  b.style.display = (mode === 'mixed' || mode === 'custom' || mode === 'cm') ? 'none' : '';
   b.classList.toggle('on', exploring());
   b.textContent = exploring() ? '🎓 back to quiz' : '🧭 explore this drill';
 }
@@ -364,15 +410,7 @@ function customControlsHTML(entry, idx, t){
   return `<div class="trainer-custom-controls">
     <select class="card-quality-select" aria-label="Chord type" title="Change chord type"
       onchange="trainerChangeCustomChordQuality(${idx},this.value)">${qualityOptions}</select>
-    <div class="trainer-custom-position">
-      <label>fret position
-        <input type="number" class="card-position-input" min="0" max="20" value="${startFret}"
-          aria-label="Fret position" title="Move this voicing up or down the neck"
-          onchange="trainerSetCustomChordPosition(${idx},this.value)">
-      </label>
-      <button class="card-action-btn" type="button" title="Use the chord book's best-guess position" aria-label="Auto position"
-        onclick="trainerResetCustomChordPosition(${idx})">auto</button>
-    </div>
+    ${positionControlHTML(entry, idx, startFret)}
     <button class="card-action-btn fit-key-btn" type="button" aria-label="Fit neighboring chords to this chord's key"${hasNeighbor
         ? ' title="Nudge the chord before/after this one to fit its key"'
         : ' disabled title="No neighboring chords to fit"'}
@@ -650,11 +688,9 @@ function renderCustomView(){
     <div class="trainer-chips" id="trainer-chips">${customChipsHTML(t)}</div>
     ${customDiagramsHTML(t)}
     ${suggestionHTML(t)}
-    ${colorMapHTML()}
-    ${paletteHTML($('rail-key')?.value || 'C')}`;
+    ${paletteHTML(getAppKey() || $('rail-key')?.value || 'C')}`;
   initTrackDrag(q);
   initPaletteDrag(q);
-  initColorMapDrag(q);
   if (a) a.innerHTML = '';
   if (f){ f.className = 'trainer-feedback'; f.innerHTML = ''; }
   updateStats();
@@ -824,17 +860,122 @@ export function trainerFitChordToKey(idx){
 /* Re-voice a chord at a different neck position — same name, same
    quality, just moved up or down the fretboard. Pins the resulting exact
    shape on the entry (same convention as the "add from frets" input). */
+/* ---- dynamic fret position ------------------------------------------------
+   Every distinct playable shape the chord book knows for a chord (open,
+   E/A barres, compact 4-string sets, root-in-bass shapes), sorted up the
+   neck. The control steps through them (◀ ▶), scrubs with a slider that
+   previews live (diagram + readout, no re-render, so the drag isn't
+   interrupted) and commits + plays on release. */
+const POS_MAX = 15;
+function positionOptions(name){
+  const seen = new Set(), all = [];
+  const push = v => {
+    if (!v || !v.frets) return;
+    const k = JSON.stringify(v.frets);
+    if (seen.has(k)) return;
+    seen.add(k); all.push(v);
+  };
+  voicingCandidates(name).forEach(push);
+  [0, 2, 4, 5, 7, 9, 12].forEach(n => push(getVoicing(name, { near: n, rootBass: true })));
+  const p = parseChordName(name);
+  const ok = all.filter(v => v.span <= MAX_PLAYABLE_SPAN && (!p || v.midis.some(m => m % 12 === p.rootPc)));
+  const list = ok.length ? ok : all;
+  return list.sort((a, b) => startFretOf(a.frets) - startFretOf(b.frets) || a.center - b.center);
+}
+function sameFrets(a, b){ return !!a && !!b && JSON.stringify(a) === JSON.stringify(b); }
+function positionIndex(opts, frets){ return opts.findIndex(o => sameFrets(o.frets, frets)); }
+/* Option whose position (lowest fretted note) is closest to `fret`. */
+function optionNearFret(opts, fret){
+  return opts.reduce((best, o) => {
+    const d = Math.abs(startFretOf(o.frets) - fret), bd = Math.abs(startFretOf(best.frets) - fret);
+    return d < bd || (d === bd && o.span < best.span) ? o : best;
+  }, opts[0]);
+}
+const STYLE_LABEL = { open: 'open', gospel: 'gospel', barre: 'barre', compact: '4-string', generic: 'full' };
+function positionReadout(entry, frets){
+  const opts = positionOptions(entry.name);
+  const i = positionIndex(opts, frets);
+  const f = startFretOf(frets);
+  const where = f === 0 ? 'open' : `fret ${f}`;
+  const which = i >= 0 ? `${i + 1}/${opts.length} ${STYLE_LABEL[opts[i].style] || 'full'}` : `your shape`;
+  return `${where} · ${which}`;
+}
+function positionControlHTML(entry, idx, startFret){
+  const frets = resolvedFretsFor(entry);
+  return `<div class="trainer-pos${entry.frets ? '' : ' is-auto'}" role="group" aria-label="Fret position">
+    <div class="trainer-pos-meta">
+      <span class="trainer-pos-label">position</span>
+      <button class="card-action-btn trainer-pos-auto" type="button" aria-pressed="${!entry.frets}"
+        title="${entry.frets ? 'Go back to the chord book’s best-guess shape' : 'Using the chord book’s best-guess shape'}" aria-label="Auto position"
+        onclick="trainerResetCustomChordPosition(${idx})"${entry.frets ? '' : ' disabled'}>auto</button>
+    </div>
+    <div class="trainer-pos-row">
+      <button class="card-action-btn trainer-pos-step" type="button" aria-label="Previous shape (lower on the neck)" title="Previous shape, lower on the neck"
+        onclick="trainerStepCustomChordPosition(${idx},-1)">‹</button>
+      <input type="range" class="trainer-pos-slider" min="0" max="${POS_MAX}" step="1" value="${Math.min(POS_MAX, startFret)}"
+        aria-label="Fret position" title="Slide to move this chord up or down the neck"
+        oninput="trainerPreviewCustomChordPosition(${idx},this.value)"
+        onchange="trainerSetCustomChordPosition(${idx},this.value)">
+      <button class="card-action-btn trainer-pos-step" type="button" aria-label="Next shape (higher on the neck)" title="Next shape, higher on the neck"
+        onclick="trainerStepCustomChordPosition(${idx},1)">›</button>
+    </div>
+    <div class="trainer-pos-readout" id="trainer-pos-readout-${idx}">${escHtml(positionReadout(entry, frets))}</div>
+  </div>`;
+}
+function playFrets(frets){
+  const f = frets ? fretsToFreqs(frets) : [];
+  if (f.length) playChordNow(f);
+}
+
+/* Live preview while the slider moves: swap just this chord's diagram. */
+export function trainerPreviewCustomChordPosition(idx, rawValue){
+  const t = getActiveTrack();
+  const entry = t && t.chords[idx];
+  if (!entry) return;
+  const opts = positionOptions(entry.name);
+  if (!opts.length) return;
+  const o = optionNearFret(opts, parseInt(rawValue, 10) || 0);
+  const diag = $('trainer-diag-' + idx);
+  if (diag) diag.outerHTML = diagHTML({ chordFrets: o.frets, label: `${idx + 1}. ${entry.name}` }, idx);
+  const ro = $('trainer-pos-readout-' + idx);
+  if (ro) ro.textContent = positionReadout({ ...entry, frets: o.frets }, o.frets);
+}
+
 export function trainerSetCustomChordPosition(idx, rawValue){
   const t = getActiveTrack();
   const entry = t && t.chords[idx];
   if (!entry) return;
-  const near = Math.max(0, Math.min(20, parseInt(rawValue, 10) || 0));
-  const v = getVoicing(entry.name, { near });
-  if (!v) return;
-  entry.frets = v.frets;
+  const opts = positionOptions(entry.name);
+  if (!opts.length) return;
+  const o = optionNearFret(opts, Math.max(0, Math.min(20, parseInt(rawValue, 10) || 0)));
+  entry.frets = [...o.frets];
   saveTracks();
   renderCustomView();
+  playFrets(entry.frets);
 }
+
+/* ◀ ▶: previous / next distinct shape up the neck (wraps around). */
+export function trainerStepCustomChordPosition(idx, dir){
+  const t = getActiveTrack();
+  const entry = t && t.chords[idx];
+  if (!entry) return;
+  const opts = positionOptions(entry.name);
+  if (!opts.length) return;
+  const cur = resolvedFretsFor(entry);
+  let i = positionIndex(opts, cur);
+  if (i < 0){
+    // not one of the book's shapes: step from the nearest one by position
+    const f = startFretOf(cur);
+    i = dir > 0 ? opts.findIndex(o => startFretOf(o.frets) > f) - 1 : opts.findIndex(o => startFretOf(o.frets) >= f);
+    if (i < -1) i = dir > 0 ? opts.length - 1 : 0;
+  }
+  const next = opts[((i + dir) % opts.length + opts.length) % opts.length];
+  entry.frets = [...next.frets];
+  saveTracks();
+  renderCustomView();
+  playFrets(entry.frets);
+}
+
 
 /* Drop the pinned voicing and go back to the chord book's own best guess. */
 export function trainerResetCustomChordPosition(idx){
@@ -1046,6 +1187,7 @@ function buildFromId(id){
   if (p[0] === 'mv')   return buildMV(id, p[1], p[2], +p[3]);
   if (p[0] === 'prog') return buildProg(id, p[1], +p[2]);
   if (p[0] === 'sc')   return buildSC(id, p[1], +p[2], p[3]);
+  if (p[0] === 'cm')   return buildCM(id, p[1], p[2], p[3], p[4]);
   return null;
 }
 
@@ -1200,7 +1342,17 @@ function renderQuestion(){
   updateStats();
 }
 
+/* The sidebar trainer card (trainernav.js) listens here. */
+const statListeners = [];
+export function onTrainerStats(fn){ if (typeof fn === 'function') statListeners.push(fn); }
+function notifyStats(){ statListeners.forEach(fn => { try { fn(); } catch (e) { console.error('trainer stats listener:', e); } }); }
+/* Cards due across every drill deck + today's answered count. */
+export function trainerDueSummary(){
+  const s = srsStats(deckFor('mixed'));
+  return { due: s.due, unseen: s.unseen, mastered: s.mastered, total: s.total, today: srsToday() };
+}
 function updateStats(){
+  notifyStats();
   const el = $('trainer-stats');
   if (!el) return;
   if (mode === 'custom'){
@@ -1395,7 +1547,18 @@ export function initTrainer(){
   loadViewPref();
   loadTracks();
   initPalette();
-  configureColorMap({ add: (name, frets) => { addChordToActiveTrack({ name, frets: frets || null }); renderCustomView(); } });
+  configureColorMap({
+    add: (name, frets) => { addChordToActiveTrack({ name, frets: frets || null }); renderCustomView(); },
+    // melody harmonizer → a fresh track (made active, so My chords opens on it)
+    newTrack: (name, entries) => {
+      const t = makeTrack(name);
+      t.chords = entries.map(e => ({ name: e.name, frets: e.frets || null }));
+      tracks.push(t);
+      activeTrackId = t.id;
+      saveTracks();
+      if (mode === 'custom') renderCustomView(); else updateStats();
+    },
+  });
   configureExplore(() => layers);
   syncLayerCheckboxes();
   updateViewToggle();

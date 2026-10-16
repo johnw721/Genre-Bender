@@ -183,20 +183,19 @@ export function chordLabel(name, key, mode = state.chord){
    boot, so a restored preference lights the right button). */
 export function syncLabelToggleUI(){
   if (typeof document === 'undefined') return;
-  const f = document.getElementById('label-fret-toggle');
-  if (f){
+  // Every copy of each toggle (Mixer header + Shape Trainer header).
+  document.querySelectorAll('#label-fret-toggle, [data-label-toggle="fret"]').forEach(f => {
     const on = state.fret === 'note';
     f.classList.toggle('on', on);
     f.setAttribute('aria-pressed', String(on));
     f.textContent = on ? '♪ note names' : '# fret numbers';
-  }
-  const c = document.getElementById('label-chord-toggle');
-  if (c){
+  });
+  document.querySelectorAll('#label-chord-toggle, [data-label-toggle="chord"]').forEach(c => {
     const on = state.chord === 'degree';
     c.classList.toggle('on', on);
     c.setAttribute('aria-pressed', String(on));
     c.textContent = on ? 'Ⅴ degrees' : 'A chord names';
-  }
+  });
 }
 
 /* ---- ASCII-tab conversion ------------------------------------------------ */

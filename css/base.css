@@ -11,3 +11,29 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 .limit-warn{font-size:11px;color:var(--coral);padding:6px 12px;background:rgba(255,124,124,0.08);border:1px solid rgba(255,124,124,0.2);border-radius:6px;display:none}
 .limit-warn.visible{display:block}
+
+/* ---- split key picker (keypicker.js): letter · accidental · mode ---- */
+select.kp-hidden{display:none !important}
+.keypick{display:inline-flex;align-items:center;gap:4px;flex-wrap:nowrap;vertical-align:middle}
+.keypick .kp-letter{width:auto;min-width:52px;padding-right:22px}
+.kp-group{display:inline-flex;border:1px solid var(--border2);border-radius:7px;overflow:hidden;background:var(--surface)}
+.kp-seg{border:none;background:none;color:var(--muted);font-family:var(--mono);font-size:12px;line-height:1;padding:7px 8px;cursor:pointer;
+  min-width:28px;transition:background .12s,color .12s}
+.kp-seg+.kp-seg{border-left:1px solid var(--border2)}
+.kp-seg:hover{color:var(--text);background:var(--surface3)}
+.kp-seg.on{background:var(--accent2);color:#fff}
+.kp-seg:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.kp-acc{font-size:14px;padding:5px 8px}
+.keypick{flex-wrap:wrap;max-width:100%;row-gap:4px}
+
+/* ---- keyboard shortcuts overlay (shortcuts.js) ---- */
+.gb-shortcuts{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);padding:16px}
+.gb-shortcuts.show{display:flex}
+.gb-sc-card{width:min(440px,100%);background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:16px;box-shadow:0 24px 60px rgba(0,0,0,0.5)}
+.gb-sc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.gb-sc-head .section-label{margin:0}
+.gb-sc-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;color:var(--text)}
+.gb-sc-table td{padding:5px 4px;border-bottom:1px solid var(--border)}
+.gb-sc-table td:first-child{white-space:nowrap;width:1%;padding-right:12px}
+kbd{display:inline-block;padding:2px 7px;border:1px solid var(--border2);border-bottom-width:2px;border-radius:6px;background:var(--surface2);
+  font-family:var(--mono);font-size:11px;color:var(--accent)}

@@ -12,7 +12,9 @@
    ============================================================ */
 import { setExploreKey } from './trainerexplore.js';
 
-const KEY_SELECT_IDS = ['rail-key', 'guitar-key', 'piano-key', 'composer-key'];
+// palette-key (chord table) and colormap-key (color map) live inside the
+// trainer's My chords view, so they're mirrored only while it's on screen.
+const KEY_SELECT_IDS = ['rail-key', 'guitar-key', 'piano-key', 'composer-key', 'palette-key', 'colormap-key'];
 
 let currentKey = null;
 
