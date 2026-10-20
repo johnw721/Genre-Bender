@@ -55,6 +55,12 @@ genre-bender/
     ├── shortcuts.js        # Keyboard shortcuts (T/C/M, 1–7, N, Space, H, ?) + help overlay
     ├── practice.js         # 04 — Practice: three daily plans as live steppers (auto steps read store/clips/trainer/SRS; manual ticks per day)
     ├── trainernav.js       # 05 — Shape Trainer tab: Drills / My chords / Color map sub-tabs + the sidebar trainer card
+    ├── speedtrainer.js     # Practice-tab tempo ramp: loops a progression, +N BPM every M passes to a target; best tempo per source
+    ├── hooktheory.js       # Hooktheory Trends layer (no DOM): auth, cached trends fetch, degree mapping, realism scoring + realismPass, sampled skeletons, smoke test
+    ├── hooktheoryui.js     # Hooktheory connect dialog, header state (incl. expiry), realism-mode selects
+    ├── voicelead.js        # Pure progression math: motion, guitar/piano voice-leading (Viterbi), transpose names/notes/tab, capo suggestion
+    ├── progtools.js        # Tools strip under guitar/piano output: realism badge, motion, smooth, transpose, capo, history + A/B + undo
+    ├── midiin.js           # Web MIDI input: live chord naming (+ degree), sustain pedal, → My chords / chord table, auto-add
     └── main.js             # Entry point: imports modules, bridges handlers to window, boots
 ```
 
@@ -138,6 +144,12 @@ in the feature layer.
 | `analyze.js` | Analyze Track v1 (text-based inference; writes tags back, seeds mixer) | `initAnalyze`, `analyzeClip` |
 | `guided.js` | Guided Workflow stepper (no state of its own; re-renders on tab show, clip changes, light poll) | `initGuided`, `renderGuided`, `guidedOnTab` |
 | `practice.js` | Practice plans A/B/C (`GenreBenderPractice_v1`: chosen plan, per-day manual ticks, completion log → streak); plan B rotates the drill mode by weekday | `initPractice`, `renderPractice`, `practiceOnTab`, `practiceSetPlan`, `todaysMode` |
+| `hooktheory.js` | Optional Hooktheory Trends layer — session-only activkey, 2-chord-context realism scoring (rare floor; unmapped chords skip only their moves), weighted skeleton sampling, realism modes (`score` / `conventional` / `balanced` / `adventurous`) | `hooktheoryAuth`, `hooktheoryLogout`, `onHooktheoryChange`, `fetchChordTrend`, `symbolToDegree`, `degreeToSymbol`, `scoreProgressionRealism`, `realismPass`, `buildTrendSkeleton`, `sampleNode`, `getRealismMode`, `setRealismMode`, `hooktheorySmokeTest` |
+| `hooktheoryui.js` | Connect dialog (masked password), header button state, mode selects | `initHooktheoryUI` |
+| `voicelead.js` | Deterministic progression math (pure, node-testable) | `motionBetween`, `progressionMotion`, `smoothGuitarVoicings`, `smoothPianoVoicings`, `voicingsToTab`, `transposeChordName`, `transposeKey`, `transposeNotes`, `transposeTab`, `suggestCapo`, `capoVoicings` |
+| `progtools.js` | Tools strip + history (`GenreBenderHistory_v1`, 15 + 15 starred per instrument). Edits copy the current result, snapshot it, re-render — so A/B compares real versions | `initProgTools`, `renderProgTools`, `recordSnapshot`, `registerProgRenderer`, `motionOf` |
+| `midiin.js` | Web MIDI input (Chromium only; explains itself elsewhere) | `initMidiIn`, `midiSupported` |
+| `speedtrainer.js` | Tempo-ramp loop on `makeLooper` (`GenreBenderSpeed_v1`) | `initSpeedTrainer`, `rampTempo`, `speedChords` |
 | `library.js` | Genre selection | `buildLibrary`, `toggleGenre`, `clearAll`, `syncUI`, `removeByIdx`, `updateRatio`, `blendDescriptor` |
 | `main.js` | Boot + bridge | (none — side effects only) |
 

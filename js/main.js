@@ -75,30 +75,25 @@ import { renderGuitarTab } from './guitar.js';
 import { renderPianoChart } from './piano.js';
 import { restorePhraseView } from './composer.js';
 import { syncKey, initKeySync } from './keysync.js';
-import { connectHooktheory, isHooktheoryAuthed } from './hooktheory.js';
+import { hooktheorySmokeTest } from './hooktheory.js';
+import { initHooktheoryUI } from './hooktheoryui.js';
+import { initProgTools } from './progtools.js';
+import { initMidiIn, _midiFeed, _midiFlush } from './midiin.js';
+import { initSpeedTrainer, rampTempo, speedChords } from './speedtrainer.js';
 import {
   exploreFretInput, exploreSetKey, exploreLoadDegree, exploreMv,
   exploreSetProg, exploreLoadProgChord, explorePlayProg, exploreStopProg,
   exploreSetScale, explorePlayBox, explorePlayShape, exploreClearFrets
 } from './trainerexplore.js';
 
-/* Prompts to connect (or disconnects if already connected) and
-   updates the header button to reflect the new state. */
-async function connectHooktheoryUI(){
-  const btn = document.getElementById('hooktheory-btn');
-  await connectHooktheory();
-  if (btn) {
-    const connected = isHooktheoryAuthed();
-    btn.innerHTML = `<span class="hbtn-ico">🎵</span>Hooktheory${connected ? ' ✓' : ''}`;
-    btn.classList.toggle('on', connected);
-    btn.setAttribute('aria-pressed', String(connected));
-  }
-}
-
 /* Newer modules (clips, analyze, settings backup) register handlers with
    actions.js and use data-action markup instead of this bridge. The one
    namespaced global below is for the build verifier + devtools. */
-window.GenreBender = { hasAction, actionNames };
+window.GenreBender = {
+  hasAction, actionNames, hooktheorySmokeTest,
+  // test hooks for build/verify-single-file.mjs (and devtools poking)
+  _test: { store, renderGuitarTab, renderPianoChart, midiFeed: _midiFeed, midiFlush: _midiFlush, rampTempo, speedChords },
+};
 
 Object.assign(window, {
   // seed packs (My chords)
@@ -116,8 +111,6 @@ Object.assign(window, {
   syncKey,
   // notation labelling (fret numbers <-> notes, chord names <-> degrees)
   toggleFretLabels, toggleChordLabels,
-  // Hooktheory (optional progression realism / seeding layer)
-  connectHooktheoryUI,
   // metronome + swing
   setBPM, setTimeSig, toggleMetronome, tapTempo,
   setSwing, applySwingPreset,
@@ -195,5 +188,9 @@ initSongImport();    // "Learn a song": paste / lookup / audio → unit → My c
 initProgTab();       // floating progression "hover tab" for the active My chords track
 initGuided();        // "02 — Guided Workflow" stepper over existing actions
 initPractice();      // "04 — Practice" daily plans (reads trainer / clips / store)
+initSpeedTrainer();  // tempo-ramp loop inside the practice tab
+initHooktheoryUI();  // connect dialog, header state, realism-mode selects
+initMidiIn();        // MIDI keyboard → live chord names → My chords / chord table
+initProgTools();     // history + voice-leading / transpose / capo strip (before restore renders)
 initPersistence();   // restore reads the UI the inits above built
 initKeySync();       // last: mirror the restored guitar key into the rail + other selects

@@ -34,7 +34,7 @@ import { STRING_OPEN_MIDI, midiToHz, pcToName } from './theory.js';
 import { playChordNow, playNote, playLeadEvent, getCtx } from './audio.js';
 import { makeLooper } from './loopscheduler.js';
 import { escHtml } from './util.js';
-import { srsPick, srsRecord, srsStats, srsResetAll, srsToday } from './trainersrs.js';
+import { srsPick, srsRecord, srsStats, srsResetAll, srsToday, srsWeakest } from './trainersrs.js';
 import { renderExplore, redrawExploreDiagrams, configureExplore } from './trainerexplore.js';
 import { detectChordAndKey } from './fretchords.js';
 import { buildLick } from './phrase.js';
@@ -823,6 +823,32 @@ export function trainerColorChord(idx){
   renderCustomView();
 }
 
+/* Add a chord to the active "My chords" track from outside the trainer
+   (MIDI input). Only repaints when the track view is showing, so a quiz
+   in progress isn't replaced. Returns the track name, or null. */
+export function trainerAddChordFromOutside(name, frets = null){
+  const t = getActiveTrack();
+  if (!t || !name) return null;
+  addChordToActiveTrack({ name, frets });
+  if (mode === 'custom') renderCustomView(); else updateStats();
+  return t.name;
+}
+
+/* The active track's chords as playable { name, midis } (speed trainer). */
+export function trainerTrackChords(){
+  const t = getActiveTrack();
+  if (!t) return { name: null, chords: [] };
+  return {
+    name: t.name,
+    chords: t.chords.map(e => {
+      const frets = resolvedFretsFor(e);
+      const midis = [];
+      (frets || []).forEach((f, s) => { if (f !== null && f !== undefined) midis.push(STRING_OPEN_MIDI[s] + f); });
+      return { name: e.name, midis };
+    }).filter(c => c.midis.length),
+  };
+}
+
 export function trainerAddSuggested(name){
   addChordToActiveTrack({ name, frets: null });
   renderCustomView();
@@ -1449,6 +1475,20 @@ export function trainerDueSummary(){
   const s = srsStats(deckFor('mixed'));
   return { due: s.due, unseen: s.unseen, mastered: s.mastered, total: s.total, today: srsToday() };
 }
+
+/* Human label for a card id (weak-spots readout). */
+const ORD = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th'];
+const ROM = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+function cardLabel(id){
+  const [kind, a, b, c, d] = String(id).split('|');
+  if (kind === 's2n') return `${a} ${ORD[+b] || b}-degree shape`;
+  if (kind === 'n2s') return `${ROM[+b] || b} in ${a}`;
+  if (kind === 'mv') return `${mvName(a, b, +c)} (${a}-shape, fret ${c})`;
+  if (kind === 'prog') return `${a} progression ${+b + 1}`;
+  if (kind === 'sc') return `${scaleLabel(a, d)} box @${c}`;
+  return id;
+}
+
 function updateStats(){
   notifyStats();
   const el = $('trainer-stats');
@@ -1463,9 +1503,11 @@ function updateStats(){
   }
   const s = srsStats(deckFor(mode));
   const acc = s.accuracy === null ? '—' : Math.round(s.accuracy * 100) + '%';
+  const weak = srsWeakest(deckFor(mode), 3);
   el.textContent =
     `session ${session.right}/${session.asked} · streak ${session.streak} · ` +
-    `deck ${s.seen}/${s.total} seen · ${s.due} due · ${s.mastered} mastered · ${acc} all-time`;
+    `deck ${s.seen}/${s.total} seen · ${s.due} due · ${s.mastered} mastered · ${acc} all-time` +
+    (weak.length ? ` · weak spots: ${weak.map(w => `${cardLabel(w.id)} (${w.wrong}✗)`).join(', ')}` : '');
 }
 
 function showFeedback(ok, extraHTML = ''){

@@ -191,7 +191,7 @@ try {
   check('clearAll empties rail', d.querySelectorAll('#rail-genres .rail-genre').length === 0);
   w.switchTab('guided');
   check('guided re-evaluates after clear', !steps()[2].classList.contains('done'));
-  check('header tools in one row', d.querySelectorAll('.header-actions .hbtn').length === 3);
+  check('header tools in one row', d.querySelectorAll('.header-actions .hbtn').length === 4);
   // Practice stepper reflects live state
   w.switchTab('practice');
   check('practice panel shows', $('panel-practice').classList.contains('active'));
@@ -206,7 +206,7 @@ try {
   click(d.querySelector('.practice-plan[data-plan="B"]'));
   check("practice B names today's drill", /Today's drill/.test(psteps()[1].textContent));
   click(psteps()[1].querySelector('.gstep-btn'));
-  check('practice mode button selects the drill', psteps()[1].classList.contains('done') && $('panel-mixer').classList.contains('active'));
+  check('practice mode button selects the drill', psteps()[1].classList.contains('done') && ($('panel-trainer') || $('panel-mixer')).classList.contains('active'));
   w.switchTab('practice');
   check('practice stat line renders', /today: \d+ card/.test($('practice-stat').textContent));
 } catch (e) {
@@ -304,6 +304,84 @@ try {
   check('load saved unit restores values', $('song-title').value === 'Test Song' && /F – G – Am/.test($('song-output').textContent) && /100/.test($('song-output').textContent));
 } catch (e) {
   check('learn-a-song interaction ran', false, e.stack || e.message);
+
+
+// ---- progression tools, Hooktheory dialog, MIDI in, speed trainer ----
+try {
+  const $ = id => d.getElementById(id);
+  const click = el => el && el.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  const T = w.GenreBender._test;
+  w.switchTab('mixer');
+
+  click($('hooktheory-btn'));
+  check('hooktheory dialog opens with a masked password field',
+        $('hooktheory-modal').style.display === 'flex' && $('ht-pass').type === 'password');
+  click(d.querySelector('[data-action="hooktheory:close"]'));
+  check('hooktheory dialog closes', $('hooktheory-modal').style.display === 'none');
+  check('realism mode selects populated (default balanced)',
+        $('guitar-realism').options.length === 4 && $('guitar-realism').value === 'balanced' && $('piano-realism').value === 'balanced');
+
+  // Guitar: a hand-made result through the real renderer.
+  w.syncKey('Am', 'test');
+  T.store.guitarTabData = { title: 't', description: '', tab: 'e|--0--|', notes: '',
+    chords: [{ name: 'Am7', notes: 'A2 E3 G3 C4 E4', duration_beats: 4 }, { name: 'Fmaj7', notes: 'F2 C3 E3 A3', duration_beats: 4 },
+             { name: 'C', notes: 'C3 E3 G3 C4 E4', duration_beats: 4 }, { name: 'G', notes: 'G2 B2 D3 G3 B3 G4', duration_beats: 4 }] };
+  T.renderGuitarTab(T.store.guitarTabData, 'chord_progression');
+  check('tools strip renders motion readout', /st\/chord/.test($('guitar-tools').textContent), $('guitar-tools').textContent.trim().slice(0, 60));
+  const before = T.store.guitarTabData.chords.map(c => c.notes).join('|');
+  click(d.querySelector('[data-action="prog:smooth"][data-inst="guitar"]'));
+  const after = T.store.guitarTabData.chords.map(c => c.notes).join('|');
+  check('smooth voicings re-voices + snapshots', before !== after && d.querySelectorAll('#guitar-tools .pt-hchip').length === 1 && /^e\|/m.test(T.store.guitarTabData.tab));
+  click(d.querySelector('[data-action="prog:transpose"][data-inst="guitar"][data-n="1"]'));
+  click(d.querySelector('[data-action="prog:transpose"][data-inst="guitar"][data-n="1"]'));
+  const names = T.store.guitarTabData.chords.map(c => c.name).join(' ');
+  check('transpose +2 moves names', names === 'Bm7 Gmaj7 D A', names);
+  check('transpose leaves key selects when the key is not one of the ten', $('guitar-key').value === 'Am' && /Bm/.test($('guitar-tools').textContent));
+  click(d.querySelector('[data-action="prog:ab"][data-inst="guitar"]'));
+  check('A/B flips to the previous snapshot', T.store.guitarTabData.chords[0].name === 'A#m7' || T.store.guitarTabData.chords[0].name === 'Bbm7',
+        T.store.guitarTabData.chords[0].name);
+  click(d.querySelector('[data-action="prog:star"][data-inst="guitar"]'));
+  check('star marks a snapshot', d.querySelectorAll('#guitar-tools .pt-hchip.starred').length === 1);
+
+  T.store.guitarTabData = { title: 't', tab: '', notes: '', chords: ['Bb', 'Gm', 'Eb', 'F'].map(n => ({ name: n, notes: 'C3 E3 G3', duration_beats: 4 })) };
+  T.renderGuitarTab(T.store.guitarTabData, 'chord_progression');
+  check('capo suggestion for Bb Gm Eb F is capo 3', /capo 3 → G Em C D/.test($('guitar-tools').textContent));
+  click(d.querySelector('[data-action="prog:capo"]'));
+  check('use shapes writes a capo tab', /^Capo 3/.test(T.store.guitarTabData.tab) && T.store.guitarTabData.chords[0].notes === 'A#2 D3 F3 A#3 D4 A#4',
+        T.store.guitarTabData.chords[0].notes);
+
+  // Piano smoothing
+  T.store.pianoChordData = { title: 'p', chords: [{ name: 'Dm7', left: 'D2', right: 'F4 A4 C5 D5' }, { name: 'G7', left: 'G2', right: 'B2 D3 F3 G3' }, { name: 'Cmaj7', left: 'C2', right: 'C5 E5 G5 B5' }] };
+  T.renderPianoChart(T.store.pianoChordData, 'chord_voicings');
+  const m1 = parseFloat($('piano-tools').textContent.match(/([\d.]+) st\/chord/)[1]);
+  click(d.querySelector('[data-action="prog:smooth"][data-inst="piano"]'));
+  const m2 = parseFloat($('piano-tools').textContent.match(/([\d.]+) st\/chord/)[1]);
+  check('piano smoothing lowers motion', m2 < m1, `${m1} → ${m2}`);
+
+  // MIDI in (jsdom has no Web MIDI — must say so, and the parser must still name chords)
+  click($('midi-btn'));
+  check('MIDI card shows + explains unsupported browser', $('rail-midi').style.display === '' && /isn.t available/.test($('midi-status').textContent));
+  [[0x90, 60, 90], [0x90, 64, 90], [0x90, 67, 90], [0x90, 71, 90]].forEach(b => T.midiFeed(b));
+  const cap = T.midiFlush();
+  check('MIDI notes C E G B → Cmaj7', cap && /^C(maj7|M7)$/.test(cap.symbol), cap && cap.symbol);
+  [[0x80, 60, 0], [0x80, 64, 0], [0x80, 67, 0], [0x80, 71, 0]].forEach(b => T.midiFeed(b));
+  click($('midi-add-table'));
+  check('captured chord goes to the chord table', /chord table|already/.test($('midi-status').textContent), $('midi-status').textContent);
+  click($('midi-btn'));
+  check('MIDI toggle hides the card', $('rail-midi').style.display === 'none');
+
+  // Speed trainer
+  const ramp = [0, 1, 2, 3, 4, 20].map(n => T.rampTempo({ start: 80, target: 120, step: 4, every: 2 }, n));
+  check('ramp rule 80→120 +4 every 2', ramp.join(',') === '80,80,84,84,88,120', ramp.join(','));
+  w.switchTab('practice');
+  $('speed-source').value = 'piano';
+  $('speed-source').dispatchEvent(new w.Event('change', { bubbles: true }));
+  click($('speed-go'));
+  check('speed trainer starts at the start tempo', /80\s*BPM/.test($('speed-readout').textContent) && $('bpm-display').textContent === '80', $('speed-readout').textContent.trim());
+  click($('speed-go'));
+  check('speed trainer stops', $('speed-go').getAttribute('aria-pressed') === 'false');
+} catch (e) {
+  check('tools / midi / speed interaction ran', false, e.stack || e.message);
 }
 
 check('no runtime errors during boot', errors.length === 0, errors.slice(0, 3).join(' | '));

@@ -92,12 +92,22 @@ export function srsPick(candidates, { excludeId = null } = {}){
     else if (c.due <= now) due.push(id);
     else later.push(id);
   }
-  due.sort((a, b) => (db[a].box - db[b].box) || (db[a].due - db[b].due));
+  /* Lowest box first; within a box, the cards you miss most often
+     (lapse rate, then raw miss count) come up before the rest. */
+  due.sort((a, b) => (db[a].box - db[b].box)
+    || (lapseRate(db[b]) - lapseRate(db[a]))
+    || ((db[b].wrong || 0) - (db[a].wrong || 0))
+    || (db[a].due - db[b].due));
 
   /* Mostly review what's due, but mix in unseen cards so the deck
      keeps growing instead of grinding one weak card forever. */
   if (due.length && (Math.random() < 0.65 || !unseen.length)){
-    return due[Math.floor(Math.random() * Math.min(due.length, 5))];
+    // weighted among the first five: often-missed cards come up more
+    const top = due.slice(0, 5);
+    const w = top.map(id => 1 + 4 * lapseRate(db[id]));
+    let r = Math.random() * w.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < top.length; i++){ r -= w[i]; if (r <= 0) return top[i]; }
+    return top[top.length - 1];
   }
   if (unseen.length) return unseen[Math.floor(Math.random() * unseen.length)];
   if (later.length){
@@ -105,6 +115,26 @@ export function srsPick(candidates, { excludeId = null } = {}){
     return later[Math.floor(Math.random() * Math.min(later.length, 5))];
   }
   return pool[Math.floor(Math.random() * pool.length)];
+}
+
+/* Misses per attempt, smoothed so one early miss doesn't dominate
+   (a 1/1 miss scores below a 5/8 one). */
+export function lapseRate(c){
+  if (!c) return 0;
+  const seen = (c.right || 0) + (c.wrong || 0);
+  return (c.wrong || 0) / (seen + 1);
+}
+
+/* The `n` cards in a deck you miss most (at least one miss), worst
+   first — for the "weak spots" readout. */
+export function srsWeakest(candidates, n = 3){
+  const db = load();
+  return candidates
+    .map(id => ({ id, c: db[id] }))
+    .filter(x => x.c && x.c.wrong > 0)
+    .sort((a, b) => (lapseRate(b.c) - lapseRate(a.c)) || (b.c.wrong - a.c.wrong))
+    .slice(0, n)
+    .map(x => ({ id: x.id, wrong: x.c.wrong, seen: x.c.seen, box: x.c.box, rate: lapseRate(x.c) }));
 }
 
 /* Aggregate stats over a candidate deck (for the stats readout). */

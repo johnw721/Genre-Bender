@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="css/trainer.css">
 <link rel="stylesheet" href="css/clips.css">
 <link rel="stylesheet" href="css/shell.css">
+<link rel="stylesheet" href="css/tools.css">
 </head>
 <body>
 <div class="app">
@@ -36,7 +37,8 @@
       <div class="header-meta"><span id="sel-count">0 / 4 genres selected</span><span class="header-dot">·</span><span>bedroom producer mode</span></div>
       <div class="header-actions" role="toolbar" aria-label="App tools">
         <button class="hbtn" type="button" id="clips-btn" data-action="clips:toggle" aria-pressed="false" aria-label="Toggle reference clips player" title="Reference clips: paste X / Instagram / TikTok / YouTube links and watch them while you work"><span class="hbtn-ico">▶</span>clips</button>
-        <button class="hbtn" type="button" id="hooktheory-btn" onclick="connectHooktheoryUI()" aria-label="Connect Hooktheory for progression realism checks" title="Optional: layers real chord-trend data from Hooktheory on top of AI-generated progressions"><span class="hbtn-ico">🎵</span>Hooktheory</button>
+        <button class="hbtn" type="button" id="midi-btn" data-action="midi:toggle" aria-pressed="false" aria-label="Toggle MIDI keyboard input" title="Play chords on a MIDI keyboard and Genre Bender names them (Chrome / Edge)"><span class="hbtn-ico">🎹</span>MIDI</button>
+        <button class="hbtn" type="button" id="hooktheory-btn" data-action="hooktheory:open" aria-pressed="false" aria-label="Connect Hooktheory for progression realism checks" title="Optional: layers real chord-trend data from Hooktheory on top of AI-generated progressions"><span class="hbtn-ico">🎵</span>Hooktheory</button>
         <button class="hbtn" type="button" onclick="openSettings()" aria-label="Open AI settings and backup" title="AI endpoint, model, key · backup / restore"><span class="hbtn-ico">⚙</span>AI</button>
       </div>
     </div>
@@ -120,6 +122,25 @@
           <button type="button" class="rail-tbtn" id="rail-trainer-chords" onclick="trainerNav('chords')">My chords</button>
           <button type="button" class="rail-tbtn" id="rail-trainer-map" onclick="trainerNav('colormap')">🎨 Color map</button>
         </div>
+      </section>
+
+      <section class="rail-card" id="rail-midi" style="display:none" aria-label="MIDI input">
+        <div class="section-label">MIDI in <span class="midi-device" id="midi-device"></span></div>
+        <div class="midi-readout" aria-live="polite">
+          <span class="midi-chord" id="midi-chord">—</span>
+          <span class="midi-degree" id="midi-degree"></span>
+        </div>
+        <div class="midi-notes" id="midi-notes">hold 3+ notes</div>
+        <div class="midi-actions">
+          <button class="pb-btn" type="button" id="midi-add-track" data-action="midi:add-track" disabled title="Add the captured chord to the active My chords track">+ My chords</button>
+          <button class="pb-btn" type="button" id="midi-add-table" data-action="midi:add-table" disabled title="Put the captured chord on the chord table">+ chord table</button>
+          <button class="pb-btn" type="button" data-action="midi:clear" title="Forget the captured chord">clear</button>
+        </div>
+        <div class="midi-opts">
+          <label><input type="checkbox" id="midi-auto" data-on-change="midi:auto"> auto-add to track</label>
+          <label><input type="checkbox" id="midi-monitor" data-on-change="midi:monitor"> monitor</label>
+        </div>
+        <div class="midi-status" id="midi-status" aria-live="polite"></div>
       </section>
 
       <aside class="clip-dock docked" id="clip-dock" role="complementary" aria-label="Reference clips">
@@ -246,6 +267,10 @@
               <input type="checkbox" id="guitar-hooktheory" aria-label="Seed with a Hooktheory chord skeleton">
               <span>Hooktheory skeleton</span>
             </label>
+            <label class="realism-mode" title="What the Hooktheory realism check does with its score: badge only, nudge toward common movement, retry only when truly unusual, or push away from the predictable">
+              <span>realism</span>
+              <select id="guitar-realism" class="pb-mode-select" aria-label="Hooktheory realism mode" data-on-change="hooktheory:mode"></select>
+            </label>
           </div>
           <div class="tab-output" id="guitar-output">Select key and style, then generate a tab based on your blend.</div>
         </div>
@@ -275,6 +300,10 @@
             <label class="composer-ai-toggle" title="Seed generation with a real, commonly-occurring chord skeleton from Hooktheory's Trends corpus, for the AI to reharmonize. Requires connecting Hooktheory (top right).">
               <input type="checkbox" id="piano-hooktheory" aria-label="Seed with a Hooktheory chord skeleton">
               <span>Hooktheory skeleton</span>
+            </label>
+            <label class="realism-mode" title="What the Hooktheory realism check does with its score: badge only, nudge toward common movement, retry only when truly unusual, or push away from the predictable">
+              <span>realism</span>
+              <select id="piano-realism" class="pb-mode-select" aria-label="Hooktheory realism mode" data-on-change="hooktheory:mode"></select>
             </label>
           </div>
           <div class="tab-output" id="piano-output">Select key and style, then generate a piano chart based on your blend.</div>
@@ -494,6 +523,27 @@
         </div>
         <p class="guided-intro" id="practice-sub"></p>
         <ol class="gsteps" id="practice-steps"></ol>
+        <section class="speed-trainer" aria-labelledby="speed-title">
+          <div class="section-label" id="speed-title">Speed trainer</div>
+          <p class="guided-intro">Loops a progression and raises the tempo every few clean passes until you hit the target. Turn the rail metronome on for a click.</p>
+          <div class="speed-grid">
+            <label>source<select id="speed-source" class="pb-mode-select" data-on-change="speed:cfg">
+              <option value="guitar">Guitar tab</option><option value="piano">Piano chart</option><option value="track">My chords track</option>
+            </select></label>
+            <label>start<input id="speed-start" type="number" min="40" max="220" value="80" data-on-change="speed:cfg"><button type="button" class="speed-mini" data-action="speed:from-bpm" title="Use the rail's current tempo">← rail</button></label>
+            <label>target<input id="speed-target" type="number" min="40" max="220" value="120" data-on-change="speed:cfg"></label>
+            <label>+BPM<input id="speed-step" type="number" min="1" max="20" value="4" data-on-change="speed:cfg"></label>
+            <label>every<input id="speed-every" type="number" min="1" max="8" value="2" data-on-change="speed:cfg"> passes</label>
+            <label>play as<select id="speed-mode" class="pb-mode-select" data-on-change="speed:cfg">
+              <option value="strum">strum</option><option value="chord">chord</option><option value="arpeggio">arpeggio</option>
+            </select></label>
+          </div>
+          <div class="speed-row">
+            <button class="btn btn-primary" type="button" id="speed-go" data-action="speed:toggle" aria-pressed="false">▶ start ramp</button>
+            <div class="speed-readout" id="speed-readout" aria-live="polite"></div>
+          </div>
+          <div class="clip-status" id="speed-status" aria-live="polite"></div>
+        </section>
         <p class="guided-intro practice-foot">Auto steps read the app; “mark done” steps are yours. Trainer explore never records, so do the card count in quiz. Box 2+ cards (1 / 3 / 7-day intervals) only advance if you show up — don't skip two days in a row.</p>
       </div>
     </div>
@@ -561,6 +611,41 @@
 
     </main>
   </div><!-- end shell -->
+
+  <div class="modal" id="hooktheory-modal" role="dialog" aria-modal="true" aria-labelledby="ht-title" style="display:none">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <div id="ht-title">Hooktheory</div>
+          <div class="modal-sub">Chord-trend data for realism checks and skeletons. Kept in memory for this tab only — never saved.</div>
+        </div>
+        <button class="modal-close" type="button" data-action="hooktheory:close" aria-label="Close Hooktheory">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="ht-form">
+          <label class="modal-field">
+            <span>Username or email</span>
+            <input id="ht-user" type="text" autocomplete="username" spellcheck="false">
+          </label>
+          <label class="modal-field">
+            <span>Password</span>
+            <input id="ht-pass" type="password" autocomplete="current-password">
+          </label>
+          <div class="modal-note">Sent once to api.hooktheory.com to get a session key; the password is cleared from the form right after.</div>
+          <div class="modal-row"><button class="btn btn-primary" type="button" id="ht-connect-btn" data-action="hooktheory:connect">Connect</button></div>
+        </div>
+        <div id="ht-connected" style="display:none">
+          <div class="modal-note">Connected as <strong id="ht-who"></strong>. Reloading the page disconnects.</div>
+          <div class="modal-row">
+            <button class="btn btn-ghost" type="button" id="ht-smoke-btn" data-action="hooktheory:smoke" title="Checks response field names, minor-key anchoring and applied-chord tokens against the live API">Run smoke test</button>
+            <button class="btn btn-ghost" type="button" data-action="hooktheory:disconnect">Disconnect</button>
+          </div>
+          <ul class="ht-report" id="ht-report"></ul>
+        </div>
+        <div id="ht-status" class="modal-status" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
 
   <div class="modal" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" style="display:none">
     <div class="modal-card">

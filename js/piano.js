@@ -20,7 +20,8 @@ import { buildChordCardHTML, initDragDrop } from './cards.js';
 import { pianoSeq, updateComposeBanner } from './sequencer.js';
 import { store } from './store.js';
 import { blendDescriptor } from './library.js';
-import { isHooktheoryAuthed, buildTrendSkeleton, scoreProgressionRealism } from './hooktheory.js';
+import { isHooktheoryAuthed, buildTrendSkeleton, realismPass } from './hooktheory.js';
+import { renderProgTools, recordSnapshot, registerProgRenderer } from './progtools.js';
 
 const STYLE_MAP = {
   chord_voicings:    'chord voicings with left hand bass and right hand voicing',
@@ -29,9 +30,6 @@ const STYLE_MAP = {
   full_comping:      'a full comping pattern with both hands'
 };
 
-// Below this mean transition probability (0-1), a progression is
-// considered unusual enough to spend the realism retry on.
-const REALISM_THRESHOLD = 0.05;
 
 export async function generatePiano(){
   if (store.selected.length < 2){
@@ -85,24 +83,28 @@ export async function generatePiano(){
       result.chords = annotated;
     }
 
-    // Realism check: only worth spending an extra call if we haven't
-    // already used our one retry on note-validation, and only if
-    // Hooktheory is connected.
+    // Realism pass (hooktheory.js): scores the movement against Hooktheory's
+    // corpus and — depending on the realism mode — may spend one retry
+    // nudging it toward (or away from) common movement. Skipped when the
+    // note-validation retry was already spent, and a no-op when disconnected.
     if (!retried && isHooktheoryAuthed()){
-      const realism = await scoreProgressionRealism(result.chords.map(c => c.name), key);
-      if (realism && realism.score < REALISM_THRESHOLD){
-        out.innerHTML = '<span style="color:var(--muted)">Improving progression realism<span class="cursor"></span></span>';
-        const hintMsg = `The progression ${result.chords.map(c => c.name).join(' - ')} is statistically unusual (Hooktheory realism score ${(realism.score * 100).toFixed(1)}%). Prefer a more common chord movement while keeping the blend's character.`;
-        try {
-          const retryResult = await callAPI(buildPrompt({ realismHint: hintMsg, skeleton }));
+      const pass = await realismPass({
+        chords: result.chords,
+        key,
+        onStatus: (msg) => { out.innerHTML = `<span style="color:var(--muted)">${msg}<span class="cursor"></span></span>`; },
+        retry: async (hint) => {
+          const retryResult = await callAPI(buildPrompt({ realismHint: hint, skeleton }));
           const { bad: bad2, annotated: annotated2 } = validateChordList(retryResult.chords || [], 'leftright');
-          // Only take the realism retry if it didn't itself fail structural validation.
-          if (bad2.length === 0) result.chords = annotated2;
-        } catch { /* keep the original, structurally-valid result */ }
-      }
+          return bad2.length === 0 ? annotated2 : null;
+        },
+      });
+      result.chords = pass.chords;
+      result._realism = pass.realism;
     }
 
+    result._key = key;
     store.pianoChordData = result;
+    recordSnapshot('piano', result, skeleton ? 'skeleton' : 'generated');
     renderPianoChart(result, style);
     updateComposeBanner();
   } catch (e) {
@@ -136,8 +138,12 @@ export function renderPianoChart(r, style){
       <div class="seq-pos-dots">${dotsHTML}</div>
       <button class="pb-btn midi-btn" onclick="exportMidi('piano')" title="Export as MIDI">↓ MIDI</button>
     </div>
+    <div class="prog-tools" id="piano-tools"></div>
     <div class="chord-cards-container" id="piano-cards-container">${cardsHTML}</div>
     ${r.pattern ? `<div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px 14px;margin-bottom:12px;font-size:12px;color:var(--text);line-height:1.7">${escHtml(r.pattern)}</div>` : ''}
     <div style="font-size:11px;color:var(--muted);border-left:2px solid var(--accent2);padding-left:10px;line-height:1.7">${escHtml(r.notes || '')}</div>`;
   initDragDrop('piano');
+  renderProgTools('piano');
 }
+
+registerProgRenderer('piano', (r) => renderPianoChart(r, document.getElementById('piano-style')?.value || 'chord_voicings'));
