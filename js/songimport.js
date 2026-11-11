@@ -28,13 +28,13 @@ import { resolveKey, resolveBpm, buildUnit, progressionOptions, unitId, SOURCE_L
 import { getBPM, setBPM } from './metronome.js';
 import { syncKey } from './keysync.js';
 import { getClips, getClip, onClipsChange, clipsUpdate } from './clips.js';
-import { trainerUpsertTrack, trainerSetMode } from './trainer.js';
-import { switchTab, switchInnerTab } from './ui.js';
+import { trainerUpsertTrack } from './trainer.js';
+import { trainerNav } from './trainernav.js';
+import { ALL_KEYS as APP_KEYS } from './theorydata.js';
 import { getCtx } from './audio.js';
 
 const $ = (id) => document.getElementById(id);
 const UNITS_KEY = registerStore('songUnits', 'GenreBenderSongUnits_v1');
-const APP_KEYS = ['C', 'G', 'D', 'A', 'E', 'Am', 'Em', 'Dm', 'Gm', 'Cm'];   // the generators' key <select>s
 
 let units = [];
 const state = {
@@ -275,8 +275,10 @@ function applyTempoKey(){
     done.push(`${r.bpm.value} BPM`);
   }
   if (r.key){
-    syncKey(r.key.value, 'songimport');
-    done.push(`key ${r.key.value}${APP_KEYS.includes(r.key.value) ? '' : ' (color map follows it; the generator key lists only have 10 keys)'}`);
+    // The key pickers list one spelling per key (e.g. Eb, not D#): match enharmonically.
+    const appKey = APP_KEYS.find(k => k === r.key.value) || APP_KEYS.find(k => sameKey(k, r.key.value)) || r.key.value;
+    syncKey(appKey, 'songimport');
+    done.push(`key ${appKey}`);
   }
   status(done.length ? `Set ${done.join(' · ')}` : 'Nothing to apply yet.', done.length ? '' : 'warn');
   return r;
@@ -322,13 +324,7 @@ export function saveUnit(){
   return unit;
 }
 
-function openTrack(){
-  switchTab('mixer');
-  const btn = [...document.querySelectorAll('.tab-inner-tab')].find(b => /shape trainer/i.test(b.textContent));
-  switchInnerTab('trainer', btn);
-  trainerSetMode('custom');
-  $('inner-trainer')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
-}
+function openTrack(){ trainerNav('chords'); }
 
 function loadUnit(el){
   const u = units.find(x => x.id === el?.dataset?.id);
