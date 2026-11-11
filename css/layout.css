@@ -198,3 +198,14 @@ details.fold .tab-panel-body{padding-top:0}
 }
 /* scrollIntoView() lands below the sticky top bar + sub-nav */
 .panel,#inner-trainer,details.fold{scroll-margin-top:calc(var(--topbar-h) + 60px)}
+
+/* chord peek: guitar diagram over a hovered / tapped progression chip */
+.chord-peek{position:fixed;z-index:70;width:150px;padding:10px 10px 8px;pointer-events:none;
+  background:var(--surface);border:1px solid var(--border2);border-radius:var(--r-lg);box-shadow:var(--shadow);text-align:center}
+.chord-peek[hidden]{display:none}
+.chord-peek-head{display:flex;align-items:baseline;justify-content:center;gap:8px;margin-bottom:2px}
+.chord-peek-head b{font-size:16px}
+.chord-peek-head span{font-size:12px;color:var(--accent)}
+.chord-peek .chord-box{width:100%;height:auto;display:block}
+.chord-peek-frets{font-family:var(--code);font-size:11px;color:var(--muted);letter-spacing:.08em}
+.chord-peek-none{font-size:12px;color:var(--muted);padding:24px 0}

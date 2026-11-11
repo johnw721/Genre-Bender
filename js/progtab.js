@@ -21,7 +21,8 @@ import { registerStore, loadJSON, saveJSON } from './storage.js';
 import { escHtml } from './util.js';
 import { trainerActiveTrack, onTracksChange, trainerTrackList, trainerSelectTrack } from './trainer.js';
 import { getUnits } from './songimport.js';
-import { toRomans, inferKey, sameKey } from './chordsheet.js';
+import { toRomans, inferKey, sameKey, romanFor } from './chordsheet.js';
+import { chordDiagramSVG } from './fretchords.js';
 import { degreeOf } from './colormap.js';
 import { getAppKey, onAppKeyChange } from './keysync.js';
 import { getBPM } from './metronome.js';
@@ -221,6 +222,93 @@ function jump(el){
   else { const f = entryFreqs(t.chords[i]); if (f.length) playChordNow(f); }
 }
 
+/* ---- chord peek: hover (or tap) a chord → its guitar diagram ---------- */
+
+/* The fingering a track entry plays: its pinned frets, else the chord book's. */
+export function entryFrets(entry){
+  if (entry?.frets && entry.frets.some(f => f !== null && f !== undefined)) return entry.frets;
+  return getVoicing(entry?.name)?.frets || null;
+}
+
+let peekTimer = null, peekFor = null;
+function peekEl(){
+  let el = $('chord-peek');
+  if (!el){
+    el = document.createElement('div');
+    el.id = 'chord-peek';
+    el.className = 'chord-peek';
+    el.setAttribute('role', 'tooltip');
+    el.hidden = true;
+    document.body.appendChild(el);
+  }
+  return el;
+}
+export function showPeek(btn){
+  const t = trainerActiveTrack();
+  const i = +btn?.dataset?.idx;
+  const entry = t?.chords?.[i];
+  if (!entry) return hidePeek();
+  clearTimeout(peekTimer);
+  const k = trackKey(t, { units: safeUnits(), appKey: getAppKey() });
+  const frets = entryFrets(entry);
+  const el = peekEl();
+  el.innerHTML = `
+    <div class="chord-peek-head"><b>${escHtml(entry.name)}</b>${k ? `<span>${escHtml(romanFor(entry.name, k.key))}</span>` : ''}</div>
+    ${frets ? chordDiagramSVG(frets) : '<div class="chord-peek-none">no guitar shape for this one</div>'}
+    ${frets ? `<div class="chord-peek-frets">${frets.map(f => f === null || f === undefined ? 'x' : f).join(' ')}</div>` : ''}`;
+  el.hidden = false;
+  peekFor = btn;
+  btn.setAttribute('aria-describedby', 'chord-peek');
+  // above the chip (the transport sits at the bottom), clamped to the viewport
+  const r = btn.getBoundingClientRect(), pr = el.getBoundingClientRect();
+  const w = pr.width || 150, h = pr.height || 190;
+  let x = r.left + r.width / 2 - w / 2;
+  x = Math.max(8, Math.min(window.innerWidth - w - 8, x));
+  let y = r.top - h - 10;
+  if (y < 8) y = Math.min(window.innerHeight - h - 8, r.bottom + 10);
+  el.style.left = `${Math.round(x)}px`;
+  el.style.top = `${Math.round(y)}px`;
+}
+export function hidePeek(){
+  clearTimeout(peekTimer);
+  const el = $('chord-peek');
+  if (el) el.hidden = true;
+  peekFor?.removeAttribute('aria-describedby');
+  peekFor = null;
+}
+const CHIP = '.tp-chord, .prog-tab-cell';
+let lastPointer = 'mouse';
+function initPeek(){
+  document.addEventListener('pointerdown', (e) => { lastPointer = e.pointerType || 'mouse'; }, true);
+  // mouse / pen: show while hovering
+  document.addEventListener('pointerover', (e) => {
+    if (e.pointerType === 'touch') return;
+    const b = e.target.closest?.(CHIP);
+    if (b && b !== peekFor) showPeek(b);
+  });
+  document.addEventListener('pointerout', (e) => {
+    if (e.pointerType === 'touch') return;
+    const b = e.target.closest?.(CHIP);
+    if (b && !b.contains(e.relatedTarget)) hidePeek();
+  });
+  // touch: a tap plays the chord (existing action) and shows the shape for a moment
+  document.addEventListener('pointerup', (e) => {
+    if (e.pointerType !== 'touch') return;
+    const b = e.target.closest?.(CHIP);
+    if (!b){ if (!e.target.closest?.('#chord-peek')) hidePeek(); return; }
+    showPeek(b);
+    peekTimer = setTimeout(hidePeek, 3500);
+  });
+  // keyboard
+  document.addEventListener('focusin', (e) => {
+    if (lastPointer === 'touch') return;          // a tap focuses too; the tap handler owns that peek
+    const b = e.target.closest?.(CHIP); if (b) showPeek(b);
+  });
+  document.addEventListener('focusout', (e) => { if (lastPointer !== 'touch' && e.target.closest?.(CHIP)) hidePeek(); });
+  // sliding the strip or the page moves the chip: drop the peek
+  document.addEventListener('scroll', () => { if (peekFor) hidePeek(); }, true);
+}
+
 /* ---- drag ---------------------------------------------------------- */
 function initDrag(el){
   let sx, sy, ox, oy, dragging = false;
@@ -275,7 +363,8 @@ export function initProgTab(){
     'progtab:openPlay': () => { if (typeof window.trainerNav === 'function') window.trainerNav('chords'); },
     'progtab:track':    (el) => { stop(); pos = 0; trainerSelectTrack(el.value); },
   });
-  onTracksChange(() => { const was = !!looper?.playing; stop(); render(); if (was) play(); });
+  initPeek();
+  onTracksChange(() => { hidePeek(); const was = !!looper?.playing; stop(); render(); if (was) play(); });
   onAppKeyChange(() => render());
   window.addEventListener('resize', () => { const el = $('prog-tab'); if (el && pref.open) place(el); });
   // The tempo keeper has no change event of its own; keep the BPM label honest.

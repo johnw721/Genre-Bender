@@ -328,6 +328,19 @@ try {
   check('loop starts', /stop/.test(pt.querySelector('[data-action="progtab:play"]').textContent));
   click(pt.querySelector('[data-action="progtab:play"]'));
   check('loop stops', /loop/.test(pt.querySelector('[data-action="progtab:play"]').textContent));
+  // Chord peek: hovering a chord shows its guitar diagram
+  const over = (el, type) => el.dispatchEvent(new w.MouseEvent(type, { bubbles: true, relatedTarget: d.body }));
+  over(cells()[1], 'pointerover');
+  const peek = $('chord-peek');
+  check('hovering a hover-tab chord shows its diagram', peek && !peek.hidden && /^G\b/.test(peek.querySelector('b').textContent) &&
+        !!peek.querySelector('svg.chord-box') && /VII/.test(peek.textContent), peek && peek.textContent.trim().slice(0, 40));
+  over(cells()[1], 'pointerout');
+  check('moving off hides the diagram', peek.hidden);
+  const strip = [...d.querySelectorAll('#transport-prog .tp-chord')];
+  over(strip[2], 'pointerover');
+  check('transport strip chords peek too', !peek.hidden && peek.querySelector('b').textContent === 'Am' && /3 2 2 1 0|0 0 2 2 1 0|x 0 2 2 1 0/.test(peek.textContent),
+        peek.textContent.replace(/\s+/g, ' ').trim());
+  over(strip[2], 'pointerout');
   w.trainerRemoveCustomChord(6);
   check('hover tab follows track edits', cells().length === 6);
   click(pt.querySelector('[data-action="progtab:collapse"]'));
