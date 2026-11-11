@@ -127,3 +127,51 @@
 .rail-tbtn.here{box-shadow:inset 0 0 0 1px var(--accent)}
 .rail-tbtn.primary.here{box-shadow:0 0 0 2px var(--accent-glow)}
 .rail-tcount{font-size:10px;padding:0 6px;border-radius:9px;background:var(--surface3);color:var(--accent)}
+
+/* ---- Learn a song (songimport.js) ---------------------------------- */
+.song-import{margin-bottom:16px}
+.song-row{flex-wrap:wrap;gap:8px}
+.song-input{flex:1 1 160px;min-width:0;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:12px;outline:none}
+.song-input:focus,.song-mini:focus{border-color:var(--accent2);box-shadow:0 0 0 3px var(--accent-glow)}
+.song-paths{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:12px 0}
+.song-path{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface2)}
+.song-path-title{font-size:12px;color:var(--text);display:flex;align-items:baseline;gap:8px}
+.song-path-title b{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--accent2);color:var(--bg);font-size:10px}
+.song-path-title small{color:var(--muted);font-size:10px}
+.song-path .song-sheet{margin:0;min-height:110px}
+.song-help{margin:0;font-size:10px;line-height:1.5;color:var(--muted)}
+.song-file{font-family:var(--mono);font-size:11px;color:var(--muted);max-width:100%}
+.song-btns{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.song-mini{width:64px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px;outline:none}
+.song-status{display:block;min-height:16px;margin-bottom:8px;padding:0;color:var(--muted);font-size:11px}
+.song-status[data-tone="warn"]{color:var(--amber)}
+.song-evidence{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--text);line-height:1.5}
+.song-evidence a{color:var(--accent2)}
+.song-src{display:inline-block;padding:1px 7px;border-radius:999px;border:1px solid var(--border);font-size:10px;color:var(--muted);white-space:nowrap}
+.song-src[data-src="sheet"]{border-color:var(--green);color:var(--green)}
+.song-src[data-src="meta"]{border-color:var(--accent2);color:var(--accent2)}
+.song-src[data-src="audio"],.song-src[data-src="audio-chords"]{border-color:var(--accent);color:var(--accent)}
+.song-src[data-src="manual"],.song-src[data-src="tap"]{border-color:var(--amber);color:var(--amber)}
+.song-field-meta{margin-top:6px;font-size:10px;color:var(--muted)}
+.song-field-meta em{font-style:normal;margin-left:4px}
+.song-field[data-status="conflict"] .song-field-meta em{color:var(--coral)}
+.song-field[data-status="relative"] .song-field-meta em,.song-field[data-status="half-double"] .song-field-meta em{color:var(--amber)}
+.song-field[data-status="agree"] .song-field-meta em{color:var(--green)}
+.song-note,.song-warn{display:block;margin-top:4px;font-size:10px;line-height:1.45;color:var(--amber)}
+.song-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;align-items:center}
+.song-chip{padding:3px 8px;font-size:10px}
+.song-prog{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;padding:8px 10px;margin-bottom:6px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:11px}
+.song-prog.active{border-color:var(--accent2);background:var(--surface2)}
+.song-prog input{align-self:center;margin:0}
+.song-prog-name{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em}
+.song-prog-chords{color:var(--text);font-size:13px}
+.song-prog-romans{color:var(--accent2)}
+.song-busy{margin-bottom:10px;font-size:11px;color:var(--muted)}
+.song-units{margin-top:14px;display:flex;flex-direction:column;gap:6px}
+.song-unit{display:flex;gap:6px;align-items:stretch}
+.song-unit-open{flex:1;text-align:left;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-family:var(--mono);font-size:11px;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.song-unit-open small{color:var(--muted);font-size:10px}
+.song-unit.active .song-unit-open{border-color:var(--accent2)}
+.song-prog > :not(input){grid-column:2}
+.song-prog input{grid-row:1 / span 4}
+.song-field[data-status="agree"] .song-note{color:var(--muted)}

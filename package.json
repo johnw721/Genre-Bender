@@ -10,14 +10,15 @@
     "build:single": "node build/build-single-file.mjs",
     "verify:single": "node build/verify-single-file.mjs dist/genre-bender.html",
     "verify:clips": "node build/verify-clips.mjs",
-    "share": "npm run build:single && npm run verify:single",
+    "share": "npm run build:single && npm run verify:single && npm run verify:song",
     "setup": "npm install && npm install --prefix server",
     "postinstall": "npm install --prefix server",
     "verify:seeds": "node build/verify-seeds.mjs",
     "seed:check": "node build/seed-pack.mjs seeds/rnb-neosoul-guitar.pack.json",
     "seed:snippet": "node build/seed-pack.mjs seeds/rnb-neosoul-guitar.pack.json --snippet --out seeds/rnb-neosoul-guitar.snippet.js",
     "verify:seeds:e2e": "node build/verify-seeds-e2e.mjs",
-    "seed:link": "node build/seed-pack.mjs seeds/rnb-neosoul-guitar.pack.json --link"
+    "seed:link": "node build/seed-pack.mjs seeds/rnb-neosoul-guitar.pack.json --link",
+    "verify:song": "node build/verify-songimport.mjs"
   },
   "devDependencies": {
     "@fontsource/dm-mono": "^5.3.0",

@@ -43,3 +43,10 @@ export const API_CONFIG = {
 /* Per-card looper rates and their UI labels (index 0 = off). */
 export const LOOP_RATES  = [null, 0.5, 0.75, 1, 2];
 export const LOOP_LABELS = ['',   '½×', '¾×', '1×', '2×'];
+
+/* "Learn a song" BPM/key lookup. Served by the Netlify Function in
+   netlify/functions/songmeta.mjs in production and by server/proxy.js
+   (via the Vite dev proxy) under `npm start`. Needs GETSONGBPM_API_KEY
+   set server-side; without it the lookup reports "not configured" and
+   the paste / audio paths still work. */
+export const SONGMETA_ENDPOINT = '/.netlify/functions/songmeta';

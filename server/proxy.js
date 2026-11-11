@@ -30,7 +30,7 @@ app.use(express.json({ limit: '1mb' }));
 // Simple CORS for dev; set ALLOWED_ORIGIN in env for tighter security.
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Anthropic-Version, x-api-key, anthropic-dangerous-direct-browser-access');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
@@ -57,6 +57,21 @@ app.post('/v1/messages', async (req, res) => {
     res.status(response.status).set('Content-Type', contentType).send(text);
   } catch (err) {
     console.error('Proxy error:', err);
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// Song metadata lookup (BPM / key) — same handler the Netlify Function uses,
+// mounted at the same path so the browser code is identical in dev and prod.
+// Needs GETSONGBPM_API_KEY in server/.env (free key: https://getsongbpm.com/api).
+app.get('/.netlify/functions/songmeta', async (req, res) => {
+  try {
+    const { handleSongMeta } = await import('../shared/songmeta-core.mjs');
+    const params = new URLSearchParams(req.query);
+    const { status, body } = await handleSongMeta(params, process.env.GETSONGBPM_API_KEY, fetch);
+    res.status(status).json(body);
+  } catch (err) {
+    console.error('songmeta error:', err);
     res.status(502).json({ error: err.message });
   }
 });

@@ -213,6 +213,67 @@ try {
   check('clips / seed / rail interaction ran', false, e.message);
 }
 
+// Learn a song: paste → lookup (stubbed server fn) → save unit → My chords track; idempotent re-save.
+try {
+  const $ = id => d.getElementById(id);
+  const click = el => el.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  const enter = el => el.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  // file:// is an opaque origin in jsdom (no localStorage), so state is read
+  // back from what the app renders: the saved-units list and My chords view.
+  const unitRows = () => [...d.querySelectorAll('#song-units .song-unit')].map(r => r.textContent.replace(/\s+/g, ' ').trim());
+  const showTrack = () => { click(d.querySelector('[data-action="song:openTrack"]')); const q = $('trainer-question'); w.switchTab('upload'); return q; };
+  const trackTabs = (q) => [...q.querySelectorAll('.trainer-track-tabs *')].filter(el => !el.children.length && /♪ Test Song/.test(el.textContent)).length;
+  const trackChords = (q) => [...q.querySelectorAll('#trainer-custom-diagrams [data-track-idx]')].map(b => (b.querySelector('.trainer-diagram-label')?.textContent || '').trim().replace(/^\d+\.\s*/, '').split(/\s/)[0]);
+  w.switchTab('upload');
+  check('learn-a-song panel present', !!$('song-sheet') && !!$('song-output') && !!d.querySelector('[data-action="song:parse"]'));
+  check('tab capture disabled where unsupported', $('song-capture-btn').disabled === true);
+  $('song-title').value = 'Test Song';
+  $('song-artist').value = 'Tester';
+  $('song-sheet').value = '[Verse]\nAm        F\nwalking down the line\nC         G\nsinging all the time\n[Chorus]\nF  G  Am\nhold on\nF  G  C  E7\n';
+  click(d.querySelector('[data-action="song:parse"]'));
+  check('paste → chords + key', /Am – F – C – G/.test($('song-output').textContent) && /i – VI – III – VII/.test($('song-output').textContent),
+        $('song-status').textContent);
+  // server function stubbed: first a deploy without functions (HTML), then a real answer
+  w.fetch = async () => ({ ok: true, status: 200, headers: { get: () => 'text/html' }, json: async () => ({}) });
+  click(d.querySelector('[data-action="song:lookup"]'));
+  await new Promise(r => setTimeout(r, 50));
+  check('lookup degrades on static hosting', /not available here/.test($('song-output').textContent));
+  let calledUrl = '';
+  w.fetch = async (url) => { calledUrl = String(url); return { ok: true, status: 200, headers: { get: () => 'application/json' },
+    json: async () => ({ found: true, title: 'Test Song', artist: 'Tester', bpm: 96, key: 'Am', timeSig: '4/4',
+      attribution: { text: 'Tempo & key data: GetSongBPM', url: 'https://getsongbpm.com' } }) }; };
+  click(d.querySelector('[data-action="song:lookup"]'));
+  await new Promise(r => setTimeout(r, 50));
+  check('lookup calls the server function', calledUrl.startsWith('/.netlify/functions/songmeta?title=Test%20Song&artist=Tester'), calledUrl);
+  const keyCard = [...d.querySelectorAll('.song-field')].find(c => /Key/.test(c.querySelector('.chord-card-label').textContent));
+  check('sheet + lookup keys cross-check (agree)', keyCard?.dataset.status === 'agree' && /Am/.test(keyCard.textContent));
+  check('GetSongBPM backlink shown', !!d.querySelector('#song-output a[href="https://getsongbpm.com"]'));
+  click(d.querySelector('[data-action="song:save"]'));
+  const r1 = unitRows();
+  check('save → one unit with progression', r1.length === 1 && /Test Song — Tester/.test(r1[0]) && /Am · 96 BPM · Am F C G/.test(r1[0]), r1.join(' / '));
+  check('save → tempo keeper + app key', $('bpm-slider').value === '96' && $('rail-key').value === 'Am');
+  let q = showTrack();
+  check('save → My chords track injected', trackTabs(q) === 1 && trackChords(q).join(' ') === 'Am F C G', `${trackTabs(q)} tab(s): ${trackChords(q).join(' ')}`);
+  // choose the chorus loop, override BPM by typing, save again: same unit, same track, updated
+  const chorus = [...d.querySelectorAll('input[name="song-prog"]')].find(i => /Chorus/.test(i.value));
+  chorus.checked = true; chorus.dispatchEvent(new w.Event('change', { bubbles: true }));
+  $('song-bpm-input').value = '100'; enter($('song-bpm-input'));
+  check('manual BPM override shown', /\byou\b/.test([...d.querySelectorAll('.song-field')].find(c => c.querySelector('.chord-card-label').textContent === 'BPM').textContent));
+  click(d.querySelector('[data-action="song:save"]'));
+  const r2 = unitRows();
+  q = showTrack();
+  check('re-save is idempotent (1 unit, 1 track)', r2.length === 1 && trackTabs(q) === 1, `${r2.length} unit(s), ${trackTabs(q)} track(s)`);
+  check('re-save updates progression + BPM', trackChords(q).join(' ') === 'F G Am F G C E7' && /100 BPM/.test(r2[0]), `${trackChords(q).join(' ')} | ${r2[0]}`);
+  check('open track → My chords view', /♪ Test Song/.test(q.textContent));
+  w.switchTab('upload');
+  click(d.querySelector('[data-action="song:new"]'));
+  check('new clears the form', $('song-title').value === '' && $('song-output').classList.contains('placeholder'));
+  click(d.querySelector('#song-units [data-action="song:load"]'));
+  check('load saved unit restores values', $('song-title').value === 'Test Song' && /F – G – Am/.test($('song-output').textContent) && /100/.test($('song-output').textContent));
+} catch (e) {
+  check('learn-a-song interaction ran', false, e.stack || e.message);
+}
+
 check('no runtime errors during boot', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 let failed = 0;

@@ -35,6 +35,23 @@ MIDI.
   feel. Write the result back to the clip's tags or seed the mixer from it in one
   click. It reasons from text — it cannot hear the embed. Real audio fingerprinting
   (upload) is still to come and will land in the same panel.
+- **Learn a song** — tab 03. Turn "I want to learn that song" into a saved *unit*
+  (BPM, key, color-map key, closest chord progression) and a prefilled **My chords**
+  track, from any of three paths that cross-check each other:
+  1. *Paste chords* — any chord sheet (Ultimate Guitar copy/paste, ChordPro `[Am]`,
+     bar notation `| Am | F | x2`). Chords are extracted per section, each section is
+     reduced to its repeating loop, the key is inferred with a confidence and runner-up
+     keys, and everything is shown in Roman numerals. Pasted text (lyrics) is never stored.
+  2. *Look up BPM / key* by title + artist — GetSongBPM via a server function
+     (`netlify/functions/songmeta.mjs`; same handler in `server/proxy.js` for `npm start`).
+     Needs `GETSONGBPM_API_KEY` set server-side (free key at getsongbpm.com/api; their
+     terms require the backlink the panel shows).
+  3. *Listen to the audio* — pick an audio/video file (an iPhone screen recording works)
+     or capture a playing tab's audio (desktop Chrome/Edge). Key + BPM come from chroma
+     and onset analysis in the browser; chords are a beat-synced major/minor sketch.
+  Agreement between sources raises confidence; a relative major/minor or half/double-time
+  disagreement is flagged, and you can override any field. **Save unit → My chords** is
+  idempotent: the same title/artist (or linked clip) updates the same unit and track.
 - **Two-pane shell** — a sticky left rail holds the always-on things (tempo keeper,
   current key, selected genres, the reference you're blending toward, the clip
   player); the tabs live in the main column. Below 1180px the rail stacks on top.

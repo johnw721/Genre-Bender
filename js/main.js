@@ -63,6 +63,7 @@ import { initActions, hasAction, actionNames } from './actions.js';
 import { initKeyPickers } from './keypicker.js';
 import { initClips } from './clips.js';
 import { initAnalyze } from './analyze.js';
+import { initSongImport } from './songimport.js';
 import { initGuided, guidedOnTab } from './guided.js';
 import { initPractice, practiceOnTab } from './practice.js';
 import {
@@ -189,6 +190,7 @@ syncLabelToggleUI();   // light the toggles to match the saved preference
 initClips();         // reference clips player (restores saved list + dock mode)
 initSeedImport();    // seed packs: #seed= links, ⤓ seed pack file, GenreBender.applySeedPack
 initAnalyze();       // "03 — Analyze Track" (reads the clips list)
+initSongImport();    // "Learn a song": paste / lookup / audio → unit → My chords track
 initGuided();        // "02 — Guided Workflow" stepper over existing actions
 initPractice();      // "04 — Practice" daily plans (reads trainer / clips / store)
 initPersistence();   // restore reads the UI the inits above built

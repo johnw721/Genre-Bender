@@ -413,6 +413,50 @@
 
   <!-- ANALYZE TAB -->
   <div class="panel" id="panel-upload">
+    <div class="tab-panel-wrap song-import">
+      <div class="tab-panel-header">
+        <span class="tab-panel-title">Learn a song</span>
+        <span class="tab-panel-sub">chords + key + BPM → a saved unit and a My chords track</span>
+      </div>
+      <div class="tab-panel-body">
+        <div class="tab-generate-row song-row">
+          <input class="song-input" id="song-title" placeholder="Song title" aria-label="Song title" data-on-enter="song:lookup" autocomplete="off">
+          <input class="song-input" id="song-artist" placeholder="Artist" aria-label="Artist" data-on-enter="song:lookup" autocomplete="off">
+          <select class="tab-style-select" id="song-clip" aria-label="Link to a saved clip (optional)" title="Link to a saved clip (optional): saving writes BPM + key onto its tags"></select>
+          <button class="btn btn-ghost" type="button" data-action="song:new" title="Clear the form and start a new song">New</button>
+        </div>
+
+        <div class="song-paths">
+          <section class="song-path">
+            <div class="song-path-title"><b>1</b> Paste chords <small>most reliable</small></div>
+            <textarea class="analyze-notes song-sheet" id="song-sheet" rows="6" spellcheck="false" placeholder="Paste a chord sheet (Ultimate Guitar, ChordPro, your own notes).&#10;[Verse]&#10;Am        F&#10;lyrics…&#10;C         G&#10;| Am | F | C | G | x2"></textarea>
+            <button class="btn btn-primary" id="song-parse-btn" type="button" data-action="song:parse">Read chords</button>
+          </section>
+          <section class="song-path">
+            <div class="song-path-title"><b>2</b> Look up BPM / key <small>by title + artist</small></div>
+            <p class="song-help">Searches the GetSongBPM catalog through this site's server function. Gives tempo, key and time signature — not chords.</p>
+            <button class="btn btn-primary" id="song-lookup-btn" type="button" data-action="song:lookup">Look up ↗</button>
+          </section>
+          <section class="song-path">
+            <div class="song-path-title"><b>3</b> Listen to the audio <small>runs in your browser</small></div>
+            <input class="song-file" id="song-audio" type="file" accept="audio/*,video/*,.mp3,.m4a,.wav,.aac,.ogg,.flac,.mp4,.mov" aria-label="Audio or video file to analyse">
+            <div class="song-btns">
+              <button class="btn btn-primary" id="song-file-btn" type="button" data-action="song:file">Analyse file</button>
+              <button class="btn btn-ghost" id="song-capture-btn" type="button" data-action="song:capture">Capture tab audio</button>
+              <select class="tab-style-select song-mini" id="song-capture-secs" aria-label="Capture length">
+                <option value="15">15s</option><option value="20" selected>20s</option><option value="30">30s</option><option value="45">45s</option>
+              </select>
+              <button class="btn btn-ghost" type="button" data-action="song:tap" title="Tap ⦿ in the tempo keeper along with the song, then use that BPM">Use tapped BPM</button>
+            </div>
+            <p class="song-help">Key + BPM are solid; chords are a sketch (major/minor triads, steady tempo). On iPhone: screen-record the clip, then choose the recording.</p>
+          </section>
+        </div>
+        <span class="clip-status song-status" id="song-status" aria-live="polite"></span>
+        <div class="tab-output placeholder" id="song-output"></div>
+        <div class="song-units" id="song-units"></div>
+      </div>
+    </div>
+
     <div class="tab-panel-wrap">
       <div class="tab-panel-header">
         <span class="tab-panel-title">Analyze a reference clip</span>
@@ -426,7 +470,7 @@
         </div>
         <textarea class="analyze-notes" id="analyze-notes" rows="3" placeholder="Paste the post's caption, or describe what you hear: instruments, groove, mood, era, artists it reminds you of…"></textarea>
         <div class="tab-output placeholder" id="analyze-output">Pick a saved clip, add what you hear, then analyze. Results can be written back to the clip's tags and used to seed the mixer.</div>
-        <div class="modal-note" style="margin-top:14px">Upload .mp3 / .wav for real audio fingerprinting — coming in a later iteration; it will land in this same panel.</div>
+        <div class="modal-note" style="margin-top:14px">For real key / BPM / chord detection from the audio itself, use <b>Learn a song → Listen to the audio</b> above.</div>
       </div>
     </div>
   </div>

@@ -334,6 +334,37 @@ reuses `audio.playChordNow`/`playNote` and `loopscheduler.makeLooper`.
 
 ---
 
+## 4c½. Learn a song (song units)
+
+```
+paste ──► chordsheet.analyzeSheet ─┐
+title/artist ──► /.netlify/functions/songmeta ──► shared/songmeta-core.mjs (GetSongBPM)
+file / tab capture ──► Web Audio decode ──► audioanalysis.analyzeAudio
+tap ──► metronome.getBPM ──────────┤
+                                   ▼
+                     songunit.resolveKey / resolveBpm   (provenance + confidence,
+                                   │                     agree / relative / half-double / conflict)
+                                   ▼
+             songunit.buildUnit ──► GenreBenderSongUnits_v1  (registered → in backups)
+                                   ├─► trainer.trainerUpsertTrack('trk_' + unit.id)   idempotent
+                                   ├─► metronome.setBPM + keysync.syncKey             (color map follows)
+                                   └─► clips.clipsUpdate (bpm, key) when a clip is linked
+```
+
+| Module | Owns | Key exports |
+|---|---|---|
+| `chordsheet.js` | Pure: chord-token parsing, sheet extraction (sections, repeats, inline/UG markup), loop finding, ranked key inference, Roman numerals | `analyzeSheet`, `extractChords`, `parseChordToken`, `inferKey`, `findLoop`, `romanFor`, `toRomans`, `normalizeKeyName`, `relativeKey`, `sameKey` |
+| `audioanalysis.js` | Pure DSP (no deps): downsample, STFT, whitened chroma → Krumhansl–Kessler key; spectral-flux onsets → tempo (autocorrelation + log-tempo prior) → beat grid; per-beat triad templates + Viterbi → per-bar chords | `analyzeAudio`, `detectKey`, `detectTempo` |
+| `songunit.js` | Pure: merge sources, flag disagreements, stable unit ids, unit shape | `resolveKey`, `resolveBpm`, `buildUnit`, `unitId`, `progressionOptions` |
+| `songimport.js` | The panel: three paths, overrides, save/load/delete units, open track | `initSongImport`, `saveUnit`, `getUnits` |
+| `shared/songmeta-core.mjs` | Server-side GetSongBPM lookup + match ranking (used by the Netlify Function and the dev proxy) | `lookupSongMeta`, `handleSongMeta` |
+
+Tests: `npm run verify:song` (parser, DSP on synthesized audio with known key/tempo/chords,
+resolver, mocked GetSongBPM, the Netlify handler, the dev-proxy route, persistence across
+reload); the single-file verifier drives the panel end to end.
+
+---
+
 ## 4d. Explore mode
 
 `explore.js` owns the ✦ explore toggle in the top tab bar. Toggling it

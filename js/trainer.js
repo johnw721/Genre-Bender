@@ -1132,6 +1132,36 @@ export function trainerDeleteTrack(){
   renderCustomView();
 }
 
+/* Create-or-replace a track by a caller-chosen id (the "Learn a song"
+   unit injection). Idempotent: running it again with the same id
+   rewrites that one track instead of adding another. A pinned voicing
+   the user set on a chord survives a re-import when the chord at that
+   position is unchanged. Makes the track active and repaints if the
+   My chords view is on screen. Returns the track id. */
+export function trainerUpsertTrack({ id, name, chords }){
+  if (!id || !Array.isArray(chords)) return null;
+  let t = tracks.find(x => x.id === id);
+  if (!t){
+    t = { id, name: name || 'Imported', chords: [] };
+    tracks.push(t);
+  }
+  const prev = t.chords;
+  t.name = name || t.name;
+  t.chords = chords
+    .filter(c => c && parseChordName(String(c.name || c)))
+    .map((c, i) => {
+      const nm = String(c.name || c);
+      const old = prev[i];
+      const frets = c.frets || (old && old.name === nm ? old.frets : null);
+      return { name: nm, frets: frets || null };
+    });
+  activeTrackId = t.id;
+  saveTracks();
+  if (mode === 'custom') renderCustomView();
+  return t.id;
+}
+export function trainerHasTrack(id){ return tracks.some(t => t.id === id); }
+
 /* ---- small helpers ---------------------------------------- */
 function shuffle(arr){
   for (let i = arr.length - 1; i > 0; i--){
