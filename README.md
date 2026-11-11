@@ -52,6 +52,11 @@ MIDI.
   Agreement between sources raises confidence; a relative major/minor or half/double-time
   disagreement is flagged, and you can override any field. **Save unit → My chords** is
   idempotent: the same title/artist (or linked clip) updates the same unit and track.
+- **Hover tab** — in Shape trainer → *My chords*, **⧉ hover tab** floats the active track's
+  progression in a small draggable panel that stays on screen while you scroll, switch tabs
+  or play: chords with Roman numerals (in the saved song's key, else the app key, else a
+  guess), the current chord highlighted, a tempo-locked strum loop from any chord, ◀ ▶ step,
+  beats-per-chord, and a track switcher. It follows edits live; position and state persist.
 - **Two-pane shell** — a sticky left rail holds the always-on things (tempo keeper,
   current key, selected genres, the reference you're blending toward, the clip
   player); the tabs live in the main column. Below 1180px the rail stacks on top.

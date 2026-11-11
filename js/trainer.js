@@ -225,9 +225,19 @@ function loadTracks(){
   activeTrackId = t.id;
   saveTracks();
 }
+const trackListeners = new Set();
 function saveTracks(){
   saveJSON(TRACKS_KEY, { tracks, activeId: activeTrackId });
+  trackListeners.forEach(fn => { try { fn(); } catch (e) { console.error('track listener:', e); } });
 }
+/* Read-only view of the active My chords track + change subscription
+   (the floating progression tab follows edits, reorders and switches). */
+export function trainerActiveTrack(){
+  const t = getActiveTrack();
+  return t ? { id: t.id, name: t.name, chords: t.chords.map(c => ({ name: c.name, frets: c.frets ? c.frets.slice() : null })) } : null;
+}
+export function trainerTrackList(){ return tracks.map(t => ({ id: t.id, name: t.name, n: t.chords.length })); }
+export function onTracksChange(fn){ trackListeners.add(fn); return () => trackListeners.delete(fn); }
 function addChordToActiveTrack(entry){
   const t = getActiveTrack();
   if (!t) return;
@@ -699,6 +709,7 @@ function renderCustomView(){
       <span class="trainer-track-name">${escHtml(t.name)}</span>
       <button class="pb-btn" type="button" onclick="trainerRenameTrack()">rename</button>
       <button class="pb-btn" type="button" onclick="trainerDeleteTrack()">delete track</button>
+      <button class="pb-btn" type="button" data-action="progtab:toggle" title="Float this track's progression in a small tab that stays on screen while you scroll and play">⧉ hover tab</button>
       ${t.chords.length ? `<button class="pb-btn recolor-btn" type="button" onclick="trainerRecolorTrack()" title="Move every in-key chord up the color map: triads → sevenths → extended → spice → triads">🎨 recolor → ${LEVEL_NAMES[((t.colorLevel || 0) + 1) % LEVEL_NAMES.length]}</button>` : ''}
       ${t.chords.length ? `<button class="btn btn-ghost" type="button" onclick="trainerClearCustomChords()">clear chords</button>` : ''}
       <button class="pb-btn" type="button" onclick="seedImportFile()" title="Load a seed pack (.pack.json) — adds or refreshes pre-filled tracks; safe to re-run">⤓ seed pack</button>
@@ -1097,6 +1108,15 @@ export function trainerSwitchTrack(id){
   activeTrackId = id;
   saveTracks();
   renderCustomView();
+}
+
+/* Same as trainerSwitchTrack, but safe to call from outside the trainer:
+   only repaints when the My chords view is the one on screen. */
+export function trainerSelectTrack(id){
+  if (!tracks.some(x => x.id === id)) return;
+  activeTrackId = id;
+  saveTracks();
+  if (mode === 'custom') renderCustomView();
 }
 
 export function trainerNewTrack(){

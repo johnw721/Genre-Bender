@@ -175,3 +175,35 @@
 .song-prog > :not(input){grid-column:2}
 .song-prog input{grid-row:1 / span 4}
 .song-field[data-status="agree"] .song-note{color:var(--muted)}
+
+/* ---- progression hover tab (progtab.js) ------------------------------ */
+.prog-tab{position:fixed;left:24px;bottom:24px;z-index:45;display:none;width:max-content;min-width:260px;max-width:min(560px,calc(100vw - 16px));
+  background:var(--surface);border:1px solid var(--accent2);border-radius:12px;
+  box-shadow:0 18px 48px rgba(0,0,0,0.45),0 0 0 1px rgba(0,0,0,0.4);font-family:var(--mono);touch-action:none}
+.prog-tab.open{display:block}
+.prog-tab.dragging{opacity:.92;cursor:grabbing}
+.prog-tab-head{display:flex;align-items:center;gap:8px;padding:7px 8px 7px 12px;border-bottom:1px solid var(--border);cursor:grab;user-select:none}
+.prog-tab.collapsed .prog-tab-head{border-bottom:none}
+.prog-tab-title{flex:1;min-width:0;font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prog-tab-meta{font-size:11px;color:var(--muted);white-space:nowrap}
+.prog-tab-meta b{color:var(--accent);font-weight:500}
+.prog-tab-x{border:none;background:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 5px;border-radius:5px}
+.prog-tab-x:hover{color:var(--text);background:var(--surface2)}
+.prog-tab.collapsed .prog-tab-body{display:none}
+.prog-tab-body{padding:10px 12px 12px}
+.prog-tab-grid{display:grid;grid-template-columns:repeat(var(--n,4),minmax(48px,1fr));gap:6px;margin-bottom:10px}
+.prog-tab-cell{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 4px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);cursor:pointer;font-family:var(--mono);transition:border-color .12s,background .12s}
+.prog-tab-cell:hover{border-color:var(--accent2)}
+.prog-tab-cell.current{border-color:var(--accent);background:var(--accent-glow);box-shadow:0 0 0 1px var(--accent) inset}
+.prog-tab-chord{font-size:14px}
+.prog-tab-roman{font-size:10px;color:var(--accent2);min-height:12px}
+.prog-tab-empty{font-size:11px;color:var(--muted);margin-bottom:10px}
+.prog-tab-ctrl{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.prog-tab-btn{padding:5px 10px;font-size:11px}
+.prog-tab-beats{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)}
+.prog-tab-beats select,.prog-tab-track{padding:3px 4px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:11px}
+.prog-tab-track{max-width:130px}
+@media (max-width:640px){
+  .prog-tab{min-width:0;width:calc(100vw - 16px)}
+  .prog-tab-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+}

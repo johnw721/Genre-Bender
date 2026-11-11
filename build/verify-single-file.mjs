@@ -265,6 +265,38 @@ try {
   check('re-save is idempotent (1 unit, 1 track)', r2.length === 1 && trackTabs(q) === 1, `${r2.length} unit(s), ${trackTabs(q)} track(s)`);
   check('re-save updates progression + BPM', trackChords(q).join(' ') === 'F G Am F G C E7' && /100 BPM/.test(r2[0]), `${trackChords(q).join(' ')} | ${r2[0]}`);
   check('open track → My chords view', /♪ Test Song/.test(q.textContent));
+  // Hover tab: floats the active track's progression
+  click(d.querySelector('[data-action="song:openTrack"]'));
+  click(d.querySelector('#trainer-question [data-action="progtab:toggle"]'));
+  const pt = $('prog-tab');
+  const cells = () => [...pt.querySelectorAll('.prog-tab-cell')];
+  check('hover tab opens from My chords', pt.classList.contains('open') && cells().length === 7);
+  check('hover tab shows chords + romans in the song key',
+        cells().map(c => c.querySelector('.prog-tab-chord').textContent).join(' ') === 'F G Am F G C E7' &&
+        cells().map(c => c.querySelector('.prog-tab-roman').textContent).join(' ') === 'VI VII i VI VII III V7' &&
+        /Am/.test(pt.querySelector('.prog-tab-meta').textContent), cells().map(c => c.textContent.trim()).join(' | '));
+  click(pt.querySelector('[data-action="progtab:step"][data-dir="1"]'));
+  click(pt.querySelector('[data-action="progtab:step"][data-dir="1"]'));
+  check('step moves the highlight', cells().findIndex(c => c.classList.contains('current')) === 2);
+  click(pt.querySelector('[data-action="progtab:step"][data-dir="-1"]'));
+  click(pt.querySelector('[data-action="progtab:step"][data-dir="-1"]'));
+  click(pt.querySelector('[data-action="progtab:step"][data-dir="-1"]'));
+  check('step wraps around', cells().findIndex(c => c.classList.contains('current')) === 6);
+  click(cells()[3]);
+  check('click a chord jumps to it', cells()[3].classList.contains('current'));
+  click(pt.querySelector('[data-action="progtab:play"]'));
+  check('loop starts', /stop/.test(pt.querySelector('[data-action="progtab:play"]').textContent));
+  click(pt.querySelector('[data-action="progtab:play"]'));
+  check('loop stops', /loop/.test(pt.querySelector('[data-action="progtab:play"]').textContent));
+  w.trainerRemoveCustomChord(6);
+  check('hover tab follows track edits', cells().length === 6);
+  click(pt.querySelector('[data-action="progtab:collapse"]'));
+  check('collapse hides the body', pt.classList.contains('collapsed'));
+  click(pt.querySelector('[data-action="progtab:collapse"]'));
+  w.switchTab('practice');
+  check('hover tab stays across tab switches', pt.classList.contains('open'));
+  click(pt.querySelector('.prog-tab-head [data-action="progtab:toggle"]'));
+  check('hover tab closes', !pt.classList.contains('open'));
   w.switchTab('upload');
   click(d.querySelector('[data-action="song:new"]'));
   check('new clears the form', $('song-title').value === '' && $('song-output').classList.contains('placeholder'));

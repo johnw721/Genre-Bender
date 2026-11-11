@@ -357,6 +357,7 @@ tap ──► metronome.getBPM ──────────┤
 | `audioanalysis.js` | Pure DSP (no deps): downsample, STFT, whitened chroma → Krumhansl–Kessler key; spectral-flux onsets → tempo (autocorrelation + log-tempo prior) → beat grid; per-beat triad templates + Viterbi → per-bar chords | `analyzeAudio`, `detectKey`, `detectTempo` |
 | `songunit.js` | Pure: merge sources, flag disagreements, stable unit ids, unit shape | `resolveKey`, `resolveBpm`, `buildUnit`, `unitId`, `progressionOptions` |
 | `songimport.js` | The panel: three paths, overrides, save/load/delete units, open track | `initSongImport`, `saveUnit`, `getUnits` |
+| `progtab.js` | Floating "hover tab" for the active My chords track: chords + romans, tempo-locked loop (own `makeLooper`), step / jump, beats per chord, track switcher; follows `trainer.onTracksChange` + `keysync.onAppKeyChange`; prefs in `GenreBenderProgTab_v1` | `initProgTab`, `progTabToggle`, `trackKey`, `entryFreqs` |
 | `shared/songmeta-core.mjs` | Server-side GetSongBPM lookup + match ranking (used by the Netlify Function and the dev proxy) | `lookupSongMeta`, `handleSongMeta` |
 
 Tests: `npm run verify:song` (parser, DSP on synthesized audio with known key/tempo/chords,
