@@ -54,6 +54,9 @@ MIDI.
   *Blend & play* (the whole pipeline). Steps the app can observe tick themselves off;
   the rest are one-click "mark done" ticks stored per day. A fully done plan counts
   toward a streak shown in the header.
+- **Seed packs** — pre-filled My chords tracks (link, key, BPM, color chart) from
+  `seeds/*.pack.json`; load with *⤓ seed pack*, a `#seed=` link, or a console
+  snippet. Re-applying is safe (idempotent). See [seeds/README.md](seeds/README.md).
 - **Backup** — ⚙ AI → *export everything* writes session, clips, trainer progress,
   the chord table and label prefs to one JSON file (never your API key); *import
   backup* restores it.

@@ -2,7 +2,7 @@
   "name": "genre-bender",
   "version": "0.1.0",
   "private": true,
-  "description": "Genre Bender — runs the static UI (port 5500) and the Anthropic proxy (port 8787) together with one command.",
+  "description": "Genre Bender \u2014 runs the static UI (port 5500) and the Anthropic proxy (port 8787) together with one command.",
   "scripts": {
     "start": "concurrently -k -n proxy,web -c magenta,cyan \"npm start --prefix server\" \"vite --port 5500 --open\"",
     "proxy": "npm start --prefix server",
@@ -12,7 +12,12 @@
     "verify:clips": "node build/verify-clips.mjs",
     "share": "npm run build:single && npm run verify:single",
     "setup": "npm install && npm install --prefix server",
-    "postinstall": "npm install --prefix server"
+    "postinstall": "npm install --prefix server",
+    "verify:seeds": "node build/verify-seeds.mjs",
+    "seed:check": "node build/seed-pack.mjs seeds/rnb-neosoul-guitar.pack.json",
+    "seed:snippet": "node build/seed-pack.mjs seeds/rnb-neosoul-guitar.pack.json --snippet --out seeds/rnb-neosoul-guitar.snippet.js",
+    "verify:seeds:e2e": "node build/verify-seeds-e2e.mjs",
+    "seed:link": "node build/seed-pack.mjs seeds/rnb-neosoul-guitar.pack.json --link"
   },
   "devDependencies": {
     "@fontsource/dm-mono": "^5.3.0",

@@ -48,8 +48,9 @@ import {
   trainerSwitchTrack, trainerNewTrack, trainerRenameTrack, trainerDeleteTrack,
   trainerPlayLick, trainerRerollLick, trainerRedraw, trainerAddPaletteFromFrets,
   trainerRecolorTrack, trainerColorChord,
-  trainerPreviewCustomChordPosition, trainerStepCustomChordPosition
+  trainerPreviewCustomChordPosition, trainerStepCustomChordPosition, trainerUseTrackKey
 } from './trainer.js';
+import { initSeedImport, seedImportFile } from './seedimport.js';
 import { trainerNav, trainerOpenColorMap, trainerOnTab, initTrainerNav } from './trainernav.js';
 import { initShortcuts, toggleShortcutHelp } from './shortcuts.js';
 import { initColorMap } from './colormap.js';
@@ -98,6 +99,8 @@ async function connectHooktheoryUI(){
 window.GenreBender = { hasAction, actionNames };
 
 Object.assign(window, {
+  // seed packs (My chords)
+  seedImportFile, trainerUseTrackKey,
   // mixer / library
   buildLibrary, clearAll, removeByIdx, updateRatio, filterGenres, clearGenreFilter,
   generateBlend,
@@ -184,6 +187,7 @@ initTrainerNav();    // 05 — Shape Trainer sub-tabs, color map mount, sidebar 
 initShortcuts();     // T / C / M, 1–7, N, Space, H, ? (keyboard)
 syncLabelToggleUI();   // light the toggles to match the saved preference
 initClips();         // reference clips player (restores saved list + dock mode)
+initSeedImport();    // seed packs: #seed= links, ⤓ seed pack file, GenreBender.applySeedPack
 initAnalyze();       // "03 — Analyze Track" (reads the clips list)
 initGuided();        // "02 — Guided Workflow" stepper over existing actions
 initPractice();      // "04 — Practice" daily plans (reads trainer / clips / store)

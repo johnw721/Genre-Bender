@@ -408,3 +408,14 @@
 .cm-sync{font-family:var(--mono);font-size:11px}
 .cm-sync>summary{cursor:pointer;color:var(--muted);font-size:10px;letter-spacing:0.04em}
 .cm-sync>summary:hover{color:var(--text)}
+
+/* Seeded-track meta card (seeds.js / seedimport.js) */
+.trainer-track-meta{display:flex;flex-direction:column;gap:6px;margin:4px 0 8px;padding:8px 10px;border:1px solid var(--border, rgba(255,255,255,.12));border-radius:8px}
+.trainer-meta-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:12px}
+.trainer-meta-row em{opacity:.7;font-style:normal}
+.trainer-meta-sep{opacity:.4}
+.trainer-meta-link{color:var(--accent);text-decoration:none;font-weight:600}
+.trainer-meta-link:hover{text-decoration:underline}
+.trainer-meta-prog{font-family:var(--mono);font-size:11px;opacity:.85}
+.trainer-meta-prog.conf-low{color:#e0a050}
+.trainer-meta-chart{display:flex;flex-wrap:wrap;gap:4px}

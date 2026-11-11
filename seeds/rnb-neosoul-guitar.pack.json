@@ -1,0 +1,192 @@
+{
+  "format": "genre-bender-seed-pack",
+  "v": 1,
+  "id": "rnb-neosoul-guitar",
+  "rev": 2,
+  "title": "R&B / neo-soul guitar — 5 study tracks",
+  "createdAt": "2026-11-03",
+  "notes": "rev 2: progressions now taken from published chord charts (2+ sources compared per song). Confidence reflects how well the sources agree.",
+  "tracks": [
+    {
+      "sid": "best-part",
+      "name": "Best Part — Daniel Caesar ft. H.E.R.",
+      "chords": [
+        "Dmaj7",
+        "Am7",
+        "Gmaj7",
+        "Bbmaj7"
+      ],
+      "meta": {
+        "artist": "Daniel Caesar ft. H.E.R.",
+        "title": "Best Part",
+        "link": "https://open.spotify.com/track/1Q7EgiMOuwDcB0PJC6AzON",
+        "key": "D",
+        "bpm": 75,
+        "bpmNote": "variable, around 75",
+        "colorChart": [
+          "Dmaj9",
+          "Em9(11)",
+          "F#m7(11)",
+          "Gmaj9(#11)",
+          "A13(9)",
+          "Bm9(11)",
+          "C#m7b5(11)"
+        ],
+        "progression": "chart",
+        "progressionNote": "Intro/verse loop — four charts agree on this order. Am7 = minor v (borrowed), Bbmaj7 = borrowed bVI: try the color map's out-of-scale view.",
+        "confidence": "high",
+        "sources": [
+          "https://www.e-chords.com/chords/daniel-caesar/best-part",
+          "https://guitartwitt.com/daniel-caesar-best-part-chords-feat-h-e-r/",
+          "https://www.guitartabsexplorer.com/daniel-caesar/best-part-(ver2)-crd",
+          "https://tabs.ultimate-guitar.com/d/daniel_caesar/best_part_crd.htm"
+        ]
+      }
+    },
+    {
+      "sid": "get-you",
+      "name": "Get You — Daniel Caesar ft. Kali Uchis",
+      "chords": [
+        "Em",
+        "F#m7",
+        "Bm",
+        "A7"
+      ],
+      "meta": {
+        "artist": "Daniel Caesar ft. Kali Uchis",
+        "title": "Get You",
+        "link": "https://open.spotify.com/track/2uP6t2J5MEwhr9rDkAAzwh",
+        "key": "Em",
+        "bpm": 74,
+        "colorChart": [
+          "Em9(11)",
+          "F#m7b5(11)",
+          "Gmaj9",
+          "Am9(11)",
+          "Bm7(11)",
+          "Cmaj9(#11)",
+          "D13(9)"
+        ],
+        "progression": "chart",
+        "progressionNote": "i–ii–v–IV7 loop throughout — the most-viewed charts agree. F#m7 and A7 put a C# in the key (E Dorian, not natural minor). Common richer variants: Em9–F#m7–Bm7–Bbm7–Am7–A7 (chromatic walk down).",
+        "confidence": "high",
+        "sources": [
+          "https://tabs.ultimate-guitar.com/d/daniel_caesar/get_you_crd.htm",
+          "https://pt.ultimate-guitar.com/tab/daniel-caesar/get-you-chords-1934197",
+          "https://pt.ultimate-guitar.com/tab/daniel-caesar/get-you-chords-2300421"
+        ]
+      }
+    },
+    {
+      "sid": "japanese-denim",
+      "name": "Japanese Denim — Daniel Caesar",
+      "chords": [
+        "Ebmaj7",
+        "Bb",
+        "Fm7",
+        "Abm6",
+        "Db"
+      ],
+      "meta": {
+        "artist": "Daniel Caesar",
+        "title": "Japanese Denim",
+        "link": "https://open.spotify.com/track/7IVukH71OXfAu3KudrrizN",
+        "key": "Eb",
+        "bpm": 124,
+        "bpmNote": "12/8 sway — charts count it ~62–68 BPM",
+        "colorChart": [
+          "Ebmaj9",
+          "Fm9(11)",
+          "Gm7(11)",
+          "Abmaj9(#11)",
+          "Bb13(9)",
+          "Cm9(11)",
+          "Dm7b5(11)"
+        ],
+        "progression": "chart",
+        "progressionNote": "Intro/verse loop — several charts agree (some write Eb / Abm). Abm = borrowed iv minor, Db = bVII.",
+        "confidence": "high",
+        "sources": [
+          "https://www.guitartabsexplorer.com/daniel-caesar/japanese-denim-crd",
+          "https://e-chords.com/ukulele/daniel-caesar/japanese-denim",
+          "https://ukutabs.com/es/d/daniel-caesar/japanese-denim/",
+          "https://www.musicgateway.com/song-key-bpm/daniel-caesar/japanese-denim"
+        ]
+      }
+    },
+    {
+      "sid": "memory",
+      "name": "Memory — Tom Misch",
+      "chords": [
+        "Dbmaj7",
+        "Ab",
+        "Bbm7",
+        "Gbmaj7",
+        "Fm7"
+      ],
+      "meta": {
+        "artist": "Tom Misch",
+        "title": "Memory",
+        "link": "https://open.spotify.com/track/6LUG39CQPJSRC6Pq3myHNk",
+        "key": "Db",
+        "bpm": 83,
+        "keyNote": "listed as C# major (enharmonic)",
+        "colorChart": [
+          "Dbmaj9",
+          "Ebm9(11)",
+          "Fm7(11)",
+          "Gbmaj9(#11)",
+          "Ab13(9)",
+          "Bbm9(11)",
+          "Cm7b5(11)"
+        ],
+        "progression": "analysis",
+        "progressionNote": "I–V–vi–IV–iii. Two sources agree on Db / Ab / Bbm / Gb (one adds Fm), but both are mostly auto-detected — ear-check the order. Capo 1 + C-family shapes is the easy route.",
+        "confidence": "medium",
+        "sources": [
+          "https://chordify.net/chords/tom-misch-songs/memory-chords",
+          "https://guitartuna.com/chords/memory-tom-misch-easy-guitar-chords-67cb4317bbbe9ff91cb92f27",
+          "https://tunebat.com/Info/Memory-Tom-Misch/6LUG39CQPJSRC6Pq3myHNk"
+        ],
+        "bpmNote": "83–88 across sources"
+      }
+    },
+    {
+      "sid": "dark-red",
+      "name": "Dark Red — Steve Lacy",
+      "chords": [
+        "A#",
+        "G#m",
+        "F#",
+        "B7",
+        "Bmaj7"
+      ],
+      "meta": {
+        "artist": "Steve Lacy",
+        "title": "Dark Red",
+        "link": "https://open.spotify.com/track/3cJjqvXbFwiWgnuWgoyhPM",
+        "key": "D#m",
+        "bpm": 136,
+        "bpmNote": "feels half-time (~68)",
+        "colorChart": [
+          "D#m9(11)",
+          "Fm7b5(11)",
+          "F#maj9",
+          "G#m9(11)",
+          "A#m7(11)",
+          "Bmaj9(#11)",
+          "C#13(9)"
+        ],
+        "progression": "chart",
+        "progressionNote": "Intro/verse loop from two hand-made charts that agree (one spells it Bb–Abm–Gb). The key is the uncertain part. B7 → Bmaj7 is the signature move.",
+        "confidence": "medium",
+        "sources": [
+          "https://tabs.ultimate-guitar.com/tab/steve-lacy/dark-red-chords-2488815",
+          "https://tabs.ultimate-guitar.com/tab/steve-lacy/dark-red-chords-1986265",
+          "https://songs-5d4d4bntm-klangio.vercel.app/en/s/Steve%20Lacy/Dark%20Red/x-OzspEcQG8"
+        ],
+        "keyNote": "sources say G#m / Bb / Ebm — D#m fits the loop best (A# is its V)"
+      }
+    }
+  ]
+}

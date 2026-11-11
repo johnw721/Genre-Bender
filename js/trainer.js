@@ -49,7 +49,8 @@ import {
   configureColorMap, recolorName, nextColorName, mapColumns, colorVoicing, FN_LABEL,
   degreeOf, pinnedFretsFor, LEVEL_NAMES
 } from './colormap.js';
-import { getAppKey } from './keysync.js';
+import { getAppKey, syncKey } from './keysync.js';
+import { mergeSeedPack } from './seeds.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -653,6 +654,34 @@ function customFretCellsHTML(){
       onkeydown="if(event.key==='Enter'){event.preventDefault();trainerAddCustomChordFromFrets();}"></label>`).join('');
 }
 
+/* Seeded tracks carry a meta card: link, key, BPM, color chart, and
+   where the progression came from (chart / analysis / closest-fit). */
+const CONF_LABEL = { high: 'high confidence', medium: 'ear-check', low: 'low confidence' };
+const PROG_LABEL = { chart: 'from a published chart', analysis: 'from automated analysis', 'closest-fit': 'closest diatonic fit (not transcribed)' };
+function trackMetaHTML(t){
+  const m = t && t.meta;
+  if (!m) return '';
+  const title = [m.title, m.artist].filter(Boolean).join(' — ');
+  const link = m.link ? `<a class="trainer-meta-link" href="${escHtml(m.link)}" target="_blank" rel="noopener noreferrer">▶ ${escHtml(title || 'listen')}</a>`
+    : (title ? `<span>${escHtml(title)}</span>` : '');
+  let keyBit = '';
+  if (m.key){
+    let kl = m.key; try { kl = keyLabel(m.key); } catch { /* unknown key label */ }
+    keyBit = `<span>key <strong>${escHtml(kl)}</strong>${m.keyNote ? ` <em>(${escHtml(m.keyNote)})</em>` : ''}</span>
+      <button class="pb-btn" type="button" onclick="trainerUseTrackKey()" title="Set the app key (color map, chord table) to this track's key">use key</button>`;
+  }
+  const bpm = m.bpm ? `<span><strong>${m.bpm}</strong> BPM${m.bpmNote ? ` <em>(${escHtml(m.bpmNote)})</em>` : ''}</span>` : '';
+  const prog = m.progression ? `<span class="trainer-meta-prog conf-${escHtml(m.confidence || 'medium')}" title="${escHtml(m.progressionNote || '')}">prog: ${escHtml(PROG_LABEL[m.progression] || m.progression)}${m.confidence ? ` · ${escHtml(CONF_LABEL[m.confidence] || m.confidence)}` : ''}</span>` : '';
+  const chart = Array.isArray(m.colorChart) && m.colorChart.length
+    ? `<div class="trainer-meta-chart" aria-label="Color chart — one rung per scale degree; tap to add">${m.colorChart.map((n, i) =>
+        `<button type="button" class="chip trainer-suggest-chip" onclick="trainerAddSuggested(${escHtml(JSON.stringify(n))})" title="Add ${escHtml(n)} to the track">${i + 1} · ${escHtml(n)}</button>`).join('')}</div>` : '';
+  return `<div class="trainer-track-meta">
+    <div class="trainer-meta-row">${[link, keyBit, bpm, prog].filter(Boolean).join('<span class="trainer-meta-sep">·</span>')}</div>
+    ${m.progressionNote ? `<div class="trainer-hint">${escHtml(m.progressionNote)}</div>` : ''}
+    ${chart}
+  </div>`;
+}
+
 function renderCustomView(){
   stopProgAudio();
   advanceToken++;                 // cancel any pending quiz auto-advance
@@ -672,7 +701,9 @@ function renderCustomView(){
       <button class="pb-btn" type="button" onclick="trainerDeleteTrack()">delete track</button>
       ${t.chords.length ? `<button class="pb-btn recolor-btn" type="button" onclick="trainerRecolorTrack()" title="Move every in-key chord up the color map: triads → sevenths → extended → spice → triads">🎨 recolor → ${LEVEL_NAMES[((t.colorLevel || 0) + 1) % LEVEL_NAMES.length]}</button>` : ''}
       ${t.chords.length ? `<button class="btn btn-ghost" type="button" onclick="trainerClearCustomChords()">clear chords</button>` : ''}
+      <button class="pb-btn" type="button" onclick="seedImportFile()" title="Load a seed pack (.pack.json) — adds or refreshes pre-filled tracks; safe to re-run">⤓ seed pack</button>
     </div>
+    ${trackMetaHTML(t)}
     ${fitMsg ? `<div class="trainer-custom-status">${escHtml(fitMsg)}</div>` : ''}
     <div class="trainer-custom-input" role="group" aria-label="Add a chord by name">
       <input id="trainer-custom-name" class="trainer-custom-name" type="text" placeholder="e.g. Am7" autocomplete="off" maxlength="12"
@@ -1042,6 +1073,23 @@ export function trainerClearCustomChords(){
   t.chords = [];
   saveTracks();
   renderCustomView();
+}
+
+export function trainerUseTrackKey(){
+  const t = getActiveTrack();
+  if (t && t.meta && t.meta.key) syncKey(t.meta.key, null);
+  renderCustomView();
+}
+
+/* Apply a seed pack (seeds.js) to the live track list. Idempotent —
+   see mergeSeedPack. The first added/updated track becomes active. */
+export function trainerApplySeedPack(pack, opts = {}){
+  const r = mergeSeedPack(tracks, pack, opts);
+  tracks = r.tracks;
+  if (r.firstId) activeTrackId = r.firstId;
+  saveTracks();
+  if (mode === 'custom') renderCustomView(); else updateStats();
+  return r;
 }
 
 export function trainerSwitchTrack(id){
