@@ -304,7 +304,7 @@ try {
   check('load saved unit restores values', $('song-title').value === 'Test Song' && /F – G – Am/.test($('song-output').textContent) && /100/.test($('song-output').textContent));
 } catch (e) {
   check('learn-a-song interaction ran', false, e.stack || e.message);
-
+}
 
 // ---- progression tools, Hooktheory dialog, MIDI in, speed trainer ----
 try {
