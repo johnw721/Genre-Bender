@@ -93,11 +93,33 @@ function place(el){
   el.style.bottom = 'auto';     // the CSS default anchors bottom; top + bottom would stretch it
 }
 
+/* Compact strip in the transport bar: same track, same looper. */
+function renderMini(){
+  const host = $('transport-prog');
+  if (!host) return;
+  const t = trainerActiveTrack();
+  const chords = t?.chords || [];
+  if (!chords.length){
+    host.innerHTML = `<span class="tp-empty">No chords yet — learn a song or add chords in Play.</span>`;
+    return;
+  }
+  if (pos >= chords.length) pos = 0;
+  const playing = !!looper?.playing;
+  host.innerHTML = `
+    <button type="button" class="tp-prog-name" data-action="progtab:openPlay" title="Open this track in Play">${escHtml(t.name)}</button>
+    <div class="tp-chords" id="tp-chords">${chords.map((c, i) =>
+      `<button type="button" class="tp-chord${i === pos ? ' current' : ''}" data-action="progtab:jump" data-idx="${i}" title="Play ${escHtml(c.name)}">${escHtml(c.name)}</button>`).join('')}</div>
+    <button type="button" class="tp-mini${playing ? ' on' : ''}" data-action="progtab:play" data-role="loop" aria-label="${playing ? 'Stop loop' : 'Loop progression'}" title="Loop the progression at the tempo keeper's BPM">${playing ? '■' : '⟳'}</button>
+    <button type="button" class="tp-mini tp-hide-sm" data-action="progtab:step" data-dir="-1" aria-label="Previous chord">◀</button>
+    <button type="button" class="tp-mini tp-hide-sm" data-action="progtab:step" data-dir="1" aria-label="Next chord">▶</button>`;
+}
+
 function render(){
+  renderMini();
   const el = ensureEl();
   el.classList.toggle('open', !!pref.open);
   el.classList.toggle('collapsed', !!pref.collapsed);
-  if (!pref.open){ stop(); return; }
+  if (!pref.open) return;      // closing the pop-out keeps the transport loop running
 
   const t = trainerActiveTrack();
   const chords = t?.chords || [];
@@ -138,6 +160,20 @@ function safeUnits(){ try { return getUnits(); } catch { return []; } }
 function highlight(i){
   pos = i;
   document.querySelectorAll('#prog-tab .prog-tab-cell').forEach((b, j) => b.classList.toggle('current', j === i));
+  const strip = $('tp-chords');
+  if (strip){
+    [...strip.children].forEach((b, j) => b.classList.toggle('current', j === i));
+    const cur = strip.children[i];
+    if (cur && (cur.offsetLeft < strip.scrollLeft || cur.offsetLeft + cur.offsetWidth > strip.scrollLeft + strip.clientWidth)){
+      strip.scrollLeft = Math.max(0, cur.offsetLeft - 24);
+    }
+  }
+}
+function paintPlaying(on){
+  const b = document.querySelector('#prog-tab [data-action="progtab:play"]');
+  if (b){ b.textContent = on ? '■ stop' : '▶ loop'; b.classList.toggle('btn-primary', on); b.classList.toggle('btn-ghost', !on); }
+  const m = document.querySelector('#transport-prog [data-role="loop"]');
+  if (m){ m.textContent = on ? '■' : '⟳'; m.classList.toggle('on', on); m.setAttribute('aria-label', on ? 'Stop loop' : 'Loop progression'); }
 }
 
 /* ---- playback ------------------------------------------------------ */
@@ -147,10 +183,7 @@ function getLooper(){
   looper = makeLooper({
     swing: true,
     onStep: (i) => highlight((i + stepOffset) % stepLen),
-    onStop: () => {
-      const b = document.querySelector('#prog-tab [data-action="progtab:play"]');
-      if (b){ b.textContent = '▶ loop'; b.classList.replace('btn-primary', 'btn-ghost'); }
-    },
+    onStop: () => paintPlaying(false),
   });
   return looper;
 }
@@ -164,8 +197,7 @@ function play(){
   const order = t.chords.map((c, i) => t.chords[(i + stepOffset) % stepLen]);
   getLooper().start(order.map(c => ({ freqs: entryFreqs(c), beats: pref.beats })),
     { beatsPerChord: pref.beats, mode: 'strum', loop: true });
-  const b = document.querySelector('#prog-tab [data-action="progtab:play"]');
-  if (b){ b.textContent = '■ stop'; b.classList.replace('btn-ghost', 'btn-primary'); }
+  paintPlaying(true);
 }
 function stop(){ if (looper) looper.stop(); }
 
@@ -240,10 +272,11 @@ export function initProgTab(){
       pref.beats = BEAT_OPTIONS.includes(+el.value) ? +el.value : 4; savePref();
       if (looper?.playing){ stop(); play(); }
     },
+    'progtab:openPlay': () => { if (typeof window.trainerNav === 'function') window.trainerNav('chords'); },
     'progtab:track':    (el) => { stop(); pos = 0; trainerSelectTrack(el.value); },
   });
-  onTracksChange(() => { if (pref.open){ const was = !!looper?.playing; stop(); render(); if (was) play(); } });
-  onAppKeyChange(() => { if (pref.open) render(); });
+  onTracksChange(() => { const was = !!looper?.playing; stop(); render(); if (was) play(); });
+  onAppKeyChange(() => render());
   window.addEventListener('resize', () => { const el = $('prog-tab'); if (el && pref.open) place(el); });
   // The tempo keeper has no change event of its own; keep the BPM label honest.
   setInterval(() => {

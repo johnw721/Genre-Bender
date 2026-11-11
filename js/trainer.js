@@ -701,19 +701,18 @@ function renderCustomView(){
   const fitMsg = customFitMessage;      // one-shot: read then clear so it only shows once
   customFitMessage = null;
   q.innerHTML = `
-    <div class="trainer-prompt">Build a track — a saved, ordered sequence of chords.
-      <span class="trainer-hint">Add a chord by typing its name, or by entering its frets (name is auto-detected). Once a track has two chords, we'll guess the key and suggest what fits next.</span>
-    </div>
     <div class="trainer-track-tabs" role="tablist" aria-label="Saved tracks">${trackTabsHTML()}</div>
-    <div class="trainer-track-tools">
-      <span class="trainer-track-name">${escHtml(t.name)}</span>
-      <button class="pb-btn" type="button" onclick="trainerRenameTrack()">rename</button>
-      <button class="pb-btn" type="button" onclick="trainerDeleteTrack()">delete track</button>
-      <button class="pb-btn" type="button" data-action="progtab:toggle" title="Float this track's progression in a small tab that stays on screen while you scroll and play">⧉ hover tab</button>
-      ${t.chords.length ? `<button class="pb-btn recolor-btn" type="button" onclick="trainerRecolorTrack()" title="Move every in-key chord up the color map: triads → sevenths → extended → spice → triads">🎨 recolor → ${LEVEL_NAMES[((t.colorLevel || 0) + 1) % LEVEL_NAMES.length]}</button>` : ''}
-      ${t.chords.length ? `<button class="btn btn-ghost" type="button" onclick="trainerClearCustomChords()">clear chords</button>` : ''}
-      <button class="pb-btn" type="button" onclick="seedImportFile()" title="Load a seed pack (.pack.json) — adds or refreshes pre-filled tracks; safe to re-run">⤓ seed pack</button>
-    </div>
+    <details class="trainer-track-tools track-more">
+      <summary><span class="trainer-track-name">${escHtml(t.name)}</span> <span class="track-more-label">track options</span></summary>
+      <div class="track-more-body">
+        <button class="pb-btn" type="button" onclick="trainerRenameTrack()">rename</button>
+        <button class="pb-btn" type="button" onclick="trainerDeleteTrack()">delete track</button>
+        <button class="pb-btn" type="button" data-action="progtab:toggle" title="Float this track's progression in a small tab that stays on screen while you scroll and play">⧉ hover tab</button>
+        ${t.chords.length ? `<button class="pb-btn recolor-btn" type="button" onclick="trainerRecolorTrack()" title="Move every in-key chord up the color map: triads → sevenths → extended → spice → triads">🎨 recolor → ${LEVEL_NAMES[((t.colorLevel || 0) + 1) % LEVEL_NAMES.length]}</button>` : ''}
+        ${t.chords.length ? `<button class="pb-btn" type="button" onclick="trainerClearCustomChords()">clear chords</button>` : ''}
+        <button class="pb-btn" type="button" onclick="seedImportFile()" title="Load a seed pack (.pack.json) — adds or refreshes pre-filled tracks; safe to re-run">⤓ seed pack</button>
+      </div>
+    </details>
     ${trackMetaHTML(t)}
     ${fitMsg ? `<div class="trainer-custom-status">${escHtml(fitMsg)}</div>` : ''}
     <div class="trainer-custom-input" role="group" aria-label="Add a chord by name">
@@ -721,11 +720,14 @@ function renderCustomView(){
         onkeydown="if(event.key==='Enter'){event.preventDefault();trainerAddCustomChord();}">
       <button class="btn btn-primary" type="button" onclick="trainerAddCustomChord()">+ add by name</button>
     </div>
-    <div class="fret-inputs trainer-custom-fret-inputs" role="group" aria-label="Or add a chord by frets, low E to high e">
-      ${customFretCellsHTML()}
-      <button class="btn btn-primary" type="button" onclick="trainerAddCustomChordFromFrets()">+ add from frets</button>
-      <button class="btn btn-ghost" type="button" onclick="trainerAddPaletteFromFrets()" title="Keep this exact fingering on the chord table below">+ add to table</button>
-    </div>
+    <details class="add-by-frets">
+      <summary>or add by frets</summary>
+      <div class="fret-inputs trainer-custom-fret-inputs" role="group" aria-label="Or add a chord by frets, low E to high e">
+        ${customFretCellsHTML()}
+        <button class="btn btn-primary" type="button" onclick="trainerAddCustomChordFromFrets()">+ add from frets</button>
+        <button class="btn btn-ghost" type="button" onclick="trainerAddPaletteFromFrets()" title="Keep this exact fingering on the chord table below">+ add to table</button>
+      </div>
+    </details>
     <div class="trainer-custom-err" id="trainer-custom-err"></div>
     <div class="trainer-chips" id="trainer-chips">${customChipsHTML(t)}</div>
     ${customDiagramsHTML(t)}

@@ -5,6 +5,32 @@ modules depend on one another, and how data flows through the app.
 
 ---
 
+## 0. Shell (face-lift, Phase 1)
+
+Four destinations over the existing panels — nothing was renamed, so old entry points still work:
+
+| Destination | Panels | Sub-nav |
+|---|---|---|
+| **Songs** (home) | `panel-upload` — song library cards, *Learn a song* and *Describe a clip* as folds | — |
+| **Play** | `panel-trainer` (sub `chords` / `colormap`) | My chords · Color map |
+| **Practice** | `panel-practice`, `panel-trainer` (sub `drills`) | Today · Drills |
+| **Create** | `panel-mixer`, `panel-guided` | Genre mixer · Guided workflow |
+
+`nav.js` owns the top bar, sub-nav, ⋯ menu, transport popovers and the light/dark theme
+(`GenreBenderTheme_v1`, applied before first paint by an inline script). `ui.switchTab` and
+`trainernav.applySub` fire `gb:nav`; `nav.refresh()` reads what is on screen and repaints, so the
+nav can never disagree with the view. The old left rail is gone: tempo keeper + key live in the
+**transport bar** (`#transport`, same element ids), the active track's progression is the
+transport strip (`progtab.js` renders both it and the pop-out hover tab, one looper), the clips
+player always floats, MIDI is a floating card, the session blend sits atop Create and the
+trainer shortcuts atop Practice.
+
+Styling: `tokens.css` (palette, `--ui` system sans, `--code` DM Mono, radii, light theme) →
+feature sheets → `theme.css` (shared component restyle) → `layout.css` (shell, transport, Songs
+cards, phone breakpoints at 720 / 420 px).
+
+---
+
 ## 1. File tree
 
 ```

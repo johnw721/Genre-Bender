@@ -35,6 +35,11 @@ MIDI.
   feel. Write the result back to the clip's tags or seed the mixer from it in one
   click. It reasons from text — it cannot hear the embed. Real audio fingerprinting
   (upload) is still to come and will land in the same panel.
+- **Shell** — four places instead of five tabs and a sidebar: **Songs** (your library + Learn a
+  song), **Play** (My chords, Color map), **Practice** (today's plan, drills, speed trainer) and
+  **Create** (genre mixer, guided workflow). A transport bar at the bottom keeps the metronome,
+  key and the current track's chords on every page; less-used tools live in the ⋯ menu.
+  Light and dark themes (☀ in the top bar).
 - **Learn a song** — tab 03. Turn "I want to learn that song" into a saved *unit*
   (BPM, key, color-map key, closest chord progression) and a prefilled **My chords**
   track, from any of three paths that cross-check each other:

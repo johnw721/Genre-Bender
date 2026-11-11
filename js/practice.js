@@ -89,7 +89,7 @@ function goTrainer(mode){
   else trainerNav('drills', mode || null);
 }
 function goMyChords(){ goTrainer('custom'); }
-function openPlayer(){ switchTab('mixer'); clipsToggleDock(); setTimeout(() => $('clip-url')?.focus(), 80); }
+function openPlayer(){ if (!$('clip-dock')?.classList.contains('closed')) return $('clip-url')?.focus(); clipsToggleDock(); }   // the player floats over any page
 function clickAction(name){ document.querySelector(`[data-action="${name}"]`)?.click(); }
 
 /* ---- step vocabulary ----
@@ -110,7 +110,7 @@ const PLANS = {
         hint: s => !s.clip ? 'Needs a clip first.' : s.clip.bpm ? `${s.clip.bpm} bpm saved on the clip.` : `Tap tempo along for 8+ beats (metronome is at ${s.bpm}), then capture it onto the clip.`,
         done: s => !!(s.clip && s.clip.bpm), ready: s => !!s.clip, go: 'practice:capturebpm', label: () => '↓ capture tapped bpm' },
       { id: 'key', title: 'Set the key + tags', mins: '',
-        hint: s => !s.clip ? 'Needs a clip first.' : (s.clip.key && s.clip.genres) ? `${s.clip.genres} · ${s.clip.key}` : 'Pick the key in the rail. Not sure? Analyze the caption and write the guess back to the clip.',
+        hint: s => !s.clip ? 'Needs a clip first.' : (s.clip.key && s.clip.genres) ? `${s.clip.genres} · ${s.clip.key}` : 'Pick the key in the transport bar. Not sure? Analyze the caption and write the guess back to the clip.',
         done: s => !!(s.clip && s.clip.key && s.clip.genres && s.clip.genres.trim()), ready: s => !!s.clip, go: 'practice:analyze', label: () => 'Analyze it ↗' },
       { id: 'track', title: 'Build the progression in My chords', mins: '3–10',
         hint: s => `${trackHint(s)} New track named after the clip → loop the clip → type frets, watch the readout, “+ add from frets” per chord. Quality toggles for colour, “🔑 make in key” for clashes.`,
@@ -129,8 +129,8 @@ const PLANS = {
   B: {
     title: 'Trainer-first', sub: 'SRS fluency · ~12 min · daily default',
     steps: [
-      { id: 'clip', title: 'Dock a clip for ambience', mins: '0–1',
-        hint: s => s.clipOpen ? `“${s.clip.label}” in the rail — leave it alone.` : 'Open any saved clip in the rail (docked, not floating) so a reference is in your ear.',
+      { id: 'clip', title: 'Open a clip for ambience', mins: '0–1',
+        hint: s => s.clipOpen ? `“${s.clip.label}” in the clips player — leave it playing.` : 'Open any saved clip in the clips player so a reference is in your ear.',
         done: s => s.clipOpen, go: 'practice:player', label: () => 'Open the player' },
       { id: 'mode', title: s => `Today's drill: ${MODE_LABEL[s.mode]}`, mins: '',
         hint: s => s.trainer.mode === s.mode ? 'Selected.' : `Rotation — Mon Scale shapes · Tue Shape→Number · Wed Number→Shape · Thu Moving shapes · Fri Progression ID · Sat/Sun Mixed. Trainer is on ${MODE_LABEL[s.trainer.mode] || s.trainer.mode}.`,

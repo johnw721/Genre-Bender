@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<script>try{var t=localStorage.getItem("GenreBenderTheme_v1");if(t)document.documentElement.dataset.theme=JSON.parse(t)}catch(e){}</script>
 <title>Genre Bender</title>
 <meta name="description" content="Genre Bender — an AI production assistant that blends genres and generates playable guitar tabs and piano charts.">
 
@@ -24,167 +25,46 @@
 <link rel="stylesheet" href="css/clips.css">
 <link rel="stylesheet" href="css/shell.css">
 <link rel="stylesheet" href="css/tools.css">
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/layout.css">
 </head>
 <body>
 <div class="app">
 
-  <div class="header">
-    <div>
-      <div class="logo-sub">AI production assistant</div>
-      <div class="logo">Genre Bender</div>
-    </div>
-    <div class="header-right">
-      <div class="header-meta"><span id="sel-count">0 / 4 genres selected</span><span class="header-dot">·</span><span>bedroom producer mode</span></div>
-      <div class="header-actions" role="toolbar" aria-label="App tools">
-        <button class="hbtn" type="button" id="clips-btn" data-action="clips:toggle" aria-pressed="false" aria-label="Toggle reference clips player" title="Reference clips: paste X / Instagram / TikTok / YouTube links and watch them while you work"><span class="hbtn-ico">▶</span>clips</button>
-        <button class="hbtn" type="button" id="midi-btn" data-action="midi:toggle" aria-pressed="false" aria-label="Toggle MIDI keyboard input" title="Play chords on a MIDI keyboard and Genre Bender names them (Chrome / Edge)"><span class="hbtn-ico">🎹</span>MIDI</button>
+  <header class="topbar">
+    <div class="brand"><span class="logo">Genre Bender</span></div>
+    <nav class="dest-nav" aria-label="Main">
+      <button type="button" class="dest" data-dest="songs" data-action="nav:dest">Songs</button>
+      <button type="button" class="dest" data-dest="play" data-action="nav:dest">Play</button>
+      <button type="button" class="dest" data-dest="practice" data-action="nav:dest">Practice</button>
+      <button type="button" class="dest" data-dest="create" data-action="nav:dest">Create</button>
+    </nav>
+    <div class="topbar-right">
+      <button type="button" class="icon-btn" id="theme-btn" data-action="ui:theme" aria-label="Switch light / dark theme" title="Light / dark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/></svg></button>
+      <button type="button" class="icon-btn" id="menu-btn" data-action="ui:menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu-pop" aria-label="More tools" title="More"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+      <div class="menu-pop header-actions" id="menu-pop" role="menu" aria-label="App tools" hidden>
+        <button class="hbtn" type="button" id="clips-btn" data-action="clips:toggle" aria-pressed="false" aria-label="Toggle reference clips player" title="Reference clips: paste X / Instagram / TikTok / YouTube links and watch them while you work"><span class="hbtn-ico">▶</span>Clips player</button>
+        <button class="hbtn" type="button" id="midi-btn" data-action="midi:toggle" aria-pressed="false" aria-label="Toggle MIDI keyboard input" title="Play chords on a MIDI keyboard and Genre Bender names them (Chrome / Edge)"><span class="hbtn-ico">🎹</span>MIDI keyboard</button>
         <button class="hbtn" type="button" id="hooktheory-btn" data-action="hooktheory:open" aria-pressed="false" aria-label="Connect Hooktheory for progression realism checks" title="Optional: layers real chord-trend data from Hooktheory on top of AI-generated progressions"><span class="hbtn-ico">🎵</span>Hooktheory</button>
-        <button class="hbtn" type="button" onclick="openSettings()" aria-label="Open AI settings and backup" title="AI endpoint, model, key · backup / restore"><span class="hbtn-ico">⚙</span>AI</button>
+        <button class="hbtn" type="button" onclick="openSettings()" aria-label="Open AI settings and backup" title="AI endpoint, model, key · backup / restore"><span class="hbtn-ico">⚙</span>AI settings &amp; backup</button>
+        <div class="menu-sep"></div>
+        <button class="menu-item explore-toggle" type="button" id="explore-btn" onclick="toggleExplore()" aria-pressed="false"
+          title="Explore mode: shuffles genres, tempo, keys and settings everywhere, jumps you somewhere new, and keeps re-rolling each panel you wander into. Never calls the AI — hit Generate when a roll intrigues you."><span class="menu-ico">✦</span>Explore mode</button>
+        <button class="menu-item" type="button" onclick="toggleShortcutHelp()"><span class="menu-ico">⌨</span>Keyboard shortcuts</button>
+        <div class="menu-note" id="sel-count">0 / 4 genres selected</div>
       </div>
     </div>
-  </div>
-
-  <div class="shell">
-    <!-- LEFT RAIL — always-on controls. Lives outside the tab panels so the
-         tempo keeper, current key/genres and the clip player stay put (and
-         keep running) whatever tab is active. -->
-    <aside class="rail" aria-label="Session controls">
-      <section class="rail-card">
-        <div class="section-label">Tempo keeper</div>
-    <div class="metronome-wrap">
-    <div class="metronome-bar">
-      <div class="metro-bpm-display">
-        <div class="metro-bpm-num" id="bpm-display">120</div>
-        <div class="metro-bpm-label">BPM</div>
-      </div>
-      <div class="metro-controls">
-        <div class="metro-slider-row">
-          <span style="font-size:11px;color:var(--muted);width:28px">40</span>
-          <input type="range" id="bpm-slider" min="40" max="220" step="1" value="120" aria-label="Tempo in BPM" oninput="setBPM(this.value)">
-          <span style="font-size:11px;color:var(--muted);width:28px;text-align:right">220</span>
-        </div>
-        <div class="metro-buttons">
-          <button class="metro-btn-play" id="metro-play-btn" aria-label="Play metronome" aria-pressed="false" onclick="toggleMetronome()">▶</button>
-          <div class="metro-sig-btns">
-            <button class="metro-sig-btn active" onclick="setTimeSig(4,this)">4/4</button>
-            <button class="metro-sig-btn" onclick="setTimeSig(3,this)">3/4</button>
-            <button class="metro-sig-btn" onclick="setTimeSig(6,this)">6/8</button>
-          </div>
-          <button class="metro-tap-btn" onclick="tapTempo()">tap</button>
-        </div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:8px;align-items:center">
-        <div class="metro-beat-grid" id="beat-grid"></div>
-        <span style="font-size:10px;color:var(--muted);letter-spacing:0.08em">beats</span>
-      </div>
-    </div>
-    <!-- SWING ROW -->
-    <div class="swing-row">
-      <span class="swing-label">Swing</span>
-      <input type="range" id="swing-slider" min="0" max="100" step="1" value="0" aria-label="Swing amount" oninput="setSwing(this.value)">
-      <span class="swing-val" id="swing-display">straight</span>
-      <div class="swing-presets">
-        <button class="swing-preset active" onclick="applySwingPreset(0,this)">straight</button>
-        <button class="swing-preset" onclick="applySwingPreset(33,this)">light</button>
-        <button class="swing-preset" onclick="applySwingPreset(55,this)">jazz</button>
-        <button class="swing-preset" onclick="applySwingPreset(75,this)">hard</button>
-      </div>
-    </div>
-    </div><!-- end metronome-wrap -->
-      </section>
-
-      <section class="rail-card" id="rail-session">
-        <div class="section-label">Session</div>
-        <div class="rail-row">
-          <span class="rail-k">key</span>
-          <select class="tab-key-select rail-key" id="rail-key" data-keypick aria-label="Current key" onchange="syncKey(this.value, this.id)">
-            <option value="Am">A minor</option><option value="Em">E minor</option>
-            <option value="Dm">D minor</option><option value="Cm">C minor</option>
-            <option value="Gm">G minor</option><option value="A">A major</option>
-            <option value="C">C major</option><option value="D">D major</option>
-            <option value="E">E major</option><option value="G">G major</option>
-          </select>
-        </div>
-        <div class="rail-row rail-row-top">
-          <span class="rail-k">blend</span>
-          <div class="rail-genres" id="rail-genres"><span class="rail-empty">no genres yet</span></div>
-        </div>
-        <div class="rail-reference" id="rail-reference" style="display:none"></div>
-      </section>
-
-      <section class="rail-card" id="rail-trainer" aria-label="Shape trainer shortcuts">
-        <div class="rail-trainer-head">
-          <div class="section-label">Shape trainer</div>
-          <span class="rail-trainer-stat" id="rail-trainer-stat" aria-live="polite"></span>
-        </div>
-        <div class="rail-trainer-btns">
-          <button type="button" class="rail-tbtn primary" id="rail-trainer-drill" onclick="trainerNav('drills','today')">▶ Drill</button>
-          <button type="button" class="rail-tbtn" id="rail-trainer-chords" onclick="trainerNav('chords')">My chords</button>
-          <button type="button" class="rail-tbtn" id="rail-trainer-map" onclick="trainerNav('colormap')">🎨 Color map</button>
-        </div>
-      </section>
-
-      <section class="rail-card" id="rail-midi" style="display:none" aria-label="MIDI input">
-        <div class="section-label">MIDI in <span class="midi-device" id="midi-device"></span></div>
-        <div class="midi-readout" aria-live="polite">
-          <span class="midi-chord" id="midi-chord">—</span>
-          <span class="midi-degree" id="midi-degree"></span>
-        </div>
-        <div class="midi-notes" id="midi-notes">hold 3+ notes</div>
-        <div class="midi-actions">
-          <button class="pb-btn" type="button" id="midi-add-track" data-action="midi:add-track" disabled title="Add the captured chord to the active My chords track">+ My chords</button>
-          <button class="pb-btn" type="button" id="midi-add-table" data-action="midi:add-table" disabled title="Put the captured chord on the chord table">+ chord table</button>
-          <button class="pb-btn" type="button" data-action="midi:clear" title="Forget the captured chord">clear</button>
-        </div>
-        <div class="midi-opts">
-          <label><input type="checkbox" id="midi-auto" data-on-change="midi:auto"> auto-add to track</label>
-          <label><input type="checkbox" id="midi-monitor" data-on-change="midi:monitor"> monitor</label>
-        </div>
-        <div class="midi-status" id="midi-status" aria-live="polite"></div>
-      </section>
-
-      <aside class="clip-dock docked" id="clip-dock" role="complementary" aria-label="Reference clips">
-        <div class="clip-head" id="clip-drag">
-          <span class="clip-title">▶ Clips</span>
-          <span class="clip-count" id="clip-count"></span>
-          <span class="spacer"></span>
-          <button type="button" id="clip-mode-btn" data-action="clips:mode" aria-label="Dock or float the player" title="Float the player">⇱</button>
-          <button type="button" data-action="clips:collapse" aria-label="Collapse or expand player" title="Collapse / expand">▾</button>
-          <button type="button" class="clip-close" data-action="clips:toggle" aria-label="Close player" title="Close (clips stay saved)">×</button>
-        </div>
-        <div class="clip-body">
-          <div class="clip-paste">
-            <input id="clip-url" type="url" placeholder="Paste an X / Instagram / TikTok / YouTube link…" aria-label="Clip link" autocomplete="off" spellcheck="false" data-on-enter="clips:add-enter">
-            <button class="btn btn-primary" type="button" data-action="clips:add">Open</button>
-          </div>
-          <div class="clip-status" id="clip-status" aria-live="polite"></div>
-          <div class="clip-frame" id="clip-frame" data-aspect="card"></div>
-          <div class="clip-meta" id="clip-meta"></div>
-          <div class="clip-list-head">
-            <div class="section-label">Saved clips</div>
-            <button type="button" data-action="clips:export" title="Download the saved list as JSON">export</button>
-            <label title="Merge a JSON export into this list">import<input type="file" accept="application/json,.json" style="display:none" data-on-change="clips:import"></label>
-            <button type="button" data-action="clips:synctoggle" title="Sync clips with another device (iPhone ⇄ PC)">⇄ sync</button>
-          </div>
-          <div class="clip-sync-dock" id="clip-sync-dock" hidden></div>
-          <div class="clip-list" id="clip-list"></div>
-        </div>
-      </aside>
-    </aside>
+  </header>
+  <nav class="subnav" id="subnav" aria-label="Section"></nav>
 
     <main class="main">
-  <div class="tabs" role="tablist">
-    <button class="tab active" onclick="switchTab('mixer')">01 — Visual Mixer</button>
-    <button class="tab" onclick="switchTab('guided')">02 — Guided Workflow</button>
-    <button class="tab" onclick="switchTab('upload')">03 — Analyze Track</button>
-      <button class="tab" onclick="switchTab('practice')">04 — Practice</button>
-    <button class="tab" onclick="switchTab('trainer')">05 — Shape Trainer</button>
-    <button class="explore-toggle" id="explore-btn" onclick="toggleExplore()" aria-pressed="false"
-      title="Explore mode: shuffles genres, tempo, keys and settings everywhere, jumps you somewhere new, and keeps re-rolling each panel you wander into. Never calls the AI — hit Generate when a roll intrigues you.">✦ explore</button>
-  </div>
-
   <!-- MIXER TAB -->
-  <div class="panel active" id="panel-mixer">
+  <div class="panel" id="panel-mixer">
+    <div class="blend-bar" id="rail-session">
+      <span class="section-label" style="margin:0">blend</span>
+      <div class="rail-genres" id="rail-genres"><span class="rail-empty">no genres yet</span></div>
+      <div class="rail-reference" id="rail-reference" style="display:none"></div>
+    </div>
 
 
     <!-- GENRE COLS -->
@@ -441,7 +321,17 @@
   </div>
 
   <!-- ANALYZE TAB -->
-  <div class="panel" id="panel-upload">
+  <div class="panel active" id="panel-upload">
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Songs</h1>
+        <p class="page-sub">Everything you're learning — key, tempo and chords, ready to play.</p>
+      </div>
+      <button class="btn btn-primary" type="button" data-action="song:startLearn">+ Learn a song</button>
+    </div>
+    <div class="song-units song-library" id="song-units"></div>
+    <details class="fold" id="learn-fold" open>
+    <summary>Learn a song <small>paste chords · look up · listen</small></summary>
     <div class="tab-panel-wrap song-import">
       <div class="tab-panel-header">
         <span class="tab-panel-title">Learn a song</span>
@@ -482,10 +372,12 @@
         </div>
         <span class="clip-status song-status" id="song-status" aria-live="polite"></span>
         <div class="tab-output placeholder" id="song-output"></div>
-        <div class="song-units" id="song-units"></div>
       </div>
     </div>
+    </details>
 
+    <details class="fold" id="describe-fold">
+    <summary>Describe a clip <small>AI guesses genres from your notes + caption</small></summary>
     <div class="tab-panel-wrap">
       <div class="tab-panel-header">
         <span class="tab-panel-title">Analyze a reference clip</span>
@@ -502,10 +394,23 @@
         <div class="modal-note" style="margin-top:14px">For real key / BPM / chord detection from the audio itself, use <b>Learn a song → Listen to the audio</b> above.</div>
       </div>
     </div>
+    </details>
   </div>
 
   <!-- PRACTICE TAB -->
   <div class="panel" id="panel-practice">
+      <section class="drill-card" id="rail-trainer" aria-label="Shape trainer shortcuts">
+        <div class="rail-trainer-head">
+          <div class="section-label">Shape trainer</div>
+          <span class="rail-trainer-stat" id="rail-trainer-stat" aria-live="polite"></span>
+        </div>
+        <div class="rail-trainer-btns">
+          <button type="button" class="rail-tbtn primary" id="rail-trainer-drill" onclick="trainerNav('drills','today')">▶ Drill</button>
+          <button type="button" class="rail-tbtn" id="rail-trainer-chords" onclick="trainerNav('chords')">My chords</button>
+          <button type="button" class="rail-tbtn" id="rail-trainer-map" onclick="trainerNav('colormap')">🎨 Color map</button>
+        </div>
+      </section>
+
     <div class="tab-panel-wrap">
       <div class="tab-panel-header">
         <span class="tab-panel-title">Practice — 10–20 minutes a day</span>
@@ -525,12 +430,12 @@
         <ol class="gsteps" id="practice-steps"></ol>
         <section class="speed-trainer" aria-labelledby="speed-title">
           <div class="section-label" id="speed-title">Speed trainer</div>
-          <p class="guided-intro">Loops a progression and raises the tempo every few clean passes until you hit the target. Turn the rail metronome on for a click.</p>
+          <p class="guided-intro">Loops a progression and raises the tempo every few clean passes until you hit the target. Turn the metronome on (transport bar) for a click.</p>
           <div class="speed-grid">
             <label>source<select id="speed-source" class="pb-mode-select" data-on-change="speed:cfg">
               <option value="guitar">Guitar tab</option><option value="piano">Piano chart</option><option value="track">My chords track</option>
             </select></label>
-            <label>start<input id="speed-start" type="number" min="40" max="220" value="80" data-on-change="speed:cfg"><button type="button" class="speed-mini" data-action="speed:from-bpm" title="Use the rail's current tempo">← rail</button></label>
+            <label>start<input id="speed-start" type="number" min="40" max="220" value="80" data-on-change="speed:cfg"><button type="button" class="speed-mini" data-action="speed:from-bpm" title="Use the transport's current tempo">← tempo</button></label>
             <label>target<input id="speed-target" type="number" min="40" max="220" value="120" data-on-change="speed:cfg"></label>
             <label>+BPM<input id="speed-step" type="number" min="1" max="20" value="4" data-on-change="speed:cfg"></label>
             <label>every<input id="speed-every" type="number" min="1" max="8" value="2" data-on-change="speed:cfg"> passes</label>
@@ -610,7 +515,117 @@
   </div>
 
     </main>
-  </div><!-- end shell -->
+
+  <!-- TRANSPORT — always on screen: tempo keeper, key, the active track's
+       progression. Same element ids as the old rail, so metronome.js,
+       keysync.js and the tests keep working. -->
+  <footer class="transport" id="transport" aria-label="Transport">
+    <div class="tp-group tp-metro">
+      <button class="metro-btn-play" id="metro-play-btn" aria-label="Play metronome" aria-pressed="false" onclick="toggleMetronome()">▶</button>
+      <button type="button" class="tp-bpm" data-action="ui:pop" data-pop="tp-tempo-pop" aria-haspopup="dialog" aria-expanded="false" title="Tempo, time signature, swing">
+        <span class="metro-bpm-num" id="bpm-display">120</span><span class="metro-bpm-label">BPM</span>
+      </button>
+      <div class="metro-beat-grid" id="beat-grid" aria-hidden="true"></div>
+      <button class="metro-tap-btn" type="button" onclick="tapTempo()">tap</button>
+      <div class="tp-pop" id="tp-tempo-pop" role="dialog" aria-label="Tempo settings" hidden>
+        <div class="metro-slider-row">
+          <span class="tp-pop-k">tempo</span>
+          <input type="range" id="bpm-slider" min="40" max="220" step="1" value="120" aria-label="Tempo in BPM" oninput="setBPM(this.value)">
+          <button class="metro-tap-btn" type="button" onclick="tapTempo()">tap</button>
+        </div>
+        <div class="tp-pop-row">
+          <span class="tp-pop-k">meter</span>
+          <div class="metro-sig-btns">
+            <button class="metro-sig-btn active" onclick="setTimeSig(4,this)">4/4</button>
+            <button class="metro-sig-btn" onclick="setTimeSig(3,this)">3/4</button>
+            <button class="metro-sig-btn" onclick="setTimeSig(6,this)">6/8</button>
+          </div>
+        </div>
+        <div class="swing-row">
+          <span class="swing-label">Swing</span>
+          <input type="range" id="swing-slider" min="0" max="100" step="1" value="0" aria-label="Swing amount" oninput="setSwing(this.value)">
+          <span class="swing-val" id="swing-display">straight</span>
+          <div class="swing-presets">
+            <button class="swing-preset active" onclick="applySwingPreset(0,this)">straight</button>
+            <button class="swing-preset" onclick="applySwingPreset(33,this)">light</button>
+            <button class="swing-preset" onclick="applySwingPreset(55,this)">jazz</button>
+            <button class="swing-preset" onclick="applySwingPreset(75,this)">hard</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tp-sep"></div>
+    <div class="tp-group">
+      <button type="button" class="tp-key-btn" id="tp-key-btn" data-action="ui:pop" data-pop="tp-key-pop" aria-haspopup="dialog" aria-expanded="false" title="Key"><small>key</small><span id="tp-key-label">Am</span></button>
+      <div class="tp-pop" id="tp-key-pop" role="dialog" aria-label="Key" hidden>
+        <div class="tp-pop-row">
+          <span class="tp-pop-k">key</span>
+          <select class="tab-key-select rail-key" id="rail-key" data-keypick aria-label="Current key" onchange="syncKey(this.value, this.id)">
+            <option value="Am">A minor</option><option value="Em">E minor</option>
+            <option value="Dm">D minor</option><option value="Cm">C minor</option>
+            <option value="Gm">G minor</option><option value="A">A major</option>
+            <option value="C">C major</option><option value="D">D major</option>
+            <option value="E">E major</option><option value="G">G major</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="tp-sep"></div>
+    <div class="tp-group tp-prog" id="transport-prog" aria-label="Active track"></div>
+    <div class="tp-group">
+      <button type="button" class="tp-mini tp-hide-sm" data-action="progtab:toggle" title="Pop the progression out into a floating tab (Roman numerals, beats, track switcher)">⧉</button>
+      <button type="button" class="tp-mini" data-action="clips:toggle" title="Reference clips player">▶ clips</button>
+    </div>
+  </footer>
+
+      <aside class="clip-dock floating closed" id="clip-dock" role="complementary" aria-label="Reference clips">
+        <div class="clip-head" id="clip-drag">
+          <span class="clip-title">▶ Clips</span>
+          <span class="clip-count" id="clip-count"></span>
+          <span class="spacer"></span>
+          <button type="button" id="clip-mode-btn" data-action="clips:mode" aria-label="Dock or float the player" title="Float the player">⇱</button>
+          <button type="button" data-action="clips:collapse" aria-label="Collapse or expand player" title="Collapse / expand">▾</button>
+          <button type="button" class="clip-close" data-action="clips:toggle" aria-label="Close player" title="Close (clips stay saved)">×</button>
+        </div>
+        <div class="clip-body">
+          <div class="clip-paste">
+            <input id="clip-url" type="url" placeholder="Paste an X / Instagram / TikTok / YouTube link…" aria-label="Clip link" autocomplete="off" spellcheck="false" data-on-enter="clips:add-enter">
+            <button class="btn btn-primary" type="button" data-action="clips:add">Open</button>
+          </div>
+          <div class="clip-status" id="clip-status" aria-live="polite"></div>
+          <div class="clip-frame" id="clip-frame" data-aspect="card"></div>
+          <div class="clip-meta" id="clip-meta"></div>
+          <div class="clip-list-head">
+            <div class="section-label">Saved clips</div>
+            <button type="button" data-action="clips:export" title="Download the saved list as JSON">export</button>
+            <label title="Merge a JSON export into this list">import<input type="file" accept="application/json,.json" style="display:none" data-on-change="clips:import"></label>
+            <button type="button" data-action="clips:synctoggle" title="Sync clips with another device (iPhone ⇄ PC)">⇄ sync</button>
+          </div>
+          <div class="clip-sync-dock" id="clip-sync-dock" hidden></div>
+          <div class="clip-list" id="clip-list"></div>
+        </div>
+      </aside>
+
+      <section class="float-card" id="rail-midi" style="display:none" aria-label="MIDI input">
+        <div class="section-label">MIDI in <span class="midi-device" id="midi-device"></span></div>
+        <div class="midi-readout" aria-live="polite">
+          <span class="midi-chord" id="midi-chord">—</span>
+          <span class="midi-degree" id="midi-degree"></span>
+        </div>
+        <div class="midi-notes" id="midi-notes">hold 3+ notes</div>
+        <div class="midi-actions">
+          <button class="pb-btn" type="button" id="midi-add-track" data-action="midi:add-track" disabled title="Add the captured chord to the active My chords track">+ My chords</button>
+          <button class="pb-btn" type="button" id="midi-add-table" data-action="midi:add-table" disabled title="Put the captured chord on the chord table">+ chord table</button>
+          <button class="pb-btn" type="button" data-action="midi:clear" title="Forget the captured chord">clear</button>
+        </div>
+        <div class="midi-opts">
+          <label><input type="checkbox" id="midi-auto" data-on-change="midi:auto"> auto-add to track</label>
+          <label><input type="checkbox" id="midi-monitor" data-on-change="midi:monitor"> monitor</label>
+        </div>
+        <div class="midi-status" id="midi-status" aria-live="polite"></div>
+      </section>
+
+
 
   <div class="modal" id="hooktheory-modal" role="dialog" aria-modal="true" aria-labelledby="ht-title" style="display:none">
     <div class="modal-card">

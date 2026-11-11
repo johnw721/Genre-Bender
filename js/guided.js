@@ -131,7 +131,7 @@ export function guidedOnTab(id){
 
 export function initGuided(){
   registerActions({
-    'guided:clip':    () => { switchTab('mixer'); clipsToggleDock(); setTimeout(() => $('clip-url')?.focus(), 80); },
+    'guided:clip':    () => { if ($('clip-dock')?.classList.contains('closed')) clipsToggleDock(); else $('clip-url')?.focus(); },
     'guided:analyze': () => { switchTab('upload'); syncTabs('upload'); },
     'guided:seed':    () => {
       const c = focusClip();

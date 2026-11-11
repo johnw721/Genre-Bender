@@ -28,7 +28,7 @@ import { resolveKey, resolveBpm, buildUnit, progressionOptions, unitId, SOURCE_L
 import { getBPM, setBPM } from './metronome.js';
 import { syncKey } from './keysync.js';
 import { getClips, getClip, onClipsChange, clipsUpdate } from './clips.js';
-import { trainerUpsertTrack } from './trainer.js';
+import { trainerUpsertTrack, trainerHasTrack, trainerSelectTrack } from './trainer.js';
 import { trainerNav } from './trainernav.js';
 import { ALL_KEYS as APP_KEYS } from './theorydata.js';
 import { getCtx } from './audio.js';
@@ -249,7 +249,7 @@ async function captureTab(){
 /* ---- tap / manual -------------------------------------------------- */
 function useTap(){
   state.tapBpm = getBPM();
-  status(`Using ${state.tapBpm} BPM from the tempo keeper (tap ⦿ in the left rail along with the song first).`);
+  status(`Using ${state.tapBpm} BPM from the tempo keeper (tap along with the song in the transport bar first).`);
   render();
 }
 function setManualKey(el){
@@ -336,6 +336,7 @@ function loadUnit(el){
   renderClipPicker();
   if ($('song-clip')) $('song-clip').value = u.clipId && getClip(u.clipId) ? u.clipId : '';
   status(`Loaded "${u.title}". Add evidence or change anything, then save to update it.`);
+  if ($('learn-fold')) $('learn-fold').open = true;
   render();
 }
 
@@ -460,20 +461,68 @@ function render(){
 function renderUnits(){
   const list = $('song-units');
   if (!list) return;
-  if (!units.length){ list.innerHTML = ''; return; }
-  list.innerHTML = `<div class="result-block-title">Saved units</div>` + units.map(u => `
-    <div class="song-unit${state.loaded?.id === u.id ? ' active' : ''}">
-      <button type="button" class="song-unit-open" data-action="song:load" data-id="${escHtml(u.id)}">
-        <strong>${escHtml(u.title)}</strong>${u.artist ? ` — ${escHtml(u.artist)}` : ''}
-        <small>${u.key ? escHtml(u.key.value) : '?'} · ${u.bpm ? u.bpm.value + ' BPM' : '? BPM'}${u.progression.length ? ' · ' + escHtml(u.progression.slice(0, 6).join(' ')) + (u.progression.length > 6 ? '…' : '') : ''}</small>
-      </button>
-      <button type="button" class="btn btn-ghost song-chip" data-action="song:delete" data-id="${escHtml(u.id)}" aria-label="Delete ${escHtml(u.title)}">✕</button>
-    </div>`).join('');
+  if (!units.length){
+    list.innerHTML = `<div class="song-empty">
+      <div class="song-empty-title">Learn your first song</div>
+      <p>Paste a chord sheet, look the song up, or let the app listen to a recording. You'll get its key, tempo and progression — ready to play along with.</p>
+      <button class="btn btn-primary" type="button" data-action="song:startLearn">+ Learn a song</button>
+    </div>`;
+    return;
+  }
+  list.innerHTML = units.map(u => {
+    const prog = u.progression.slice(0, 8);
+    return `<article class="song-card song-unit${state.loaded?.id === u.id ? ' active' : ''}">
+      <div class="song-card-top">
+        <div class="song-card-title">${escHtml(u.title)}${u.artist ? `<small>${escHtml(u.artist)}</small>` : ''}</div>
+        <button type="button" class="song-card-del" data-action="song:delete" data-id="${escHtml(u.id)}" aria-label="Delete ${escHtml(u.title)}" title="Delete (its My chords track stays)">✕</button>
+      </div>
+      <div class="song-card-meta">
+        <span class="song-pill">key <b>${u.key ? escHtml(u.key.value) : '?'}</b></span>
+        <span class="song-pill"><b>${u.bpm ? u.bpm.value : '?'}</b> BPM</span>
+        ${u.timeSig ? `<span class="song-pill">${escHtml(u.timeSig)}</span>` : ''}
+      </div>
+      ${prog.length ? `<div class="song-card-prog">${prog.map(c => `<span>${escHtml(c)}</span>`).join('')}${u.progression.length > 8 ? '<span>…</span>' : ''}</div>` : ''}
+      <div class="song-card-actions">
+        ${u.progression.length ? `<button type="button" class="btn btn-primary" data-action="song:play" data-id="${escHtml(u.id)}">▶ Play</button>` : ''}
+        <button type="button" class="btn btn-ghost" data-action="song:load" data-id="${escHtml(u.id)}">Edit</button>
+      </div>
+      <span hidden>${escHtml(u.title)} — ${escHtml(u.artist || '')} ${u.key ? escHtml(u.key.value) : '?'} · ${u.bpm ? u.bpm.value + ' BPM' : '? BPM'}${u.progression.length ? ' · ' + escHtml(u.progression.slice(0, 6).join(' ')) + (u.progression.length > 6 ? '…' : '') : ''}</span>
+    </article>`;
+  }).join('');
+}
+
+/* Open + focus the Learn a song form (empty, or as left). */
+function startLearn(fresh = false){
+  if (fresh && state.loaded) newSong();
+  const f = $('learn-fold');
+  if (f) f.open = true;
+  if (typeof window.switchTab === 'function') window.switchTab('upload');
+  f?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => $('song-title')?.focus?.(), 120);
+}
+
+/* ▶ Play on a song card: tempo + key + make its track active, then go play. */
+function playUnit(el){
+  const u = units.find(x => x.id === el?.dataset?.id);
+  if (!u) return;
+  if (u.bpm){ const sl = $('bpm-slider'); if (sl) sl.value = u.bpm.value; setBPM(u.bpm.value); }
+  if (u.key){
+    const k = APP_KEYS.find(x => x === u.key.value) || APP_KEYS.find(x => sameKey(x, u.key.value)) || u.key.value;
+    syncKey(k, 'songimport');
+  }
+  // Re-use the song's track as you left it (your edits stay); recreate it only if it was deleted.
+  const tid = `trk_${u.id}`;
+  if (trainerHasTrack(tid)) trainerSelectTrack(tid);
+  else if (u.progression.length) trainerUpsertTrack({ id: tid, name: `♪ ${u.title}`.slice(0, 40), chords: u.progression.map(name => ({ name })) });
+  state.loaded = u;
+  openTrack();
 }
 
 /* ---- boot ---------------------------------------------------------- */
 export function initSongImport(){
   loadUnits();
+  // With a library to show, the Learn form starts folded away.
+  if (units.length && $('learn-fold')) $('learn-fold').open = false;
   registerActions({
     'song:parse':       () => parseSheet(),
     'song:lookup':      () => lookup(),
@@ -492,6 +541,8 @@ export function initSongImport(){
     'song:load':        (el) => loadUnit(el),
     'song:delete':      (el) => deleteUnit(el),
     'song:new':         () => newSong(),
+    'song:startLearn':  () => startLearn(true),
+    'song:play':        (el) => playUnit(el),
   });
   onClipsChange(renderClipPicker);
   renderClipPicker();

@@ -65,6 +65,7 @@ import { initClips } from './clips.js';
 import { initAnalyze } from './analyze.js';
 import { initSongImport } from './songimport.js';
 import { initProgTab } from './progtab.js';
+import { initNav } from './nav.js';
 import { initGuided, guidedOnTab } from './guided.js';
 import { initPractice, practiceOnTab } from './practice.js';
 import {
@@ -194,3 +195,4 @@ initMidiIn();        // MIDI keyboard → live chord names → My chords / chord
 initProgTools();     // history + voice-leading / transpose / capo strip (before restore renders)
 initPersistence();   // restore reads the UI the inits above built
 initKeySync();       // last: mirror the restored guitar key into the rail + other selects
+initNav();           // shell: Songs / Play / Practice / Create, menu, theme, transport popovers

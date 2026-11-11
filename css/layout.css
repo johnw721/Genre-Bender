@@ -1,0 +1,200 @@
+/* ============================================================
+   layout.css — app shell: top bar, destination nav, sub-nav,
+   one centered content column and the transport bar.
+
+     ┌ Genre Bender   Songs Play Practice Create        ◐ ⋯ ┐  topbar
+     │                 My chords · Color map                 │  subnav
+     │                 page content                          │
+     └ ▶ 92 BPM ●●●● tap │ Em │ Em C [G] D ▶ ◀ ▶ │ ⧉ ▶clips ┘  transport
+   ============================================================ */
+.app{max-width:1120px;margin:0 auto;padding:0 20px calc(var(--transport-h) + 40px)}
+
+/* ---- top bar --------------------------------------------------- */
+.topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;height:var(--topbar-h);
+  margin:0 -20px;padding:0 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.brand .logo{background:linear-gradient(135deg,var(--accent) 0%,var(--green) 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.dest-nav{display:flex;gap:2px;flex:1;justify-content:center}
+.dest{border:none;background:none;color:var(--muted);font-size:14px;font-weight:500;padding:8px 14px;border-radius:var(--r-pill);cursor:pointer;transition:color .12s,background .12s}
+.dest:hover{color:var(--text);background:var(--surface2)}
+.dest.active{color:var(--text);background:var(--surface3)}
+.topbar-right{display:flex;align-items:center;gap:4px;flex:0 0 auto;position:relative}
+.icon-btn{width:36px;height:36px;display:inline-grid;place-items:center;border:none;border-radius:var(--r-pill);background:none;color:var(--muted);font-size:16px;cursor:pointer}
+.icon-btn:hover,.icon-btn[aria-expanded="true"]{color:var(--text);background:var(--surface2)}
+
+/* overflow menu: the old header tools live here now */
+.menu-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:60;min-width:230px;display:flex;flex-direction:column;gap:2px;padding:6px;
+  background:var(--surface);border:1px solid var(--border2);border-radius:var(--r-lg);box-shadow:var(--shadow)}
+.menu-pop[hidden]{display:none}
+.menu-pop .hbtn,.menu-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:none;border-radius:var(--r-sm);background:none;
+  color:var(--text);font-family:var(--ui);font-size:13px;text-align:left;cursor:pointer;line-height:1.2;white-space:nowrap}
+.menu-pop .hbtn:hover,.menu-item:hover{background:var(--surface2)}
+.menu-pop .hbtn[aria-pressed="true"],.menu-item.on,.menu-item[aria-pressed="true"]{color:var(--accent);background:var(--accent-glow)}
+.menu-pop .hbtn-ico,.menu-ico{width:18px;text-align:center;font-size:14px;opacity:.9}
+.menu-sep{height:1px;background:var(--border);margin:4px 2px}
+.menu-note{font-size:11px;color:var(--muted);padding:4px 10px 6px}
+.explore-toggle{border-style:none}
+
+/* ---- sub-nav ----------------------------------------------------- */
+.subnav{display:flex;align-items:center;gap:6px;padding:14px 0 6px;min-height:20px}
+.subnav:empty{padding:8px 0 0}
+.subnav-item{border:1px solid transparent;background:none;color:var(--muted);font-size:13px;font-weight:500;padding:6px 12px;border-radius:var(--r-pill);cursor:pointer}
+.subnav-item:hover{color:var(--text)}
+.subnav-item.active{color:var(--text);border-color:var(--border2);background:var(--surface)}
+.subnav .spacer{flex:1}
+
+/* ---- pages --------------------------------------------------------- */
+.main{min-width:0;padding-top:8px}
+.panel{display:none}.panel.active{display:block;animation:fadeIn .18s ease}
+.panel > * + *{margin-top:20px}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:4px}
+.page-title{font-size:24px;font-weight:700;letter-spacing:-0.02em;line-height:1.2}
+.page-sub{font-size:13px;color:var(--muted);margin-top:2px}
+
+/* collapsible sections */
+details.fold{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+details.fold > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:16px 20px;font-size:15px;font-weight:600}
+details.fold > summary::-webkit-details-marker{display:none}
+details.fold > summary::after{content:'';margin-left:auto;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s}
+details.fold[open] > summary::after{transform:rotate(-135deg)}
+details.fold > summary small{font-size:12px;font-weight:400;color:var(--muted)}
+details.fold > .tab-panel-wrap,details.fold > .fold-body{border:none;border-radius:0;background:none}
+details.fold .tab-panel-header{display:none}
+details.fold .tab-panel-body{padding-top:0}
+
+/* old two-pane shell is gone; keep stray rail rules from applying */
+.shell{display:block}
+.trainer-subtabs{display:none!important}        /* the sub-nav replaces them */
+.trainer-head{justify-content:flex-end}
+
+/* ---- transport bar ---------------------------------------------------- */
+.transport{position:fixed;left:0;right:0;bottom:0;z-index:35;height:var(--transport-h);
+  display:flex;align-items:center;gap:14px;padding:0 max(16px,calc((100vw - 1120px)/2 + 20px));
+  padding-bottom:env(safe-area-inset-bottom);
+  background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-top:1px solid var(--border2)}
+.tp-group{display:flex;align-items:center;gap:8px;position:relative;flex:0 0 auto}
+.tp-sep{width:1px;height:28px;background:var(--border);flex:0 0 auto}
+.transport .metro-btn-play{width:40px;height:40px;font-size:15px}
+.tp-bpm{display:flex;align-items:baseline;gap:4px;border:none;background:none;color:var(--text);cursor:pointer;padding:4px 6px;border-radius:var(--r-sm)}
+.tp-bpm:hover{background:var(--surface2)}
+.tp-bpm .metro-bpm-num{font-family:var(--ui);font-size:22px;font-weight:700;letter-spacing:-0.02em;line-height:1}
+.tp-bpm .metro-bpm-label{font-size:11px;margin:0;letter-spacing:.04em}
+.transport .metro-beat-grid{gap:4px}
+.transport .beat-dot{width:8px;height:8px}
+.transport .metro-tap-btn{font-family:var(--ui);font-size:12px;padding:6px 10px;border-radius:var(--r-sm)}
+.tp-key-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);
+  font-size:14px;font-weight:600;padding:6px 10px;border-radius:var(--r-sm);cursor:pointer;min-width:52px;justify-content:center}
+.tp-key-btn small{font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.tp-prog{flex:1 1 auto;min-width:0;gap:6px}
+.tp-prog-name{font-size:11px;color:var(--muted);max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:none;background:none;cursor:pointer;padding:0}
+.tp-prog-name:hover{color:var(--text)}
+.tp-chords{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;min-width:0;flex:1 1 auto;mask-image:linear-gradient(90deg,#000 92%,transparent)}
+.tp-chords::-webkit-scrollbar{display:none}
+.tp-chord{flex:0 0 auto;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;font-weight:600;padding:5px 10px;border-radius:var(--r-sm);cursor:pointer}
+.tp-chord:hover{border-color:var(--border2)}
+.tp-chord.current{border-color:var(--accent2);background:var(--accent-glow);color:var(--accent)}
+.tp-empty{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tp-mini{border:1px solid var(--border);background:none;color:var(--text);font-size:12px;padding:6px 9px;border-radius:var(--r-sm);cursor:pointer;line-height:1}
+.tp-mini:hover{background:var(--surface2)}
+.tp-mini.on{background:var(--accent2);border-color:var(--accent2);color:var(--on-accent)}
+
+/* transport popovers (tempo details, key picker) */
+.tp-pop{position:absolute;bottom:calc(100% + 14px);left:0;z-index:50;width:min(360px,calc(100vw - 24px));padding:14px;
+  background:var(--surface);border:1px solid var(--border2);border-radius:var(--r-lg);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px}
+.tp-pop[hidden]{display:none}
+.tp-pop .metro-slider-row{display:flex;align-items:center;gap:8px}
+.tp-pop input[type=range]{flex:1}
+.tp-pop .swing-row{padding:0;border:none}
+.tp-pop .swing-presets{flex-wrap:wrap}
+.tp-pop .metro-sig-btn,.tp-pop .swing-preset{font-family:var(--ui)}
+.tp-pop-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tp-pop-k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;min-width:44px}
+
+/* floating cards (MIDI) */
+.float-card{position:fixed;right:20px;top:calc(var(--topbar-h) + 12px);z-index:40;width:300px;max-width:calc(100vw - 24px);
+  background:var(--surface);border:1px solid var(--border2);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:14px}
+
+/* clips player is always a floating window now; keep it above the transport */
+.clip-dock.floating{bottom:calc(var(--transport-h) + 16px)}
+#clip-mode-btn{display:none!important}
+.prog-tab{bottom:calc(var(--transport-h) + 16px)}
+
+/* ---- Songs page ------------------------------------------------------ */
+.song-library{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.song-units .result-block-title{display:none}
+.song-card{display:flex;flex-direction:column;gap:10px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);transition:border-color .12s}
+.song-card:hover{border-color:var(--border2)}
+.song-card.active{border-color:var(--accent2)}
+.song-card-top{display:flex;align-items:flex-start;gap:8px}
+.song-card-title{font-size:15px;font-weight:600;line-height:1.3;flex:1;min-width:0}
+.song-card-title small{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:2px}
+.song-card-meta{display:flex;gap:6px;flex-wrap:wrap}
+.song-pill{font-size:12px;padding:2px 8px;border-radius:var(--r-pill);background:var(--surface2);color:var(--muted)}
+.song-pill b{color:var(--text);font-weight:600}
+.song-card-prog{display:flex;gap:4px;flex-wrap:wrap}
+.song-card-prog span{font-size:12px;font-weight:600;padding:3px 7px;border-radius:var(--r-sm);background:var(--surface2)}
+.song-card-actions{display:flex;gap:6px;margin-top:auto}
+.song-card-actions .btn{min-height:32px;padding:6px 12px;font-size:12px}
+.song-card-del{border:none;background:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:var(--r-sm)}
+.song-card-del:hover{color:var(--coral);background:var(--surface2)}
+.song-empty{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:40px 20px;
+  background:var(--surface);border:1px dashed var(--border2);border-radius:var(--r-lg)}
+.song-empty-title{font-size:17px;font-weight:600}
+.song-empty p{font-size:13px;color:var(--muted);max-width:420px}
+
+/* Create page: session blend summary (was the rail's Session card) */
+.blend-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg)}
+.blend-bar .rail-genres{flex:1}
+.blend-bar .rail-reference{margin:0}
+
+/* Practice page: today's drill card (was the rail's trainer card) */
+.drill-card{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg)}
+.drill-card .rail-trainer-head{flex:1;display:flex;align-items:center;gap:10px}
+.drill-card .rail-trainer-head .section-label{margin:0}
+.drill-card .rail-trainer-btns{display:flex;gap:6px}
+.drill-card .rail-tbtn{font-family:var(--ui)}
+
+/* ---- phones ----------------------------------------------------------- */
+@media (max-width:720px){
+  :root{--transport-h:58px}
+  .app{padding:0 12px calc(var(--transport-h) + 28px)}
+  .topbar{margin:0 -12px;padding:0 12px;gap:8px}
+  .brand .logo{font-size:15px}
+  .dest{font-size:13px;padding:7px 9px}
+  .page-title{font-size:20px}
+  .transport{gap:8px;padding:0 10px;padding-bottom:env(safe-area-inset-bottom)}
+  .transport .metro-beat-grid,.transport .metro-tap-btn,.tp-sep,.tp-prog-name,.tp-hide-sm{display:none}
+  .transport .metro-btn-play{width:36px;height:36px}
+  .tp-bpm .metro-bpm-num{font-size:18px}
+  .tp-bpm .metro-bpm-label{display:none}
+  .tp-pop{left:-4px}
+  .tab-panel-body{padding:14px}
+  .float-card{right:12px;left:12px;width:auto}
+}
+@media (max-width:420px){
+  .brand{display:none}
+  .dest-nav{justify-content:flex-start}
+}
+
+/* sub-nav stays reachable while a long page scrolls */
+.subnav{position:sticky;top:var(--topbar-h);z-index:25;margin:0 -20px;padding-left:20px;padding-right:20px;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+@media (max-width:720px){ .subnav{margin:0 -12px;padding-left:12px;padding-right:12px} }
+
+/* My chords: track options + fret entry folded away */
+.track-more,.add-by-frets{margin:10px 0}
+.track-more > summary,.add-by-frets > summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);padding:4px 0}
+.track-more > summary::-webkit-details-marker,.add-by-frets > summary::-webkit-details-marker{display:none}
+.track-more > summary::after,.add-by-frets > summary::after{content:'▾';font-size:11px}
+.track-more[open] > summary::after,.add-by-frets[open] > summary::after{content:'▴'}
+.track-more .trainer-track-name{font-size:15px;font-weight:600;color:var(--text)}
+.track-more-label{font-size:12px}
+.track-more-body{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.add-by-frets .fret-inputs{margin-top:8px}
+@media (max-width:720px){
+  /* inline two-column layouts from the old markup stack on phones */
+  .panel [style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important;gap:20px!important}
+}
+/* scrollIntoView() lands below the sticky top bar + sub-nav */
+.panel,#inner-trainer,details.fold{scroll-margin-top:calc(var(--topbar-h) + 60px)}

@@ -1,0 +1,69 @@
+/* ============================================================
+   theme.css — the "face-lift" layer. Loaded after every feature
+   stylesheet, so it restyles shared components in one place
+   instead of editing a dozen files:
+     - sans UI type, DM Mono only for data (tabs, frets, sheets)
+     - three button styles: primary / secondary (.btn-ghost) / quiet
+     - quieter cards: fewer borders, more space
+   ============================================================ */
+
+/* ---- base ---------------------------------------------------- */
+html{-webkit-text-size-adjust:100%}
+body{font-family:var(--ui);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+body::before{display:none}                         /* drop the decorative grid */
+button,input,select,textarea{font-family:inherit}
+::selection{background:var(--accent-glow)}
+:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+
+/* Data that must line up stays monospaced, even where markup inlines a font. */
+pre,code,kbd,.song-sheet,.composer-tab,.trainer-lick-tab,.fret-input,.trainer-custom-fret-inputs input,.tab-output pre,.notation-pre,.trainer-question pre,
+#guitar-output pre,#piano-output pre,.composer-output pre{font-family:var(--code)!important}
+
+/* ---- type ---------------------------------------------------- */
+.section-label{font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted)}
+.result-block-title{font-family:var(--ui);font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:none;color:var(--text)}
+.composer-intro,.guided-intro,.modal-note,.song-help{font-size:13px;line-height:1.6;color:var(--muted)}
+
+/* ---- buttons ------------------------------------------------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border-radius:var(--r);
+  font-size:13px;font-weight:500;letter-spacing:0;line-height:1.2;min-height:38px}
+.btn-primary{background:var(--accent2);color:var(--on-accent)}
+.btn-primary:hover{background:var(--accent2);filter:brightness(1.12);transform:none}
+.btn-ghost{background:var(--surface2);border:1px solid var(--border);color:var(--text)}
+.btn-ghost:hover{background:var(--surface3);border-color:var(--border2)}
+.pb-btn,.label-toggle,.speed-mini{font-family:var(--ui)!important;font-size:12px!important;border-radius:var(--r-sm)!important}
+.fret-chord{font-family:var(--ui);border-radius:var(--r-pill)}
+
+/* ---- form controls -------------------------------------------- */
+.tab-key-select,.tab-style-select,.pb-mode-select,.song-input,.song-mini,input[type=search],input[type=url],input[type=text],input[type=number]{
+  font-family:var(--ui);font-size:13px;border-radius:var(--r-sm)}
+.analyze-notes{font-family:var(--ui);font-size:13px;border-radius:var(--r)}
+.song-sheet{font-size:12px}
+.kp-seg{font-family:var(--ui)}
+
+/* ---- surfaces ------------------------------------------------- */
+.tab-panel-wrap{border-radius:var(--r-lg);background:var(--surface);border:1px solid var(--border)}
+.tab-panel-header{background:none;padding:16px 20px 0;border-bottom:none}
+.tab-panel-title{font-size:15px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--text)}
+.tab-panel-sub{font-size:12px;letter-spacing:0;color:var(--muted)}
+.tab-panel-body{padding:16px 20px 20px}
+.tab-output{font-family:var(--ui);font-size:13px;line-height:1.6;border-radius:var(--r);background:var(--surface2)}
+.chord-card{border-radius:var(--r)}
+.chord-card-value{font-size:15px}
+.gstep{border-radius:var(--r);background:var(--surface)}
+.gstep-title{font-family:var(--ui);font-size:14px}
+.modal-card{border-radius:var(--r-lg);background:var(--surface)}
+#settings-title,#ht-title{font-family:var(--ui);font-weight:600}
+
+/* Genre chips & clip dock pick up the UI face too. */
+.chip{font-family:var(--ui)}
+.clip-dock{font-family:var(--ui)}
+.clip-head .clip-title{font-family:var(--ui)}
+
+/* ---- logo ---------------------------------------------------- */
+.logo{font-family:var(--ui);font-size:18px;font-weight:800;letter-spacing:-0.02em}
+
+/* tab blocks: readable in both themes */
+.composer-tab{background:var(--surface2)!important;border-color:var(--border)!important;color:var(--text)!important}
+/* trainer label toggles: plain row, not a card */
+.trainer-head{background:none;border:none;padding:0;margin-bottom:8px}

@@ -86,7 +86,10 @@ check('beat grid built', d.querySelectorAll('#beat-grid *').length > 0,
       `${d.querySelectorAll('#beat-grid *').length} nodes`);
 check('fretboard rendered', d.querySelectorAll('[class*=fret]').length > 10,
       `${d.querySelectorAll('[class*=fret]').length} nodes`);
-check('tabs present', d.querySelectorAll('.tab').length >= 3);
+const bootDest = d.querySelector('.dest.active')?.dataset.dest;
+check('boots on Songs', bootDest === 'songs' && d.getElementById('panel-upload').classList.contains('active'), bootDest);
+check('destinations present (Songs / Play / Practice / Create)',
+      [...d.querySelectorAll('.dest-nav .dest')].map(b => b.textContent.trim()).join(' ') === 'Songs Play Practice Create');
 check('panels present', d.querySelectorAll('.panel').length >= 3);
 
 // Every inline on* handler must resolve to a real function on window.
@@ -130,9 +133,46 @@ try {
         missing.length ? missing.join(', ') : `${names.size} actions`);
 }
 
-// Two-pane shell: rail holds tempo keeper + session + clip player, outside the panels.
-check('rail contains tempo keeper + clip player',
-      !!d.querySelector('.rail #bpm-slider') && !!d.querySelector('.rail #clip-dock') && !d.querySelector('.panel #clip-dock'));
+// Shell: transport bar holds the tempo keeper + key, outside the panels; clips float.
+check('transport holds tempo keeper + key, outside panels',
+      !!d.querySelector('#transport #bpm-slider') && !!d.querySelector('#transport #rail-key') && !d.querySelector('.panel #bpm-slider'));
+check('clip player floats outside panels', !!d.getElementById('clip-dock') && !d.querySelector('.panel #clip-dock'));
+{
+  const $ = id => d.getElementById(id);
+  const click = el => el && el.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  const destOn = () => d.querySelector('.dest.active')?.dataset.dest;
+  const subs = () => [...d.querySelectorAll('#subnav .subnav-item')].map(b => b.textContent.trim() + (b.classList.contains('active') ? '*' : '')).join(' ');
+  click(d.querySelector('.dest[data-dest="play"]'));
+  check('Play → My chords', $('panel-trainer').classList.contains('active') && $('inner-trainer').dataset.sub === 'chords' && subs() === 'My chords* Color map', subs());
+  click(d.querySelector('#subnav [data-sub="colormap"]'));
+  check('Play sub-nav → Color map', $('inner-trainer').dataset.sub === 'colormap' && destOn() === 'play');
+  click(d.querySelector('.dest[data-dest="practice"]'));
+  check('Practice → today', $('panel-practice').classList.contains('active') && subs() === 'Today* Drills', subs());
+  click(d.querySelector('#subnav [data-sub="drills"]'));
+  check('Practice sub-nav → drills (trainer)', $('panel-trainer').classList.contains('active') && $('inner-trainer').dataset.sub === 'drills' && destOn() === 'practice');
+  w.trainerNav('chords');
+  check('old entry points move the nav (trainerNav → Play)', destOn() === 'play');
+  w.switchTab('guided');
+  check('switchTab(guided) → Create / Guided', destOn() === 'create' && /Guided workflow\*/.test(subs()), subs());
+  click(d.querySelector('.dest[data-dest="play"]'));
+  check('Play remembers last sub (My chords)', $('inner-trainer').dataset.sub === 'chords');
+  click($('menu-btn'));
+  check('menu opens with the 4 tools', !$('menu-pop').hidden && d.querySelectorAll('#menu-pop .hbtn').length === 4);
+  click(d.body);
+  check('menu closes on outside click', $('menu-pop').hidden);
+  click(d.querySelector('[data-pop="tp-tempo-pop"]'));
+  check('tempo popover opens from the BPM', !$('tp-tempo-pop').hidden && $('tp-key-pop').hidden);
+  click(d.querySelector('[data-pop="tp-key-pop"]'));
+  check('key popover replaces it', $('tp-tempo-pop').hidden && !$('tp-key-pop').hidden);
+  w.syncKey('F#m', 'test');
+  check('transport key label follows the app key', $('tp-key-label').textContent === 'F♯m', $('tp-key-label').textContent);
+  w.syncKey('Am', 'test');
+  click(d.querySelector('[data-action="ui:theme"]'));
+  const t1 = d.documentElement.dataset.theme;
+  click(d.querySelector('[data-action="ui:theme"]'));
+  check('theme toggles light ⇄ dark', t1 === 'light' && d.documentElement.dataset.theme === 'dark');
+  w.switchTab('mixer');
+}
 
 // Reference clips: paste → embed, save, tags, BPM hand-off, seed mixer, survives tab switch.
 // jsdom reports a 1024px viewport, so the player runs in floating mode here.

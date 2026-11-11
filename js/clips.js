@@ -665,7 +665,7 @@ function isWide(){
   try { return !!(window.matchMedia && window.matchMedia(WIDE).matches); } catch { return false; }
 }
 /* Docked only makes sense while the rail is beside the content. */
-function effectiveMode(){ return isWide() && dockState.mode === 'docked' ? 'docked' : 'floating'; }
+function effectiveMode(){ return 'floating'; }   // no side rail any more: the player always floats
 
 function applyDock(){
   const dock = $('clip-dock');
@@ -693,7 +693,7 @@ function applyDock(){
   }
   if (btn) btn.setAttribute('aria-pressed', String(mode === 'docked' ? !dockState.collapsed : !!dockState.open));
   if (modeBtn){
-    const canDock = isWide();
+    const canDock = false;
     modeBtn.style.display = canDock ? '' : 'none';
     modeBtn.textContent = dockState.mode === 'docked' ? '⇱' : '⇲';
     modeBtn.title = dockState.mode === 'docked' ? 'Float the player' : 'Dock the player in the rail';

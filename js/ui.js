@@ -4,11 +4,12 @@
    ============================================================ */
 
 export function switchTab(id){
-  const ids = ['mixer', 'guided', 'upload', 'practice', 'trainer'];
-  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ids[i] === id));
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   const panel = document.getElementById('panel-' + id);
-  if (panel) panel.classList.add('active');
+  if (!panel) return;
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  panel.classList.add('active');
+  // nav.js repaints the top bar / sub-nav from whatever is now on screen
+  document.dispatchEvent(new CustomEvent('gb:nav', { detail: { tab: id } }));
 }
 
 export function switchInnerTab(id, btn){

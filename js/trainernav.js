@@ -68,6 +68,7 @@ function applySub(next, mode){
   save();
   paintSubtabs();
   refreshRail();
+  document.dispatchEvent(new CustomEvent('gb:nav', { detail: { tab: 'trainer', sub } }));
 }
 
 /* Entry point (window-bridged). mode: a drill id, 'today', or null. */
