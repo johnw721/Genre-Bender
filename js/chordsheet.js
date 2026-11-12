@@ -356,3 +356,42 @@ export function analyzeSheet(text){
     stats: ex.stats,
   };
 }
+
+/* ---- chords mentioned in free text (captions, notes, link shares) ---- */
+
+/* "Chords: Am7 - D9 - Gmaj7 🎸 #guitar https://instagram.com/reel/…"
+   → ['Am7', 'D9', 'Gmaj7']. Looser than extractChords (a caption mixes
+   words and chords on one line), so the ambiguous single letters are
+   only kept next to other chords: "A" alone in a sentence is a word.
+   Order is kept; repeats are kept (it's a progression). */
+export function chordsIn(text){
+  const clean = String(text || '')
+    .replace(/https?:\/\/\S+/g, ' ')
+    .replace(/#[\w-]+/g, ' ')                      // hashtags
+    .replace(/@[\w.]+/g, ' ')                      // handles
+    .replace(/\[ch\]|\[\/ch\]/gi, ' ');
+  // A sheet-shaped paste reads better with the strict parser.
+  const strict = extractChords(clean).chords.map(c => c.name);
+  const toks = clean.split(/[\s,;|·•→>]+|(?<=\S)\s*[-–—]\s*(?=\S)/).filter(Boolean);
+  const parsed = toks.map(t => parseChordToken(t.replace(/^[("'“]+|[)"'”:.!?]+$/g, '')));
+  const loose = [];
+  parsed.forEach((p, i) => {
+    if (!p) return;
+    if (/^(A|Am|E)$/.test(p.name)){
+      const nb = [parsed[i - 1], parsed[i + 1]].filter(Boolean).length;
+      if (!nb) return;                              // "A" / "Am" / "E" between words
+    }
+    loose.push(p.name);
+  });
+  return strict.length >= loose.length ? strict : loose;
+}
+
+/* First http(s) link in a blob of shared text, and what's left around it. */
+export function splitLinkText(text){
+  const s = String(text || '');
+  const m = s.match(/https?:\/\/[^\s<>"']+/);
+  if (!m) return { url: null, rest: s.trim() };
+  const url = m[0].replace(/[),.;!?]+$/, '');
+  const rest = (s.slice(0, m.index) + ' ' + s.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim();
+  return { url, rest };
+}

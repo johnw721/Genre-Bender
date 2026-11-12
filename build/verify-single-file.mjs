@@ -350,6 +350,54 @@ try {
   check('hover tab stays across tab switches', pt.classList.contains('open'));
   click(pt.querySelector('.prog-tab-head [data-action="progtab:toggle"]'));
   check('hover tab closes', !pt.classList.contains('open'));
+
+  // Color map: clicking a chord shows its shape for a moment
+  w.syncKey('C', 'test');
+  w.trainerNav('colormap');
+  const fChip = d.querySelector('.cm-col[data-col="d3"] .cm-chip[data-name="F"]') || d.querySelector('.cm-chip[data-name="F"]');
+  click(fChip);
+  const pk = $('chord-peek');
+  check('color map: click a chord → diagram', pk && !pk.hidden && pk.querySelector('b').textContent === 'F' && /IV/.test(pk.textContent) && !!pk.querySelector('svg.chord-box'),
+        pk && pk.textContent.replace(/\s+/g, ' ').trim().slice(0, 40));
+  // Chord finder
+  d.dispatchEvent(new w.KeyboardEvent('keydown', { key: '/', bubbles: true }));
+  const cf = $('chord-finder'), cfIn = $('cf-input'), cfOut = () => $('cf-results');
+  const typeIn = (v) => { cfIn.value = v; cfIn.dispatchEvent(new w.Event('input', { bubbles: true })); };
+  check('finder opens with "/"', cf && !cf.hidden && check.length !== undefined);
+  typeIn('dm7');
+  check('finder: one chord → shapes + where in the map', /Dm7/.test(cfOut().querySelector('.cf-chord-name').textContent) &&
+        cfOut().querySelectorAll('.cf-shape svg.chord-box').length >= 2 && /ii/.test(cfOut().querySelector('.cf-where').textContent) && /D F A C/.test(cfOut().textContent),
+        cfOut().textContent.replace(/\s+/g, ' ').slice(0, 120));
+  typeIn('Eb');
+  check('finder: a root alone → chords on it', cfOut().querySelectorAll('.cf-suggest .cf-chip').length >= 10 && /Ebmaj7/.test(cfOut().textContent), cfOut().querySelectorAll('.cf-suggest .cf-chip').length + ' ' + cfOut().textContent.replace(/\s+/g,' ').slice(0,200));
+  typeIn('Bb7');
+  const keyChips = [...cfOut().querySelectorAll('.cf-keys .cf-chip')].map(b => b.dataset.key);
+  check('finder: outside chord → keys that hold it (no enharmonic dupes)', /not on the C major map|out of scale|parallel/.test(cfOut().querySelector('.cf-where').textContent) &&
+        keyChips.length >= 1 && !(keyChips.includes('D#') && keyChips.includes('Eb')), cfOut().querySelector('.cf-where').textContent.trim().slice(0, 100));
+  typeIn('neo soul loop 🎸 Fmaj7 - Em7 - Dm7 - G13 #guitar https://www.instagram.com/reel/CxAbC123/');
+  check('finder: pasted caption → all chords + key', cfOut().querySelectorAll('.cf-mini').length === 4 && /likely key/.test(cfOut().querySelector('.cf-label').textContent) &&
+        !!cfOut().querySelector('[data-action="finder:clip"]'), cfOut().querySelector('.cf-label').textContent);
+  click(cfOut().querySelector('[data-action="finder:clip"]'));
+  const dockText = () => ($('clip-meta')?.textContent || '') + ($('clip-list')?.textContent || '');
+  check('finder: save link as clip keeps the caption chords', /Fmaj7/.test($('clip-list').textContent), $('clip-list').textContent.slice(0, 120));
+  click(cfOut().querySelector('[data-action="finder:track"]'));
+  check('finder: new track from caption chords', cf.hidden && $('inner-trainer').dataset.sub === 'chords' &&
+        /Fmaj7\s*Em7\s*Dm7\s*G13/.test([...d.querySelectorAll('#transport-prog .tp-chord')].map(b => b.textContent).join(' ')));
+  w.trainerNav('chords');
+  w.syncKey('C', 'test');
+  d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
+  typeIn('Am7');
+  click(cfOut().querySelector('[data-action="finder:map"]'));
+  await new Promise(r => setTimeout(r, 120));
+  const am7 = d.querySelector('.cm-chip.cm-flash');
+  check('finder: Show in color map → map, chip flashed', cf.hidden && $('inner-trainer').dataset.sub === 'colormap' && am7 && am7.dataset.name === 'Am7', am7 && am7.dataset.name);
+  // A link pasted with its caption: caption kept as notes, chords shown in the color map clip row
+  d.dispatchEvent(Object.assign(new w.Event('paste', { bubbles: true }), { clipboardData: { getData: () => 'Chords: Cmaj7 Am7 Dm7 G7 https://www.instagram.com/reel/Zz9Yy8/' } }));
+  await new Promise(r => setTimeout(r, 20));
+  check('pasted link + caption → clip notes + chord chips', /Cmaj7/.test($('cm-clip-tags')?.textContent || '') && d.querySelectorAll('#cm-clip-tags .cm-cchip').length === 4,
+        ($('cm-clip-tags')?.textContent || '').replace(/\s+/g, ' ').slice(0, 120));
+  click(d.querySelector('#cm-clip-tags .cm-cchip'));
+  check('clip chord chip → diagram', !$('chord-peek').hidden && $('chord-peek').querySelector('b').textContent === 'Cmaj7');
   w.switchTab('upload');
   click(d.querySelector('[data-action="song:new"]'));
   check('new clears the form', $('song-title').value === '' && $('song-output').classList.contains('placeholder'));

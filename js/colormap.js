@@ -42,6 +42,8 @@ import { registerStore, loadJSON, saveJSON } from './storage.js';
 import { parseMelody, summarize, chordFit, keysForMelody, samePitchKey, splitBars, harmonize } from './melody.js';
 import { neckSVG } from './melodyneck.js';
 import { downloadJSON } from './storage.js';
+import { showChordPeek, initChordPeek } from './chordpeek.js';
+import { chordsIn, splitLinkText } from './chordsheet.js';
 import { getBPM } from './metronome.js';
 import {
   getClips, getClip, clipsAdd, clipsUpdate, parseClipUrl, normalizeKey, PLATFORM_LABEL,
@@ -319,6 +321,39 @@ export function pinnedFretsFor(name){
   const v = colorVoicing(name), d = getVoicing(name);
   if (!v) return null;
   return d && JSON.stringify(d.frets) === JSON.stringify(v.frets) ? null : [...v.frets];
+}
+
+/* ---- find a chord in the map -------------------------------------------- */
+const sameChord = (a, b) => {
+  const A = parseChordName(String(a).split('/')[0]), B = parseChordName(String(b).split('/')[0]);
+  return !!(A && B && A.rootPc === B.rootPc && A.quality === B.quality);
+};
+/* Where a chord lives in `key`'s map: the first view (in → out → parallel)
+   with a chip for it, else the column whose root it shares. Pure. */
+export function locateChord(name, key){
+  for (const v of ['in', 'out', 'parallel']){
+    for (const col of mapColumns(key, v)){
+      const item = col.items.find(it => sameChord(it.name, name));
+      if (item) return { view: v, colId: col.id, roman: col.roman, fn: col.fn, name: item.name, exact: true };
+    }
+  }
+  const p = parseChordName(String(name).split('/')[0]);
+  if (!p) return null;
+  for (const v of ['in', 'out']){
+    const col = mapColumns(key, v).find(c => c.rootPc === p.rootPc);
+    if (col) return { view: v, colId: col.id, roman: col.roman, fn: col.fn, name: null, exact: false };
+  }
+  return null;
+}
+/* Keys whose in-scale map holds this exact chord (to offer a key switch). */
+export function keysWithChord(name, limit = 4){
+  const out = [];
+  for (const k of ALL_KEYS){
+    if (out.length >= limit) break;
+    if (out.some(o => samePitchKey(o, k))) continue;           // D# major == Eb major
+    if (mapColumns(k, 'in').some(c => c.items.some(it => sameChord(it.name, name)))) out.push(k);
+  }
+  return out;
 }
 
 /* ---- UI state ------------------------------------------------------------- */
@@ -895,6 +930,13 @@ function clipTagsHTML(){
       bits.push(`<button type="button" class="pb-btn" data-action="cm:clipTagKey" data-key="${best}" title="Save this key on the clip (from the melody)">🏷 tag clip ${escHtml(keyLabel(best))}</button>`);
     }
   }
+  const found = chordsIn(`${c.label || ''} ${c.notes || ''}`);
+  if (found.length){
+    bits.push(`<span class="cm-clip-chords" aria-label="Chords mentioned in this clip">${found.slice(0, 12).map(n => {
+      const loc = locateChord(n, key);
+      return `<button type="button" class="cm-cchip${loc && loc.exact && loc.view === 'in' ? '' : ' out'}" data-action="cm:peek" data-name="${escHtml(n)}" title="${escHtml(n)}${loc ? ' — ' + loc.roman : ''}">${escHtml(n)}</button>`;
+    }).join('')}<button type="button" class="pb-btn" data-action="finder:openText" data-text="${escHtml(found.join(' '))}" title="Open these chords in the chord finder (diagrams, key, make a track)">🔎</button></span>`);
+  }
   bits.push(`<span class="cm-mstat">${melodyActive() ? '♪ melody saved with this clip' : 'type the melody → it saves with this clip'}</span>`);
   bits.push(`<a class="pb-btn" href="${escHtml(c.url)}" target="_blank" rel="noopener noreferrer" title="Open on the platform">↗</a>`);
   return bits.join('');
@@ -934,7 +976,7 @@ function pickClip(id){
 }
 function addClipFromInput(raw){
   const err = $('cm-clip-err');
-  const meta = parseClipUrl(raw);
+  const meta = parseClipUrl(raw) || parseClipUrl(splitLinkText(raw).url);
   if (!meta){ if (err) err.textContent = "That doesn't look like a link."; return false; }
   const clip = clipsAdd(raw, { open: false });
   if (!clip) return false;
@@ -1049,6 +1091,22 @@ export function setColorMapView(v){
   redrawColorMap();
 }
 export function getColorMapView(){ return view; }
+
+/* Switch the map to wherever `name` lives, scroll to it, flash it and
+   show its shape. Call after the map is on screen. Returns the location. */
+export function revealInColorMap(name){
+  const loc = locateChord(name, currentKey());
+  if (!loc) return null;
+  if (loc.view !== view) setColorMapView(loc.view);
+  const col = document.querySelector(`.cm-col[data-col="${loc.colId}"]`);
+  const chip = loc.exact ? [...(col?.querySelectorAll('.cm-chip') || [])].find(c => sameChord(c.dataset.name, name)) : null;
+  const target = chip || col;
+  if (!target) return loc;
+  target.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+  target.classList.remove('cm-flash'); void target.offsetWidth; target.classList.add('cm-flash');
+  if (chip) setTimeout(() => showChordPeek(chip, { name: chip.dataset.name, frets: colorVoicing(chip.dataset.name)?.frets, sub: `${loc.roman} · ${FN_LABEL[loc.fn] || ''}`, autoHideMs: 4000 }), 350);
+  return loc;
+}
 
 function importEditsFile(input){
   const file = input && input.files && input.files[0];
@@ -1182,7 +1240,19 @@ export function initColorMap(){
     'cm:clipTagKey': (el) => { const c = sessionClip(); if (!c || !isKey(el.dataset.key)) return; clipsUpdate(c.id, 'key', el.dataset.key); refreshClipChrome(); },
     'cm:melKey': (el) => { const k = el.dataset.key; if (!isKey(k)) return; mapKey = k; syncKey(k, 'colormap-key'); redrawColorMap(); },
     'cm:view': (el) => setColorMapView(el.dataset.view),
-    'cm:play': (el) => playName(el.dataset.name),
+    'cm:play': (el) => {
+      playName(el.dataset.name);
+      // a chip (not the ▶ button in edit mode) also shows its fingering for a moment
+      const chip = el.closest('.cm-chip') || el;
+      const col = chip.closest('.cm-col');
+      const c = col ? findColumn(col.dataset.col) : null;
+      showChordPeek(chip, { name: el.dataset.name, frets: colorVoicing(el.dataset.name)?.frets,
+        sub: c ? `${c.roman} · ${FN_LABEL[c.fn] || ''}` : '', autoHideMs: 3500 });
+    },
+    'cm:peek': (el) => {
+      playName(el.dataset.name);
+      showChordPeek(el, { name: el.dataset.name, frets: colorVoicing(el.dataset.name)?.frets, autoHideMs: 3500 });
+    },
     'cm:add': (el, e) => { e.stopPropagation(); if (onAdd) onAdd(el.dataset.name, pinnedFretsFor(el.dataset.name)); },
     'cm:key': (el) => { mapKey = el.value; syncKey(el.value, 'colormap-key'); redrawColorMap(); },
     'cm:modulate': (el) => { const k = el.dataset.key; if (!isKey(k)) return; mapKey = k; syncKey(k, 'colormap-key'); setColorMapView('in'); },
@@ -1212,6 +1282,7 @@ export function initColorMap(){
     },
   });
   onAppKeyChange(k => { mapKey = k; redrawColorMap(); });
+  initChordPeek();
   window.addEventListener('message', onYtMessage);
   document.addEventListener('toggle', e => { if (e.target && e.target.id === 'cm-neck') neckOpen = e.target.open; }, true);
   // clip list edits anywhere (dock tags, analyze, our own melody saves)

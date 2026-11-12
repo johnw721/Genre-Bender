@@ -29,6 +29,7 @@
    left rail (default on wide screens) or floating — and is forced
    floating on narrow viewports where the rail stacks.
    ============================================================ */
+import { chordsIn, splitLinkText } from './chordsheet.js';
 import { escHtml } from './util.js';
 import { getBPM, setBPM } from './metronome.js';
 import { GENRES, MAX_GENRES } from './config.js';
@@ -148,7 +149,10 @@ function defaultLabel(meta){
    it up) — no dock pop-out. */
 export function clipsAdd(rawUrl, { open = true } = {}){
   const input = $('clip-url');
-  const raw = rawUrl ?? input?.value ?? '';
+  const rawText = rawUrl ?? input?.value ?? '';
+  // Shared posts arrive as "caption … https://link …": keep the caption as notes.
+  const split = parseClipUrl(rawText) ? { url: rawText, rest: '' } : splitLinkText(rawText);
+  const raw = split.url || rawText;
   const meta = parseClipUrl(raw);
   const status = $('clip-status');
   if (!meta){
@@ -162,7 +166,11 @@ export function clipsAdd(rawUrl, { open = true } = {}){
       label: defaultLabel(meta), key: '', bpm: null, genres: '',
       notes: '', addedAt: new Date().toISOString(),
     };
+    if (split.rest) clip.notes = split.rest.slice(0, 500);
     clips.unshift(clip);
+    saveList();
+  } else if (split.rest && !clip.notes){
+    clip.notes = split.rest.slice(0, 500);
     saveList();
   }
   if (open){
@@ -624,6 +632,7 @@ function renderPlayer(reloadFrame = true){
     </div>
     <input class="clip-notes" value="${q(clip.notes)}" placeholder="caption / what you hear (feeds Analyze)"
       aria-label="Clip notes" data-on-change="clips:update" data-id="${clip.id}" data-field="notes">
+    ${clipChordsHTML(clip)}
     <div class="clip-actions">
       <button class="clip-mini primary${isRef ? ' on' : ''}" type="button" data-action="clips:seed" data-id="${clip.id}"
         title="Select this clip's genres in the mixer, set its key and BPM, and blend toward it">${isRef ? '✓ seeded' : '⇢ seed mixer'}</button>
@@ -634,6 +643,17 @@ function renderPlayer(reloadFrame = true){
       <a class="clip-mini" href="${escHtml(clip.url)}" target="_blank" rel="noopener noreferrer" title="Open on the platform">↗</a>
       <button class="clip-mini danger" type="button" data-action="clips:remove" data-id="${clip.id}" title="Remove from saved clips">✕</button>
     </div>`;
+}
+
+/* Chords named in the clip's label / caption → tappable chips (shape on tap)
+   and a shortcut into the chord finder. */
+function clipChordsHTML(clip){
+  const found = chordsIn(`${clip.label || ''} ${clip.notes || ''}`);
+  if (!found.length) return '';
+  return `<div class="clip-chords" aria-label="Chords in this clip">
+    ${found.slice(0, 12).map(n => `<button type="button" class="clip-cchip" data-action="cm:peek" data-name="${escHtml(n)}" title="Hear ${escHtml(n)} and see its shape">${escHtml(n)}</button>`).join('')}
+    <button type="button" class="clip-mini" data-action="finder:openText" data-text="${escHtml(found.join(' '))}" title="Open in the chord finder: diagrams, key, make a track">🔎 chords</button>
+  </div>`;
 }
 
 function renderList(){
@@ -649,7 +669,7 @@ function renderList(){
     <button type="button" class="clip-item${c.id === activeId ? ' active' : ''}" data-action="clips:open" data-id="${c.id}" title="${escHtml(c.url)}">
       <span class="clip-badge ${c.platform}">${escHtml(PLATFORM_LABEL[c.platform] || 'Link')}</span>
       <span class="clip-item-label">${escHtml(c.label)}</span>
-      <span class="clip-item-tags">${[c.key, c.bpm ? c.bpm + ' bpm' : '', c.genres].filter(Boolean).map(escHtml).join(' · ')}</span>
+      <span class="clip-item-tags">${[c.key, c.bpm ? c.bpm + ' bpm' : '', c.genres, chordsIn(`${c.label} ${c.notes}`).slice(0, 4).join(' ')].filter(Boolean).map(escHtml).join(' · ')}</span>
     </button>`).join('');
 }
 
@@ -803,7 +823,7 @@ function initGlobalPaste(){
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
     const text = e.clipboardData?.getData('text') || '';
-    const meta = parseClipUrl(text);
+    const meta = parseClipUrl(text) || parseClipUrl(splitLinkText(text).url);
     if (meta && meta.platform !== 'other'){
       e.preventDefault();
       if (pasteRoute && pasteRoute(text)) return;

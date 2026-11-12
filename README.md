@@ -40,6 +40,12 @@ MIDI.
   **Create** (genre mixer, guided workflow). A transport bar at the bottom keeps the metronome,
   key and the current track's chords on every page; less-used tools live in the ⋯ menu.
   Light and dark themes (☀ in the top bar).
+- **Find a chord** — 🔎 in the top bar (or `/`, Ctrl/⌘ K). Type a chord for its shapes, notes and
+  where it sits in the color map (with keys it's diatonic in), then hear it, add it to the track or
+  jump to it on the map. Paste a reel/TikTok caption or a shared link and every chord in it is
+  pulled out — make a track, open the map in the likely key, or save the link as a clip.
+  Clicking a color-map chord shows its diagram for a moment; chords named in a clip's caption
+  show up as tappable chips in the clips player and the color map.
 - **Learn a song** — tab 03. Turn "I want to learn that song" into a saved *unit*
   (BPM, key, color-map key, closest chord progression) and a prefilled **My chords**
   track, from any of three paths that cross-check each other:

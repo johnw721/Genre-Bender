@@ -209,3 +209,60 @@ details.fold .tab-panel-body{padding-top:0}
 .chord-peek .chord-box{width:100%;height:auto;display:block}
 .chord-peek-frets{font-family:var(--code);font-size:11px;color:var(--muted);letter-spacing:.08em}
 .chord-peek-none{font-size:12px;color:var(--muted);padding:24px 0}
+
+/* ---- chord finder (chordfinder.js) ----------------------------------- */
+.cf-open-btn{width:auto;gap:8px;padding:0 10px 0 9px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-size:13px}
+.cf-open-btn kbd{font-size:11px;padding:1px 6px;border:1px solid var(--border2);border-radius:4px;color:var(--muted);background:none}
+.cf-open-btn:hover{color:var(--text)}
+@media (max-width:900px){ .cf-open-label,.cf-open-btn kbd{display:none} .cf-open-btn{width:36px;padding:0;border:none;background:none} }
+.cf-overlay{position:fixed;inset:0;z-index:80;display:flex;justify-content:center;align-items:flex-start;padding:max(48px,8vh) 16px 16px;
+  background:rgba(5,5,10,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.cf-overlay[hidden]{display:none}
+.cf-panel{width:min(720px,100%);max-height:calc(100vh - 96px);display:flex;flex-direction:column;background:var(--surface);
+  border:1px solid var(--border2);border-radius:var(--r-lg);box-shadow:var(--shadow);overflow:hidden}
+.cf-search{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 16px;border-bottom:1px solid var(--border);color:var(--muted)}
+.cf-search input{flex:1;min-width:0;border:none;outline:none;background:none;color:var(--text);font-size:17px;padding:8px 0}
+.cf-results{overflow:auto;padding:16px}
+.cf-hint{font-size:13px;line-height:1.7;color:var(--muted)}
+.cf-hint code,.cf-label code{font-size:12px;padding:1px 5px;border-radius:4px;background:var(--surface2);color:var(--text)}
+.cf-label{font-size:13px;color:var(--muted);margin-bottom:10px}
+.cf-label b{color:var(--text)}
+.cf-chord-head{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+.cf-chord-name{font-size:28px;font-weight:700;letter-spacing:-0.02em;line-height:1.1}
+.cf-chord-notes{font-size:13px;color:var(--muted);margin-top:4px}
+.cf-where{font-size:13px;color:var(--muted);text-align:right;max-width:360px}
+.cf-where b{color:var(--accent)}
+.cf-keys{margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;align-items:center}
+.cf-shapes{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+.cf-shape{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 6px 6px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface2);color:var(--muted);cursor:pointer;font-size:11px}
+.cf-shape:hover{border-color:var(--accent2)}
+.cf-shape .chord-box{width:100%;max-width:130px}
+.cf-actions{display:flex;flex-wrap:wrap;gap:8px}
+.cf-suggest,.cf-many{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.cf-many{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.cf-chip{border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;font-weight:600;padding:6px 11px;border-radius:var(--r-pill);cursor:pointer}
+.cf-chip:hover{border-color:var(--accent2)}
+.cf-keys .cf-chip{font-size:11px;padding:3px 8px}
+.cf-mini{display:flex;flex-direction:column;align-items:center;gap:0;padding:8px 4px 4px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface2);color:var(--text);cursor:pointer}
+.cf-mini:hover{border-color:var(--accent2)}
+.cf-mini b{font-size:14px}
+.cf-mini span{font-size:11px;color:var(--accent);min-height:14px}
+.cf-mini .chord-box{width:100%;max-width:96px}
+.cf-empty{font-size:13px;color:var(--muted)}
+body.cf-open{overflow:hidden}
+
+/* color map: a chord the finder jumped to */
+.cm-flash{animation:cmFlash 1.6s ease}
+@keyframes cmFlash{0%,30%{box-shadow:0 0 0 3px var(--accent2),0 0 24px var(--accent-glow)}100%{box-shadow:0 0 0 0 transparent}}
+
+/* chords named in a clip's caption */
+.clip-chords,.cm-clip-chords{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.clip-chords{margin:6px 0}
+.clip-cchip,.cm-cchip{border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-weight:600;padding:3px 8px;border-radius:var(--r-sm);cursor:pointer;font-family:var(--ui)}
+.clip-cchip:hover,.cm-cchip:hover{border-color:var(--accent2)}
+.cm-cchip.out{border-style:dashed;color:var(--muted)}
+.cf-family{margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+.cf-open-btn{display:inline-flex;align-items:center;height:36px;border-radius:var(--r-pill)}
+.chord-peek{width:auto;min-width:150px;max-width:210px}
+.chord-peek-head{flex-wrap:wrap;row-gap:0}
+.chord-peek .chord-box{width:130px;margin:0 auto}

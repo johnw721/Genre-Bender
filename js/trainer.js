@@ -1209,6 +1209,14 @@ export function trainerUpsertTrack({ id, name, chords }){
   return t.id;
 }
 export function trainerHasTrack(id){ return tracks.some(t => t.id === id); }
+/* Append one chord to the active track from outside the trainer (chord finder). */
+export function trainerAddChord(name, frets = null){
+  if (!parseChordName(String(name || ''))) return false;
+  if (!getActiveTrack()){ const t = makeTrack('My chords'); tracks.push(t); activeTrackId = t.id; }
+  addChordToActiveTrack({ name: String(name), frets: frets || null });
+  if (mode === 'custom') renderCustomView();
+  return true;
+}
 
 /* ---- small helpers ---------------------------------------- */
 function shuffle(arr){
