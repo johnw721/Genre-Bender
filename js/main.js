@@ -11,7 +11,7 @@
    index.html with addEventListener calls and delete this bridge.
    ============================================================ */
 import { buildLibrary, clearAll, removeByIdx, updateRatio, filterGenres, clearGenreFilter } from './library.js';
-import { generateBlend } from './blend.js';
+import { generateBlend, renderResult as renderBlendResult } from './blend.js';
 import { generateGuitar } from './guitar.js';
 import { generatePiano } from './piano.js';
 import { exportMidi } from './midi.js';
@@ -201,6 +201,7 @@ initProgTools();     // history + voice-leading / transpose / capo strip (before
 initPersistence();   // restore reads the UI the inits above built
 initKeySync();       // last: mirror the restored guitar key into the rail + other selects
 initStudy();
-initTips();          // 💡 tips toggle (⋯ menu) + 3-step first-run tour         // ⤢ study view: pasted link + color map + My chords + chord library, resizable
+initTips();
+window.__gbRenderBlend = renderBlendResult;   // test hook: paint a blend reply without calling the AI          // 💡 tips toggle (⋯ menu) + 3-step first-run tour         // ⤢ study view: pasted link + color map + My chords + chord library, resizable
 initChordFinder();   // 🔎 quick chord search: shapes, color-map location, captions → tracks
 initNav();           // shell: Songs / Play / Practice / Create, menu, theme, transport popovers

@@ -608,6 +608,25 @@ try {
   check('consistency / tips / tour / commands ran', false, e.stack || e.message);
 }
 
+// Reference tracks carry listen links (YouTube / Spotify / Apple Music search)
+try {
+  w.switchTab?.('create');
+  const render = w.__gbRenderBlend;
+  if (render) render({ direction: 'x', references: [
+    { artist: 'D\'Angelo', title: 'Untitled (How Does It Feel)', note: 'neo-soul feel' },
+    { artist: 'Tom Misch – Movie', note: 'older one-field format' } ] });
+  const items = [...d.querySelectorAll('#output-body .ref-item')];
+  const hrefs = items.map(i => [...i.querySelectorAll('a.ref-link')].map(a => a.getAttribute('href')));
+  check('reference tracks get YouTube / Spotify / Apple Music links', items.length === 2 && hrefs.every(h => h.length === 3) &&
+        /youtube\.com\/results\?search_query=D'Angelo%20Untitled/.test(decodeURIComponent(hrefs[0][0]).replace(/ /g, '%20')) &&
+        hrefs[1][1] === 'https://open.spotify.com/search/Tom%20Misch%20Movie' && /music\.apple\.com\/us\/search\?term=/.test(hrefs[0][2]),
+        JSON.stringify(hrefs));
+  check('links open in a new tab safely', [...d.querySelectorAll('#output-body a.ref-link')].every(a => a.target === '_blank' && /noopener/.test(a.rel)));
+  check('one-field "Artist – Track" splits for display', /Tom Misch – Movie/.test(items[1]?.textContent || ''));
+} catch (e) {
+  check('reference links ran', false, e.stack || e.message);
+}
+
 check('no runtime errors during boot', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 let failed = 0;

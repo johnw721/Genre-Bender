@@ -10,6 +10,43 @@ import { escHtml, extractJSON } from './util.js';
 import { store } from './store.js';
 import { blendDescriptor } from './library.js';
 
+/* ---- reference tracks → somewhere to hear them -----------------------
+   The model gives artist + title (older replies: "Artist – Track" in one
+   field). Links are search URLs built here, not model-written URLs, so they
+   never point at a made-up video: YouTube, Spotify, Apple Music. */
+export function splitRef(ref){
+  let artist = String(ref?.artist || '').trim();
+  let title = String(ref?.title || ref?.track || '').trim();
+  if (!title){
+    const m = artist.match(/^(.+?)\s+[–—-]\s+(.+)$/);
+    if (m){ artist = m[1].trim(); title = m[2].trim(); }
+  }
+  title = title.replace(/^["“'‘]+|["”'’]+$/g, '');
+  return { artist, title };
+}
+export function listenLinks(ref){
+  const { artist, title } = splitRef(ref);
+  const q = [artist, title].filter(Boolean).join(' ');
+  if (!q) return [];
+  const e = encodeURIComponent(q);
+  return [
+    { id: 'youtube', label: 'YouTube',     url: `https://www.youtube.com/results?search_query=${e}` },
+    { id: 'spotify', label: 'Spotify',     url: `https://open.spotify.com/search/${e}` },
+    { id: 'apple',   label: 'Apple Music', url: `https://music.apple.com/us/search?term=${e}` },
+  ];
+}
+function refHTMLFor(ref){
+  const { artist, title } = splitRef(ref);
+  const name = [artist, title].filter(Boolean).join(' – ');
+  const links = listenLinks(ref);
+  return `<div class="ref-item"><div class="ref-icon">♪</div><div class="ref-body">
+    <div class="ref-artist">${escHtml(name)}</div>
+    ${ref?.note ? `<div class="ref-note">${escHtml(ref.note)}</div>` : ''}
+    ${links.length ? `<div class="ref-links" aria-label="Listen to ${escHtml(name)}">${links.map(l =>
+      `<a class="ref-link ref-${l.id}" href="${escHtml(l.url)}" target="_blank" rel="noopener noreferrer" title="Find it on ${l.label}">${l.label} ↗</a>`).join('')}</div>` : ''}
+  </div></div>`;
+}
+
 export async function generateBlend(){
   if (store.selected.length < 2) return;
   const dot = document.getElementById('status-dot');
@@ -22,7 +59,7 @@ export async function generateBlend(){
   btn.disabled = true;
 
   const blendDesc = blendDescriptor();
-  const prompt = `You are a music production AI assistant helping a bedroom producer blend genres. The user wants to blend: ${blendDesc}${referenceLine()}\nRespond ONLY with a JSON object (no markdown, no backticks, no preamble):\n{"direction":"2-3 sentence creative direction.","techniques":[{"name":"name","desc":"2-sentence DAW explanation."},{"name":"name","desc":"2-sentence."},{"name":"name","desc":"2-sentence."}],"chords":{"key":"key/mode","bpm":"BPM range","rhythm":"rhythmic feel","voicing":"chord voicing tip"},"references":[{"artist":"Artist – Track","note":"one sentence."},{"artist":"Artist – Track","note":"one sentence."},{"artist":"Artist – Track","note":"one sentence."}]}`;
+  const prompt = `You are a music production AI assistant helping a bedroom producer blend genres. The user wants to blend: ${blendDesc}${referenceLine()}\nRespond ONLY with a JSON object (no markdown, no backticks, no preamble):\n{"direction":"2-3 sentence creative direction.","techniques":[{"name":"name","desc":"2-sentence DAW explanation."},{"name":"name","desc":"2-sentence."},{"name":"name","desc":"2-sentence."}],"chords":{"key":"key/mode","bpm":"BPM range","rhythm":"rhythmic feel","voicing":"chord voicing tip"},"references":[{"artist":"Artist","title":"Track title","note":"one sentence."},{"artist":"Artist","title":"Track title","note":"one sentence."},{"artist":"Artist","title":"Track title","note":"one sentence."}]}\nReferences must be real, released recordings that can be found on streaming services — give the exact artist name and track title, no URLs.`;
 
   try {
     const raw = await callClaude([{ role: "user", content: prompt }], { maxTokens: 1000 });
@@ -68,9 +105,7 @@ export function renderResult(r){
     .map(([k, v]) => `<div class="chord-card"><div class="chord-card-label">${k}</div><div class="chord-card-value">${escHtml(v)}</div></div>`)
     .join('');
 
-  const refHTML = (r.references || [])
-    .map(ref => `<div class="ref-item"><div class="ref-icon">♪</div><div><div class="ref-artist">${escHtml(ref.artist)}</div><div class="ref-note">${escHtml(ref.note)}</div></div></div>`)
-    .join('');
+  const refHTML = (r.references || []).map(refHTMLFor).join('');
 
   out.innerHTML = `
     <div class="result-block"><div class="result-block-title">Creative direction</div><div class="direction-text">${escHtml(r.direction || '')}</div></div>
