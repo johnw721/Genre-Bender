@@ -578,7 +578,13 @@ function toast(msg){
 /* ---------------------------------------------------------------
    Player
    --------------------------------------------------------------- */
+/* Where "open this clip" goes. The Play page registers itself, so every clip
+   plays in its one video pane; without a route the floating player is used. */
+let openRoute = null;
+export function setClipOpenRoute(fn){ openRoute = typeof fn === 'function' ? fn : null; }
+
 export function clipsOpen(id){
+  if (openRoute && getClip(id) && openRoute(id)){ activeId = id; renderPlayer(true); renderList(); return; }
   if (frameDetached) clipsReattachDock();
   activeId = id;
   renderPlayer(true);
@@ -635,7 +641,7 @@ function renderPlayer(reloadFrame = true){
     ${clipChordsHTML(clip)}
     <div class="clip-actions">
       <button class="clip-mini primary" type="button" data-action="study:open" data-clip="${clip.id}"
-        title="Open this clip in the study view: video + color map + My chords + chord library, resizable">⤢ study</button>
+        title="Play this clip in Play, next to the color map and your chords">▶ play</button>
       <button class="clip-mini${isRef ? ' on' : ''}" type="button" data-action="clips:seed" data-id="${clip.id}"
         title="Select this clip's genres in the mixer, set its key and BPM, and blend toward it">${isRef ? '✓ seeded' : '⇢ seed mixer'}</button>
       <button class="clip-mini" type="button" data-action="clips:usebpm" data-id="${clip.id}" ${clip.bpm ? '' : 'disabled'}

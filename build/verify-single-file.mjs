@@ -143,9 +143,9 @@ check('clip player floats outside panels', !!d.getElementById('clip-dock') && !d
   const destOn = () => d.querySelector('.dest.active')?.dataset.dest;
   const subs = () => [...d.querySelectorAll('#subnav .subnav-item')].map(b => b.textContent.trim() + (b.classList.contains('active') ? '*' : '')).join(' ');
   click(d.querySelector('.dest[data-dest="play"]'));
-  check('Play → My chords', $('panel-trainer').classList.contains('active') && $('inner-trainer').dataset.sub === 'chords' && subs() === 'My chords* Color map', subs());
-  click(d.querySelector('#subnav [data-sub="colormap"]'));
-  check('Play sub-nav → Color map', $('inner-trainer').dataset.sub === 'colormap' && destOn() === 'play');
+  check('Play opens the workspace (video · map · chords)', d.body.classList.contains('study-open') && destOn() === 'play' && subs() === '' &&
+        !!d.querySelector('#study [data-pane="map"] #colormap-host') && !!d.querySelector('#study [data-pane="chords"] #trainer-card'), subs());
+  check('no clip yet → video pane folded away', d.getElementById('study').classList.contains('no-video'));
   click(d.querySelector('.dest[data-dest="practice"]'));
   check('Practice → today', $('panel-practice').classList.contains('active') && subs() === 'Today* Drills', subs());
   click(d.querySelector('#subnav [data-sub="drills"]'));
@@ -186,8 +186,10 @@ try {
   check('header button opens player', !$('clip-dock').classList.contains('closed'));
   $('clip-url').value = 'https://www.tiktok.com/@u/video/7301234567890123456';
   click(d.querySelector('[data-action="clips:add"]'));
-  const ifr = $('clip-frame').querySelector('iframe');
-  check('clip embeds via official endpoint', ifr?.src === 'https://www.tiktok.com/embed/v2/7301234567890123456');
+  const ifr = $('cm-clip-frame')?.querySelector('iframe');
+  check('a clip opens in Play\'s video pane (official embed)', d.body.classList.contains('study-open') && ifr?.src === 'https://www.tiktok.com/embed/v2/7301234567890123456',
+        ifr?.src);
+  check('the floating window never runs a second player', !$('clip-frame').querySelector('iframe'));
   $('clip-url').value = 'https://x.com/a/status/42'; click(d.querySelector('[data-action="clips:add"]'));
   $('clip-url').value = 'https://www.tiktok.com/@u/video/7301234567890123456'; click(d.querySelector('[data-action="clips:add"]'));
   check('clips saved + deduped by url', d.querySelectorAll('.clip-item').length === 2);
@@ -210,11 +212,15 @@ try {
         d.querySelectorAll('#rail-genres .rail-genre').length === 2 && $('rail-reference').style.display !== 'none');
   check('seed lands on mixer tab', $('panel-mixer').classList.contains('active'));
   w.switchTab('guided');
-  check('clip player survives tab switch', !$('clip-dock').classList.contains('closed') && !!$('clip-frame').querySelector('iframe'));
+  check('leaving Play closes the workspace', !d.body.classList.contains('study-open'));
+  w.trainerNav('chords');
+  check('the clip is still loaded when you come back to Play', !!$('cm-clip-frame')?.querySelector('iframe'));
+  w.switchTab('guided');
   click(d.querySelector('[data-action="clips:clear-ref"]'));
   check('reference clears', $('rail-reference').style.display === 'none');
   $('clip-url').value = 'https://example.com/x'; click(d.querySelector('[data-action="clips:add"]'));
-  check('unknown link falls back to open-in-tab', !!$('clip-frame').querySelector('a[target="_blank"]'));
+  check('unknown link falls back to open-in-tab', !!$('cm-clip-frame')?.querySelector('a[target="_blank"]'));
+  w.switchTab('guided');
   click(d.querySelector('[data-action="clips:remove"]'));
   check('clip removal', d.querySelectorAll('.clip-item').length === 2);
   // Analyze picker follows the clips list
@@ -305,51 +311,65 @@ try {
   check('re-save is idempotent (1 unit, 1 track)', r2.length === 1 && trackTabs(q) === 1, `${r2.length} unit(s), ${trackTabs(q)} track(s)`);
   check('re-save updates progression + BPM', trackChords(q).join(' ') === 'F G Am F G C E7' && /100 BPM/.test(r2[0]), `${trackChords(q).join(' ')} | ${r2[0]}`);
   check('open track → My chords view', /♪ Test Song/.test(q.textContent));
-  // Hover tab: floats the active track's progression
-  click(d.querySelector('[data-action="song:openTrack"]'));
-  click(d.querySelector('#trainer-question [data-action="progtab:toggle"]'));
-  const pt = $('prog-tab');
-  const cells = () => [...pt.querySelectorAll('.prog-tab-cell')];
-  check('hover tab opens from My chords', pt.classList.contains('open') && cells().length === 7);
-  check('hover tab shows chords + romans in the song key',
-        cells().map(c => c.querySelector('.prog-tab-chord').textContent).join(' ') === 'F G Am F G C E7' &&
-        cells().map(c => c.querySelector('.prog-tab-roman').textContent).join(' ') === 'VI VII i VI VII III V7' &&
-        /Am/.test(pt.querySelector('.prog-tab-meta').textContent), cells().map(c => c.textContent.trim()).join(' | '));
-  click(pt.querySelector('[data-action="progtab:step"][data-dir="1"]'));
-  click(pt.querySelector('[data-action="progtab:step"][data-dir="1"]'));
-  check('step moves the highlight', cells().findIndex(c => c.classList.contains('current')) === 2);
-  click(pt.querySelector('[data-action="progtab:step"][data-dir="-1"]'));
-  click(pt.querySelector('[data-action="progtab:step"][data-dir="-1"]'));
-  click(pt.querySelector('[data-action="progtab:step"][data-dir="-1"]'));
-  check('step wraps around', cells().findIndex(c => c.classList.contains('current')) === 6);
-  click(cells()[3]);
-  check('click a chord jumps to it', cells()[3].classList.contains('current'));
-  click(pt.querySelector('[data-action="progtab:play"]'));
-  check('loop starts', /stop/.test(pt.querySelector('[data-action="progtab:play"]').textContent));
-  click(pt.querySelector('[data-action="progtab:play"]'));
-  check('loop stops', /loop/.test(pt.querySelector('[data-action="progtab:play"]').textContent));
-  // Chord peek: hovering a chord shows its guitar diagram
+  // Transport strip: the active track's progression (the old hover tab's job)
+  const strip = () => [...d.querySelectorAll('#transport-prog .tp-chord')];
+  const cur = () => strip().findIndex(c => c.classList.contains('current'));
+  check('strip shows the active track', strip().map(c => c.textContent).join(' ') === 'F G Am F G C E7' && /♪ Test Song/.test($('transport-prog').textContent));
+  const stepBtn = (dir) => d.querySelector(`#transport-prog [data-action="progtab:step"][data-dir="${dir}"]`);
+  click(d.querySelector('#transport-prog [data-action="progtab:jump"][data-idx="0"]'));
+  click(stepBtn(1)); click(stepBtn(1));
+  check('step moves the highlight', cur() === 2);
+  click(stepBtn(-1)); click(stepBtn(-1)); click(stepBtn(-1));
+  check('step wraps around', cur() === 6);
+  click(strip()[3]);
+  check('click a chord jumps to it', cur() === 3);
+  const loopBtn = () => d.querySelector('#transport-prog [data-role="loop"]');
+  click(loopBtn());
+  check('loop starts', loopBtn().classList.contains('on'));
+  click(loopBtn());
+  check('loop stops', !loopBtn().classList.contains('on'));
+  // track popover: switcher + beats (moved from the hover tab)
+  click(d.querySelector('#transport-prog [data-pop="tp-track-pop"]'));
+  check('track popover opens with track + beats', !$('tp-track-pop').hidden &&
+        !!$('tp-track-pop').querySelector('[data-on-change="progtab:track"]') && !!$('tp-track-pop').querySelector('[data-on-change="progtab:beats"]'));
+  d.body.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  check('no floating hover tab any more', !d.querySelector('.prog-tab.open') && !d.querySelector('[data-action="progtab:toggle"]'));
+  // Chord peek: hovering a strip chord shows its guitar diagram
   const over = (el, type) => el.dispatchEvent(new w.MouseEvent(type, { bubbles: true, relatedTarget: d.body }));
-  over(cells()[1], 'pointerover');
+  over(strip()[2], 'pointerover');
   const peek = $('chord-peek');
-  check('hovering a hover-tab chord shows its diagram', peek && !peek.hidden && /^G\b/.test(peek.querySelector('b').textContent) &&
-        !!peek.querySelector('svg.chord-box') && /VII/.test(peek.textContent), peek && peek.textContent.trim().slice(0, 40));
-  over(cells()[1], 'pointerout');
+  check('hovering a strip chord shows its diagram', !peek.hidden && peek.querySelector('b').textContent === 'Am' && peek.querySelector('.chord-peek-head span')?.textContent === 'i' &&
+        !!peek.querySelector('svg.chord-box') && /3 2 2 1 0|0 0 2 2 1 0|x 0 2 2 1 0/.test(peek.textContent), peek.textContent.replace(/\s+/g, ' ').trim());
+  over(strip()[2], 'pointerout');
   check('moving off hides the diagram', peek.hidden);
-  const strip = [...d.querySelectorAll('#transport-prog .tp-chord')];
-  over(strip[2], 'pointerover');
-  check('transport strip chords peek too', !peek.hidden && peek.querySelector('b').textContent === 'Am' && /3 2 2 1 0|0 0 2 2 1 0|x 0 2 2 1 0/.test(peek.textContent),
-        peek.textContent.replace(/\s+/g, ' ').trim());
-  over(strip[2], 'pointerout');
+  // Keyboard: ←/→ step the progression, Space loops it (no melody loaded)
+  const key = (k, extra = {}) => d.body.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...extra }));
+  click(d.querySelector('#transport-prog [data-action="progtab:jump"][data-idx="0"]'));
+  key('ArrowRight'); key('ArrowRight');
+  check('→ steps the progression', cur() === 2, String(cur()));
+  key('ArrowLeft');
+  check('← steps back', cur() === 1, String(cur()));
+  key(' ');
+  check('Space loops the progression', loopBtn().classList.contains('on'));
+  key(' ');
+  check('Space again stops it', !loopBtn().classList.contains('on'));
+  // Touch: tapping a color-map chord shows the shape with + track / + keep
+  w.__gbForceTouch = true;
+  w.trainerNav('colormap');
+  const chip = d.querySelector('#colormap-host [data-action="cm:peek"], #colormap-host .cm-chip');
+  if (chip) click(chip.matches('[data-action="cm:peek"]') ? chip : chip.querySelector('[data-action="cm:peek"]') || chip);
+  const tAct = [...d.querySelectorAll('#chord-peek .chord-peek-actions button')].map(b => b.textContent);
+  check('touch: tapping a map chord offers + track / + keep', tAct.join('|') === '+ track|+ keep', tAct.join('|') || 'no buttons');
+  const nBefore = trackChords(showTrack()).length;
+  const tName = d.querySelector('#chord-peek .chord-peek-actions button')?.dataset.name;
+  click(d.querySelector('#chord-peek .chord-peek-actions button'));
+  const afterChords = trackChords(showTrack());
+  check('+ track appends the chord and toasts', afterChords.length === nBefore + 1 && afterChords.at(-1) === tName &&
+        !$('gb-toast').hidden && /added/.test($('gb-toast').textContent), `${nBefore}→${afterChords.length} ${tName} | ${$('gb-toast')?.textContent}`);
+  w.trainerRemoveCustomChord(afterChords.length - 1);
+  w.__gbForceTouch = false;
   w.trainerRemoveCustomChord(6);
-  check('hover tab follows track edits', cells().length === 6);
-  click(pt.querySelector('[data-action="progtab:collapse"]'));
-  check('collapse hides the body', pt.classList.contains('collapsed'));
-  click(pt.querySelector('[data-action="progtab:collapse"]'));
-  w.switchTab('practice');
-  check('hover tab stays across tab switches', pt.classList.contains('open'));
-  click(pt.querySelector('.prog-tab-head [data-action="progtab:toggle"]'));
-  check('hover tab closes', !pt.classList.contains('open'));
+  check('strip follows track edits', strip().length === 6);
 
   // Color map: clicking a chord shows its shape for a moment
   w.syncKey('C', 'test');
@@ -444,8 +464,8 @@ try {
   pasteText('https://www.youtube.com/watch?v=zzzYYY98765');
   await new Promise(r => setTimeout(r, 30));
   check('pasting another link while open swaps the video', /zzzYYY98765/.test($('study-clip-name').textContent));
-  d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  check('Esc closes study and puts every view back',
+  w.switchTab('upload');
+  check('leaving Play puts every view back',
         study.hidden && !!d.querySelector('#inner-trainer > #trainer-card') && !!d.querySelector('#inner-trainer > #colormap-host') &&
         !!d.querySelector('#colormap-host .cm-session > #cm-clip'));
   w.syncKey('C', 'test');
@@ -534,6 +554,58 @@ try {
   check('speed trainer stops', $('speed-go').getAttribute('aria-pressed') === 'false');
 } catch (e) {
   check('tools / midi / speed interaction ran', false, e.stack || e.message);
+}
+
+// Consistency, tips, tour, command bar
+try {
+  const $ = (id) => d.getElementById(id);
+  const click = el => el && el.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  const finder = (text) => { click($('finder-btn')); const i = $('cf-input'); i.value = text; i.dispatchEvent(new w.Event('input', { bubbles: true })); return $('cf-results'); };
+  const enterF = () => $('cf-input').dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  // key-aware spelling: ♭VII in C is Bb, not A#  (also: the "color map in C" command)
+  const dbgC = finder('color map in C').textContent.trim().slice(0, 60); enterF();
+  await new Promise(res => setTimeout(res, 30));
+  const outText = (() => { w.trainerNav('colormap'); const b = d.querySelector('[data-action="cm:view"][data-view="out"]'); click(b); return $('colormap-host').textContent; })();
+  check('out-of-scale columns spell flats in C (Bb7, Eb, Ab)', /Bb7/.test(outText) && /Eb/.test(outText) && !/A#7/.test(outText), (outText.match(/[A-G][#b]7/g) || []).slice(0, 8).join(' ') + ' [' + dbgC + '] key=' + (d.querySelector('[data-on-change="cm:key"]')?.value) + ' view=' + d.querySelector('[data-action="cm:view"].on, [data-action="cm:view"][aria-pressed="true"]')?.dataset.view);
+  // delete track → Undo
+  w.trainerNav('chords');
+  const tabs = () => d.querySelectorAll('#trainer-question .trainer-track-tab').length;
+  w.trainerNewTrack('Scratch');
+  const n = tabs();
+  w.trainerDeleteTrack();
+  check('delete track has no confirm() and offers Undo', tabs() === n - 1 && !!$('gb-toast').querySelector('[data-toast-undo]'), `${n}→${tabs()}`);
+  click($('gb-toast').querySelector('[data-toast-undo]'));
+  check('Undo brings the track back', tabs() === n && /Scratch/.test($('trainer-question').textContent));
+  w.trainerDeleteTrack();
+  check('no duplicate track name heading in options', !d.querySelector('#trainer-question .track-more summary .trainer-track-name'));
+  // tips toggle
+  check('tips hidden by default', !d.body.classList.contains('show-tips'));
+  click($('tips-btn'));
+  check('Show tips turns them on', d.body.classList.contains('show-tips') && /Hide tips/.test($('tips-btn').textContent));
+  click($('tips-btn'));
+  // tour
+  click(d.querySelector('[data-action="tour:start"]'));
+  const tour = () => $('gb-tour');
+  check('tour step 1 points at Songs', tour() && !tour().hidden && /1 \/ 3/.test(tour().textContent) && d.querySelector('.dest[data-dest="songs"]').classList.contains('tour-target'));
+  click(tour().querySelector('[data-action="tour:next"]')); click(tour().querySelector('[data-action="tour:next"]'));
+  check('tour step 3 points at the transport strip', /3 \/ 3/.test(tour().textContent) && $('transport-prog').classList.contains('tour-target'));
+  click(tour().querySelector('[data-action="tour:end"]'));
+  check('tour closes', tour().hidden && !d.querySelector('.tour-target'));
+  // chord finder as a command bar
+  let r = finder('color map in E');
+  check('finder command: "color map in E"', /Color map in E major/.test(r.textContent), r.textContent.trim().slice(0, 80));
+  enterF();
+  await new Promise(res => setTimeout(res, 30));
+  check('Enter runs it (key → E, map open)', $('chord-finder').hidden && d.body.classList.contains('study-open') && /E major/.test($('colormap-host').textContent));
+  r = finder('practice');
+  check('finder command: practice', /Practice → Drills/.test(r.textContent));
+  r = finder('Am');
+  check('a chord name still wins over commands', !/Commands/.test(r.textContent) && /Am/.test(r.textContent));
+  r = finder('new track Bridge');
+  check('finder command: new track with a name', /New track "Bridge"/.test(r.textContent), r.textContent.trim().slice(0, 60));
+  $('cf-input').dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+} catch (e) {
+  check('consistency / tips / tour / commands ran', false, e.stack || e.message);
 }
 
 check('no runtime errors during boot', errors.length === 0, errors.slice(0, 3).join(' | '));

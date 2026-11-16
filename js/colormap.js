@@ -42,7 +42,7 @@ import { registerStore, loadJSON, saveJSON } from './storage.js';
 import { parseMelody, summarize, chordFit, keysForMelody, samePitchKey, splitBars, harmonize } from './melody.js';
 import { neckSVG } from './melodyneck.js';
 import { downloadJSON } from './storage.js';
-import { showChordPeek, initChordPeek } from './chordpeek.js';
+import { showChordPeek, initChordPeek, isTouch } from './chordpeek.js';
 import { chordsIn, splitLinkText } from './chordsheet.js';
 import { getBPM } from './metronome.js';
 import {
@@ -162,7 +162,13 @@ function chordPcs(name){
   const p = parseChordName(name);
   return p ? [...new Set(p.intervals.map(iv => (p.rootPc + iv) % 12))] : [];
 }
-function outsideOf(name, inKey, key){ return chordPcs(name).filter(pc => !inKey.has(pc)).map(pc => key ? spellPc(pc, key) : pcToName(pc)); }
+/* Notes of a chord that fall outside the key. Spelled to match the chord:
+   Db7 shows Db Ab, F#7 shows F# A# C#. */
+function outsideOf(name, inKey, key){
+  const acc = String(name).match(/^[A-G]([#b])?/)?.[1];
+  return chordPcs(name).filter(pc => !inKey.has(pc)).map(pc =>
+    acc === 'b' ? FLAT_SP[mod12(pc)] : acc === '#' ? SHARP_SP[mod12(pc)] : key ? spellPc(pc, key) : pcToName(pc));
+}
 const mod12 = (n) => ((n % 12) + 12) % 12;
 
 export function parallelKey(key){
@@ -219,6 +225,16 @@ function fillItems(col, defaults, mode, view, inKey){
   return col;
 }
 
+/* Spell a chromatic column's root the way its numeral reads: ♭VII in C
+   is Bb (not A#), ♭III in E is G, ♮III in Am is C#. ♯IV/♭V follows the key. */
+const FLAT_SP = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+const SHARP_SP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+function chromaticRoot(pc, roman, key){
+  if (/^♭/.test(roman)) return FLAT_SP[mod12(pc)];
+  if (/^♮/.test(roman)) return SHARP_SP[mod12(pc)];
+  return spellPc(pc, key);
+}
+
 /* The columns for one of the three views, edits applied. */
 export function mapColumns(key, view = 'in'){
   const { mode, rootPc: tonicPc } = keyInfo(key);
@@ -231,7 +247,7 @@ export function mapColumns(key, view = 'in'){
     return CHROMATIC[mode].map(def => {
       const below = steps.filter(s => s < def.semi).length - 1;
       const col = {
-        id: 'c' + def.semi, key, rootPc: mod12(tonicPc + def.semi), rootName: spellPc(tonicPc + def.semi, key),
+        id: 'c' + def.semi, key, rootPc: mod12(tonicPc + def.semi), rootName: chromaticRoot(tonicPc + def.semi, def.roman, key),
         roman: def.roman, fn: def.fn, anchor: null, anchorOutside: [],
         between: `${romans[below]} · ${romans[(below + 1) % 7]}`, chromatic: true, spelling: [],
       };
@@ -603,7 +619,7 @@ function bodyHTML(key){
       </span>
     </div>` : '';
   const err = lastError ? `<div class="trainer-custom-err cm-err" role="alert">${escHtml(lastError)}</div>` : '';
-  return `<p class="trainer-hint cm-view-hint">${escHtml(VIEWS[view].hint)}</p>${banner}${editBar}${err}
+  return `<p class="trainer-hint cm-view-hint tip">${escHtml(VIEWS[view].hint)}</p>${banner}${editBar}${err}
     <div class="cm-grid cm-view-${view}${editing ? ' cm-is-editing' : ''}" role="list" style="--cols:${cols.length}">${cols.map(columnHTML).join('')}</div>`;
 }
 function switchHTML(){
@@ -632,7 +648,7 @@ function melodyPlaceholder(){
 function melodyReadoutHTML(){
   const key = currentKey();
   if (!mel){
-    return `<span class="trainer-hint">Type the notes your melody will use — or switch to <b>frets</b> (string + fret: <code>e7 B8</code>, or <code>e: 7 9 10</code>; E = low E, e = high e). Every chord lights up by how well it sits under the tune.</span>`;
+    return `<span class="trainer-hint tip">Type the notes your melody will use — or switch to <b>frets</b> (string + fret: <code>e7 B8</code>, or <code>e: 7 9 10</code>; E = low E, e = high e). Every chord lights up by how well it sits under the tune.</span>`;
   }
   const inKey = new Set(scalePcs(key));
   const notes = mel.notes.map(n => {
@@ -683,7 +699,7 @@ function harmonyHTML(){
     : `<label class="cm-barsize-label">bar =
         <select class="tab-style-select cm-barsize" data-on-change="cm:barSize" aria-label="Notes per bar">
           ${[2, 3, 4, 6, 8].map(n => `<option value="${n}"${n === perBar ? ' selected' : ''}>${n} notes</option>`).join('')}
-        </select></label><span class="trainer-hint cm-hint-inline">or mark bars with <code>|</code></span>`;
+        </select></label><span class="trainer-hint cm-hint-inline tip">or mark bars with <code>|</code></span>`;
   const chips = bars.map((b, i) => {
     const pick = b.pick;
     if (!pick) return `<div class="cm-hbar"><span class="cm-hnum">${i + 1}</span><span class="cm-mstat">—</span></div>`;
@@ -884,7 +900,7 @@ function clipLoopInnerHTML(){
   if (!c) return '';
   const p = parseClipUrl(c.url) || {};
   if (p.platform !== 'youtube' || !p.embedUrl){
-    return `<span class="trainer-hint cm-hint-inline">A–B loop &amp; speed work on YouTube clips (Instagram / TikTok embeds don't allow control).</span>`;
+    return `<span class="trainer-hint cm-hint-inline tip">A–B loop &amp; speed work on YouTube clips (Instagram / TikTok embeds don't allow control).</span>`;
   }
   const L = c.loop || {};
   const rate = L.rate || 1;
@@ -946,7 +962,6 @@ function clipPanelHTML(){
     <div class="cm-mrow">
       <span class="cm-mel-label">reference</span>
       <select id="cm-clip-select" class="tab-style-select cm-clip-select" data-on-change="cm:clipPick" aria-label="Reference clip">${clipOptionsHTML()}</select>
-      <button type="button" class="pb-btn cm-study-btn" data-action="study:open" title="Video + color map + My chords + chord library in one resizable view">⤢ study</button>
     </div>
     <div class="cm-mrow">
       <input id="cm-clip-url" class="cm-mel-input cm-clip-url" type="url" autocomplete="off" spellcheck="false"
@@ -1063,7 +1078,7 @@ export function colorMapHTML(){
   return `
   <details class="colormap" id="colormap" open>
     <summary><span class="section-label">Color map</span>
-      <span class="trainer-hint cm-hint">Click to hear · drag onto the track or table · + to append · ✎ edit to make it yours.</span>
+      <span class="trainer-hint cm-hint tip">Click to hear · drag onto the track or table · + to append · ✎ edit to make it yours.</span>
     </summary>
     <div class="cm-tools" id="colormap-tools">${toolsHTML(key)}</div>
     <div class="cm-session">
@@ -1253,12 +1268,17 @@ export function initColorMap(){
       const chip = el.closest('.cm-chip') || el;
       const col = chip.closest('.cm-col');
       const c = col ? findColumn(col.dataset.col) : null;
+      const touch = isTouch();
       showChordPeek(chip, { name: el.dataset.name, frets: colorVoicing(el.dataset.name)?.frets,
-        sub: c ? `${c.roman} · ${FN_LABEL[c.fn] || ''}` : '', autoHideMs: 3500 });
+        sub: c ? `${c.roman} · ${FN_LABEL[c.fn] || ''}` : '', autoHideMs: touch ? 6000 : 3500,
+        // touch: drag-and-drop doesn't work, so the card carries the add buttons
+        actions: touch ? [{ label: '+ track', action: 'peek:track', frets: pinnedFretsFor(el.dataset.name) }, { label: '+ keep', action: 'peek:keep' }] : null });
     },
     'cm:peek': (el) => {
       playName(el.dataset.name);
-      showChordPeek(el, { name: el.dataset.name, frets: colorVoicing(el.dataset.name)?.frets, autoHideMs: 3500 });
+      const touch = isTouch();
+      showChordPeek(el, { name: el.dataset.name, frets: colorVoicing(el.dataset.name)?.frets, autoHideMs: touch ? 6000 : 3500,
+        actions: touch ? [{ label: '+ track', action: 'peek:track' }, { label: '+ keep', action: 'peek:keep' }] : null });
     },
     'cm:add': (el, e) => { e.stopPropagation(); if (onAdd) onAdd(el.dataset.name, pinnedFretsFor(el.dataset.name)); },
     'cm:key': (el) => { mapKey = el.value; syncKey(el.value, 'colormap-key'); redrawColorMap(); },

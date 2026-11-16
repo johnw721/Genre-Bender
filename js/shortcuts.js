@@ -8,24 +8,29 @@
                  (Shift + 1–7: its first colour, e.g. Imaj7)
                  — in a drill with answer buttons up, 1–4 answer instead
      N           next drill question
-     Space       play the melody   (on My chords / Color map)
+     Space       play the melody (Play, when there is one) — otherwise
+                 loop / stop the active track's progression
+     ← / →       step through the progression
      H           play melody + harmony
      ?           show / hide this list        Esc  close it
    ============================================================ */
 import { trainerNav, getTrainerSub } from './trainernav.js';
 import { trainerNext, trainerAnswer } from './trainer.js';
 import { playDegree, playMelodyNow, playHarmony, hasMelody } from './colormap.js';
+import { progPlay, progStep } from './progtab.js';
 
 const $ = (id) => document.getElementById(id);
 const ROWS = [
-  ['T', 'Shape Trainer → Drills'],
-  ['C', 'Shape Trainer → My chords'],
-  ['M', 'Shape Trainer → Color map'],
+  ['Space', 'loop / stop your progression (plays the melody instead when Play has one)'],
+  ['← / →', 'step through the progression'],
+  ['/', 'find a chord — or type a command: "new track", "color map in E", "practice"'],
+  ['T', 'Practice → Drills'],
+  ['C', 'Play → My chords'],
+  ['M', 'Play → Color map'],
   ['1 – 7', 'play the degree chord in the current key'],
   ['Shift + 1 – 7', 'play its first colour (Imaj7, ii m7 …)'],
   ['1 – 4', 'in a drill: pick that answer'],
   ['N', 'next drill question'],
-  ['Space', 'play the melody (My chords / Color map)'],
   ['H', 'play the melody with its harmony'],
   ['?', 'show / hide shortcuts'],
   ['Esc', 'close this list'],
@@ -88,8 +93,12 @@ function onKey(e){
     case 'n': if (sub === 'drills') trainerNext(); else return; break;
     case 'h': if (hasMelody()) playHarmony(); else return; break;
     case ' ':
+      if (e.target?.closest?.('button, a, summary, [role="button"]')) return;   // Space on a focused button = click it
       if ((sub === 'colormap' || sub === 'chords') && hasMelody()){ playMelodyNow(); break; }
+      if (progPlay()) break;
       return;
+    case 'arrowleft':  if (sub === 'drills' || !progStep(-1)) return; break;
+    case 'arrowright': if (sub === 'drills' || !progStep(1)) return; break;
     default: return;
   }
   e.preventDefault();

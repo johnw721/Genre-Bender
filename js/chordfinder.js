@@ -25,8 +25,11 @@ import { ALL_KEYS as APP_KEYS, keyLabel } from './theorydata.js';
 import { sameKey } from './chordsheet.js';
 import { STRING_OPEN_MIDI, midiToHz } from './theory.js';
 import { playChordNow } from './audio.js';
-import { trainerAddChord, trainerUpsertTrack } from './trainer.js';
+import { trainerAddChord, trainerUpsertTrack, trainerNewTrack } from './trainer.js';
+import { normalizeKeyName } from './chordsheet.js';
 import { clipsAdd, parseClipUrl } from './clips.js';
+import { paletteAdd, redrawPalette } from './chordpalette.js';
+import { toast } from './toast.js';
 
 const $ = (id) => document.getElementById(id);
 const SUGGEST = ['', 'm', '7', 'maj7', 'm7', 'sus2', 'sus4', 'add9', '9', 'm9', 'dim', '6', 'm7b5', '13'];
@@ -124,19 +127,82 @@ function manyHTML(q){
 function render(){
   const out = $('cf-results');
   if (!out) return;
-  const q = readQuery($('cf-input')?.value);
+  const raw = $('cf-input')?.value;
+  const q = readQuery(raw);
   out.dataset.kind = q.kind;
+  // a command phrase ("color map in C") can contain chord-looking letters, so
+  // commands are checked for everything except a single clean chord name
+  const cmds = commandsFor(raw);
+  // "color map in C" reads as the chord C too — a whole command phrase wins
+  cmdList = q.kind !== 'chord' || cmds.some(c => c.strong) ? cmds : [];
+  if (cmds.some(c => c.strong)){ out.innerHTML = commandsHTML(cmdList); return; }
+  if (cmdList.length && q.kind !== 'root' && (q.kind !== 'many' || q.chords.length <= 2)){ out.innerHTML = commandsHTML(cmdList); return; }
+  if (q.kind === 'many') cmdList = [];
   if (q.kind === 'empty'){
     out.innerHTML = `<div class="cf-hint">Type a chord — <code>F#m7</code>, <code>Bbmaj9</code>, <code>G/B</code> — or a root like <code>D</code> to browse.
-      <br>Paste a reel / TikTok caption or a shared link with chords in it to pull them all out.</div>`;
+      <br>Paste a reel / TikTok caption or a shared link with chords in it to pull them all out.
+      <br>Or type a command: <code>new track</code>, <code>color map in E</code>, <code>practice</code>, <code>dark</code>.</div>`;
   } else if (q.kind === 'chord'){
     // a bare root ("Eb") is a chord too — show it, plus the family to pick from
     const root = q.name.match(/^[A-G][#b]?$/);
     out.innerHTML = chordHTML(q.name) + (root ? `<div class="cf-family">${rootHTML(q.name)}</div>` : '');
   }
-  else if (q.kind === 'root') out.innerHTML = rootHTML(q.root);
+  else if (q.kind === 'root') out.innerHTML = commandsHTML(cmdList) + rootHTML(q.root);
   else if (q.kind === 'many') out.innerHTML = manyHTML(q);
   else out.innerHTML = `<div class="cf-hint">No chord names in that${q.url ? ' link text' : ''}. Try something like <code>Am7</code> or <code>Cmaj7 - Dm7 - G7</code>.</div>`;
+}
+
+/* ---- commands: the finder doubles as a command bar -------------------
+   "new track Verse", "color map in E", "key of F#m", "play", "practice",
+   "drills", "dark", "tips", "tour", "shortcuts", "clips". A chord name
+   always wins ("D" is a chord, not "dark"). */
+const nav = (dest) => () => document.querySelector(`.dest[data-dest="${dest}"]`)?.click();
+const tn = (sub) => () => window.trainerNav?.(sub);
+const clickId = (id) => () => document.getElementById(id)?.click();
+const COMMANDS = [
+  { words: ['songs', 'song', 'learn', 'import'],       label: 'Go to Songs',           run: nav('songs') },
+  { words: ['play', 'workspace', 'study'],             label: 'Go to Play',            run: nav('play') },
+  { words: ['my chords', 'chords', 'track'],           label: 'Play → My chords',      run: tn('chords') },
+  { words: ['color map', 'colour map', 'map'],         label: 'Play → Color map',      run: tn('colormap') },
+  { words: ['practice', 'drills', 'quiz', 'trainer'],  label: 'Practice → Drills',     run: tn('drills') },
+  { words: ['create', 'compose', 'generate', 'blend'], label: 'Go to Create',          run: nav('create') },
+  { words: ['theme', 'dark', 'light'],                 label: 'Switch light / dark',   run: clickId('theme-btn') },
+  { words: ['tips', 'hints', 'help'],                  label: 'Show / hide tips',      run: clickId('tips-btn') },
+  { words: ['tour'],                                   label: 'Quick tour',            run: () => document.querySelector('[data-action="tour:start"]')?.click() },
+  { words: ['shortcuts', 'keys', 'keyboard'],          label: 'Keyboard shortcuts',    run: () => window.toggleShortcutHelp?.(true) },
+  { words: ['clips', 'saved clips', 'videos'],         label: 'Saved clips',           run: clickId('clips-btn') },
+];
+function commandsFor(raw){
+  const t = String(raw || '').trim().toLowerCase();
+  if (t.length < 2) return [];
+  const out = [];
+  // "new track [name]"
+  let m = t.match(/^(?:new|add|make)\s+track\s*(.*)$/);
+  if (m || 'new track'.startsWith(t)){
+    const name = m ? raw.trim().replace(/^\S+\s+track\s*/i, '') : '';
+    out.push({ strong: !!m, label: `New track${name ? ` "${name}"` : ''}`, run: () => { trainerNewTrack(name || undefined); window.trainerNav?.('chords'); } });
+  }
+  // "color map in E" / "key of F#m" / "key Bb minor"
+  m = t.match(/^(?:(?:colou?r\s*map|map)\s+(?:in\s+)?|key\s+(?:of\s+)?|in\s+)(.+)$/);
+  const k = m && normalizeKeyName(m[1].replace(/\b(\w)/, c => c.toUpperCase()));
+  if (k && APP_KEYS.includes(k)) out.push({ strong: true, label: `Color map in ${keyLabel(k)}`, run: () => { syncKey(k, 'finder'); window.trainerNav?.('colormap'); } });
+  for (const c of COMMANDS){
+    if (c.words.some(w => w.startsWith(t) || t === w)) out.push(c);
+  }
+  return out.slice(0, 5);
+}
+let cmdList = [];
+function commandsHTML(list){
+  if (!list.length) return '';
+  return `<div class="cf-label">Commands</div><div class="cf-cmds">${list.map((c, i) =>
+    `<button type="button" class="cf-cmd${i === 0 ? ' first' : ''}" data-action="finder:cmd" data-idx="${i}">${escHtml(c.label)}${i === 0 ? ' <kbd>↵</kbd>' : ''}</button>`).join('')}</div>`;
+}
+function runCommand(i){
+  const c = cmdList[i];
+  if (!c) return false;
+  close();
+  setTimeout(() => c.run(), 0);
+  return true;
 }
 
 /* ---- open / close ---------------------------------------------------- */
@@ -191,10 +257,20 @@ function goToMap(name){
 
 export function initChordFinder(){
   registerActions({
+    // chord-card buttons (touch screens): add the shape to the track / keep it
+    'peek:track':      (el) => {
+      const frets = el.dataset.frets ? el.dataset.frets.split(',').map(v => v === 'x' ? null : +v) : null;
+      trainerAddChord(el.dataset.name, frets);
+    },
+    'peek:keep':       (el) => {
+      if (paletteAdd(el.dataset.name)){ redrawPalette(); toast(`✓ Kept ${el.dataset.name} in your shapes`); }
+      else toast(`${el.dataset.name} is already in your shapes`);
+    },
     'finder:open':     () => openFinder(),
     'finder:openText': (el) => openFinder(el.dataset.text || ''),
     'finder:close':    () => close(),
     'finder:input':    () => render(),
+    'finder:cmd':      (el) => runCommand(+el.dataset.idx),
     'finder:pick':     (el) => { const i = $('cf-input'); if (i){ i.value = el.dataset.name; render(); i.focus(); } },
     'finder:hear':     (el) => {
       if (el.dataset.frets){
@@ -205,12 +281,7 @@ export function initChordFinder(){
         if (v?.midis?.length) playChordNow(v.midis.map(midiToHz));
       }
     },
-    'finder:add':      (el) => {
-      if (trainerAddChord(el.dataset.name)){
-        el.textContent = '✓ Added';
-        setTimeout(() => { el.textContent = '+ Add to track'; }, 1200);
-      }
-    },
+    'finder:add':      (el) => { trainerAddChord(el.dataset.name); },
     'finder:map':      (el) => goToMap(el.dataset.name),
     'finder:key':      (el) => { syncKey(el.dataset.key, 'finder'); goToMap(el.dataset.name); },
     'finder:keymap':   (el) => { syncKey(el.dataset.key, 'finder'); close(); if (typeof window.trainerNav === 'function') window.trainerNav('colormap'); },
@@ -228,6 +299,7 @@ export function initChordFinder(){
       const clip = clipsAdd(text, { open: false });
       const b = document.querySelector('[data-action="finder:clip"]');
       if (b) b.textContent = clip ? '✓ Saved to clips' : "Couldn't read that link";
+      if (clip) toast('✓ Saved to clips');
     },
   });
 
@@ -240,7 +312,9 @@ export function initChordFinder(){
     if (e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); close(); }
     else if (e.key === 'Enter' && e.target?.id === 'cf-input'){
       const q = readQuery(e.target.value);
-      if (q.kind === 'chord'){ e.preventDefault(); goToMap(q.name); }
+      if (cmdList[0]?.strong){ e.preventDefault(); runCommand(0); }
+      else if (q.kind === 'chord'){ e.preventDefault(); goToMap(q.name); }
+      else if (cmdList.length){ e.preventDefault(); runCommand(0); }
     }
   }, true);
 }

@@ -20,6 +20,7 @@
    (trainersrs.js): missed cards come back soon, mastered cards
    drift out to multi-day intervals. Progress lives in localStorage.
    ============================================================ */
+import { toast } from './toast.js';
 import { diatonicChords, keyInfo, guessKey } from './scales.js';
 import {
   KEYS, romansFor, keyLabel, MV_QUALS, MV_SUFFIX, MV_QUAL_LABEL,
@@ -119,7 +120,7 @@ function buildCM(id, key, view, colId, q){
     diagrams: [{ chordFrets: v ? v.frets : null, scaleKey: key, scaleType: 'full', revealLabel: chord }],
     questionHTML: `
       <div class="trainer-prompt">Key of <strong>${escHtml(keyLabel(key))}</strong> — where does <strong>${escHtml(chord)}</strong> live, and what job does it do?
-        <span class="trainer-hint">From your color map${view === 'out' ? ' · out-of-scale roots included' : ''}.</span>
+        <span class="trainer-hint tip">From your color map${view === 'out' ? ' · out-of-scale roots included' : ''}.</span>
       </div>
       ${DIAGRAMS_DIV}
       <button class="pb-btn" type="button" onclick="trainerPlay()">▶ hear it</button>`,
@@ -703,11 +704,10 @@ function renderCustomView(){
   q.innerHTML = `
     <div class="trainer-track-tabs" role="tablist" aria-label="Saved tracks">${trackTabsHTML()}</div>
     <details class="trainer-track-tools track-more">
-      <summary><span class="trainer-track-name">${escHtml(t.name)}</span> <span class="track-more-label">track options</span></summary>
+      <summary><span class="track-more-label">track options</span></summary>
       <div class="track-more-body">
         <button class="pb-btn" type="button" onclick="trainerRenameTrack()">rename</button>
         <button class="pb-btn" type="button" onclick="trainerDeleteTrack()">delete track</button>
-        <button class="pb-btn" type="button" data-action="progtab:toggle" title="Float this track's progression in a small tab that stays on screen while you scroll and play">⧉ hover tab</button>
         ${t.chords.length ? `<button class="pb-btn recolor-btn" type="button" onclick="trainerRecolorTrack()" title="Move every in-key chord up the color map: triads → sevenths → extended → spice → triads">🎨 recolor → ${LEVEL_NAMES[((t.colorLevel || 0) + 1) % LEVEL_NAMES.length]}</button>` : ''}
         ${t.chords.length ? `<button class="pb-btn" type="button" onclick="trainerClearCustomChords()">clear chords</button>` : ''}
         <button class="pb-btn" type="button" onclick="seedImportFile()" title="Load a seed pack (.pack.json) — adds or refreshes pre-filled tracks; safe to re-run">⤓ seed pack</button>
@@ -1108,10 +1108,11 @@ export function trainerChangeCustomChordQuality(idx, qualityKey){
 export function trainerClearCustomChords(){
   const t = getActiveTrack();
   if (!t || !t.chords.length) return;
-  if (!confirm(`Clear all chords from "${t.name}"?`)) return;
+  const before = t.chords.slice();
   t.chords = [];
   saveTracks();
   renderCustomView();
+  toast(`Cleared "${t.name}"`, { undo: () => { t.chords = before; saveTracks(); if (mode === 'custom') renderCustomView(); } });
 }
 
 export function trainerUseTrackKey(){
@@ -1147,8 +1148,8 @@ export function trainerSelectTrack(id){
   if (mode === 'custom') renderCustomView();
 }
 
-export function trainerNewTrack(){
-  const name = (prompt('Name this track:', `Track ${tracks.length + 1}`) || '').trim();
+export function trainerNewTrack(given){
+  const name = (typeof given === 'string' && given.trim() ? given : (prompt('Name this track:', `Track ${tracks.length + 1}`) || '')).trim();
   if (!name) return;
   const t = makeTrack(name);
   tracks.push(t);
@@ -1169,15 +1170,17 @@ export function trainerRenameTrack(){
 
 export function trainerDeleteTrack(){
   if (tracks.length <= 1){
-    alert("This is your only track — clear its chords instead of deleting it.");
+    toast("That's your only track — clear its chords instead.");
     return;
   }
   const t = getActiveTrack();
-  if (!t || !confirm(`Delete track "${t.name}"? This can't be undone.`)) return;
+  if (!t) return;
+  const snapshot = tracks.slice(), prevActive = activeTrackId;
   tracks = tracks.filter(x => x.id !== t.id);
   activeTrackId = tracks[0].id;
   saveTracks();
   renderCustomView();
+  toast(`Deleted "${t.name}"`, { undo: () => { tracks = snapshot; activeTrackId = prevActive; saveTracks(); if (mode === 'custom') renderCustomView(); } });
 }
 
 /* Create-or-replace a track by a caller-chosen id (the "Learn a song"
@@ -1215,6 +1218,7 @@ export function trainerAddChord(name, frets = null){
   if (!getActiveTrack()){ const t = makeTrack('My chords'); tracks.push(t); activeTrackId = t.id; }
   addChordToActiveTrack({ name: String(name), frets: frets || null });
   if (mode === 'custom') renderCustomView();
+  toast(`✓ ${name} added to "${getActiveTrack()?.name || 'track'}"`);
   return true;
 }
 
@@ -1338,7 +1342,7 @@ function buildS2N(id, key, deg){
     diagrams: [{ chordFrets: v ? v.frets : null, scaleKey: key, scaleType: 'full', revealLabel: chord }],
     questionHTML: `
       <div class="trainer-prompt">Key of <strong>${escHtml(keyLabel(key))}</strong> — which degree is this chord shape?
-        <span class="trainer-hint">Scale layer shows the key's notes around it.</span>
+        <span class="trainer-hint tip">Scale layer shows the key's notes around it.</span>
       </div>
       ${DIAGRAMS_DIV}
       <button class="pb-btn" type="button" onclick="trainerPlay()">▶ hear it</button>`,

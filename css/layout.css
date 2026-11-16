@@ -339,3 +339,63 @@ body.study-open{overflow:hidden}
 .study .cm-study-btn{display:none}
 .study #colormap-host .cm-session{display:block}
 .study #colormap-host .colormap{border:none;padding:0;margin:0}
+
+/* ---- Play = the workspace (study.js as a page) ----------------------- */
+.study{top:var(--topbar-h);z-index:28}
+body.study-open .subnav{display:none}
+.study-head{min-height:44px}
+.study-title b{font-weight:600}
+.study-novideo{color:var(--muted);font-size:13px}
+.study-link{border:none;background:none;color:var(--accent);cursor:pointer;font-size:13px;padding:0;text-decoration:underline}
+/* the floating clips window is a list now; videos play in Play */
+.clip-dock .clip-frame{display:none}
+.tp-track{position:relative}
+.tp-track .tp-prog-name{max-width:150px}
+.tp-pop select{flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-size:13px}
+button.tp-empty{border:none;background:none;cursor:pointer;text-align:left;padding:0}
+button.tp-empty:hover{color:var(--text)}
+
+/* chord card with buttons (touch) */
+.chord-peek.interactive{pointer-events:auto}
+.chord-peek-actions{display:flex;gap:6px;margin-top:8px}
+.chord-peek-actions button{flex:1;min-height:40px;border:1px solid var(--accent2);background:var(--accent-glow);color:var(--text);font-size:14px;font-weight:600;border-radius:var(--r-sm);cursor:pointer}
+
+/* toast */
+.gb-toast{position:fixed;left:50%;bottom:calc(var(--transport-h) + 16px);transform:translateX(-50%);z-index:90;display:flex;align-items:center;gap:12px;
+  max-width:calc(100vw - 24px);padding:10px 10px 10px 16px;background:var(--surface3);color:var(--text);border:1px solid var(--border2);
+  border-radius:var(--r-lg);box-shadow:var(--shadow);font-size:13px}
+.gb-toast[hidden]{display:none}
+.gb-toast.show{animation:toastIn .18s ease}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+.gb-toast [data-toast-undo]{border:none;background:none;color:var(--accent);font-weight:700;font-size:13px;cursor:pointer;padding:4px 6px}
+.gb-toast-x{border:none;background:none;color:var(--muted);cursor:pointer;font-size:12px;padding:4px 6px}
+
+/* bigger tap targets on touch screens */
+@media (pointer: coarse){
+  .tp-chord,.tp-mini,.cm-chip,.cf-chip,.clip-cchip,.cm-cchip,.pb-btn,.label-toggle,.subnav-item,.study-seg button{min-height:44px}
+  .tp-chord{min-width:44px;padding:8px 12px}
+  .cm-chip{padding-top:10px;padding-bottom:10px}
+  .palette-x{width:32px;height:32px}
+}
+
+/* tips: instruction text only when "Show tips" is on */
+body:not(.show-tips) .tip{display:none !important}
+
+/* first-run tour */
+.gb-tour{position:fixed;z-index:95;background:var(--surface2);color:var(--text);border:1px solid var(--accent2);border-radius:var(--r-lg);
+  box-shadow:var(--shadow);padding:14px 16px 12px;font-size:13px;line-height:1.45}
+.gb-tour[hidden]{display:none}
+.gb-tour-count{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.gb-tour-title{font-weight:700;font-size:15px;margin:2px 0 4px}
+.gb-tour p{margin:0 0 10px;color:var(--text2, var(--text))}
+.gb-tour-btns{display:flex;justify-content:flex-end;gap:8px}
+.gb-tour-btns button{min-height:36px;padding:6px 14px;border-radius:var(--r-sm);border:1px solid var(--border2);background:none;color:var(--text);cursor:pointer;font-weight:600}
+.gb-tour-btns .gb-tour-next{background:var(--accent);border-color:var(--accent);color:var(--on-accent, #fff)}
+.tour-target{outline:2px solid var(--accent);outline-offset:3px;border-radius:var(--r-sm)}
+
+/* chord finder commands */
+.cf-cmds{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.cf-cmd{display:flex;justify-content:space-between;align-items:center;text-align:left;min-height:40px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);color:var(--text);cursor:pointer;font-size:14px}
+.cf-cmd.first{border-color:var(--accent2)}
+.cf-cmd:hover{background:var(--accent-glow)}
+.cf-cmd kbd{font-size:11px;color:var(--muted)}

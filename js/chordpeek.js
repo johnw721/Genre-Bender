@@ -16,6 +16,15 @@ import { getVoicing } from './chordbook.js';
 const $ = (id) => document.getElementById(id);
 let timer = null;
 let anchor = null;
+let lastPointer = 'mouse';
+
+/* Touch screen? (coarse pointer, or the last tap was a finger). Tests can
+   set window.__gbForceTouch. */
+export function isTouch(){
+  if (typeof window !== 'undefined' && window.__gbForceTouch) return true;
+  if (lastPointer === 'touch') return true;
+  try { return !!window.matchMedia?.('(pointer: coarse)').matches; } catch { return false; }
+}
 
 function el(){
   let e = $('chord-peek');
@@ -38,7 +47,9 @@ export function shapeFor(name, frets){
 
 export function peekAnchor(){ return anchor; }
 
-export function showChordPeek(target, { name, frets = null, sub = '', autoHideMs = 0 } = {}){
+/* actions: [{ label, action, name, frets }] → buttons on the card (the card
+   becomes tappable). Used on touch screens, where drag-and-drop isn't. */
+export function showChordPeek(target, { name, frets = null, sub = '', autoHideMs = 0, actions = null } = {}){
   if (!target || !name) return hideChordPeek();
   clearTimeout(timer);
   const f = shapeFor(name, frets);
@@ -46,7 +57,10 @@ export function showChordPeek(target, { name, frets = null, sub = '', autoHideMs
   e.innerHTML = `
     <div class="chord-peek-head"><b>${escHtml(name)}</b>${sub ? `<span>${escHtml(sub)}</span>` : ''}</div>
     ${f ? chordDiagramSVG(f) : '<div class="chord-peek-none">no guitar shape for this one</div>'}
-    ${f ? `<div class="chord-peek-frets">${f.map(v => v === null || v === undefined ? 'x' : v).join(' ')}</div>` : ''}`;
+    ${f ? `<div class="chord-peek-frets">${f.map(v => v === null || v === undefined ? 'x' : v).join(' ')}</div>` : ''}
+    ${actions?.length ? `<div class="chord-peek-actions">${actions.map(a =>
+      `<button type="button" data-action="${escHtml(a.action)}" data-name="${escHtml(a.name || name)}"${a.frets ? ` data-frets="${a.frets.map(v => v ?? 'x').join(',')}"` : ''}>${escHtml(a.label)}</button>`).join('')}</div>` : ''}`;
+  e.classList.toggle('interactive', !!actions?.length);
   e.hidden = false;
   if (anchor && anchor !== target) anchor.removeAttribute('aria-describedby');
   anchor = target;
@@ -78,7 +92,12 @@ export function initChordPeek(){
   wired = true;
   document.addEventListener('scroll', () => { if (anchor) hideChordPeek(); }, true);
   document.addEventListener('pointerdown', (e) => {
-    if (anchor && !anchor.contains(e.target)) hideChordPeek();
+    lastPointer = e.pointerType || 'mouse';
+    if (anchor && !anchor.contains(e.target) && !e.target.closest?.('#chord-peek')) hideChordPeek();
   }, true);
+  // after an action button is used, the card has done its job
+  document.addEventListener('click', (e) => {
+    if (e.target.closest?.('#chord-peek .chord-peek-actions button')) setTimeout(hideChordPeek, 0);
+  });
   window.addEventListener('resize', hideChordPeek);
 }

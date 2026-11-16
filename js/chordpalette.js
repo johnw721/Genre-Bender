@@ -27,6 +27,8 @@ import { playChordNow } from './audio.js';
 import { escHtml } from './util.js';
 import { registerStore, loadJSON, saveJSON } from './storage.js';
 import { getAppKey, onAppKeyChange } from './keysync.js';
+import { toast } from './toast.js';
+import { showChordPeek, isTouch } from './chordpeek.js';
 
 const PALETTE_KEY = registerStore('chordPalette', 'GenreBenderChordPalette_v1');
 export const DRAG_MIME = 'application/x-genre-bender-chord';
@@ -92,8 +94,8 @@ export function paletteKeep(id){
   const e = getPaletteEntry(id);
   if (!e) return;
   const err = $('palette-err');
-  if (paletteAdd(e.name)){ if (err) err.textContent = ''; redrawPalette(); }
-  else if (err) err.textContent = `"${e.name}" is already in your shapes.`;
+  if (paletteAdd(e.name)){ if (err) err.textContent = ''; redrawPalette(); toast(`✓ Kept ${e.name} in your shapes`); }
+  else toast(`${e.name} is already in your shapes`);
 }
 export function paletteSize(){ return palette.length; }
 
@@ -116,16 +118,18 @@ export function paletteAdd(name, frets = null, { at = null } = {}){
 export function paletteRemove(id){
   const i = palette.findIndex(e => e.id === id);
   if (i < 0) return;
-  palette.splice(i, 1);
+  const [gone] = palette.splice(i, 1);
   save();
   redrawPalette();
+  toast(`Removed ${gone.name}`, { undo: () => { palette.splice(i, 0, gone); save(); redrawPalette(); } });
 }
 export function paletteClear(){
   if (!palette.length) return;
-  if (!confirm('Clear every shape from the chord table?')) return;
+  const before = palette.slice();
   palette = [];
   save();
   redrawPalette();
+  toast('Cleared your chord shapes', { undo: () => { palette = before; save(); redrawPalette(); } });
 }
 export function paletteMove(fromId, toId, before = true){
   const from = palette.findIndex(e => e.id === fromId);
@@ -198,10 +202,17 @@ export function paletteFillFromControls(flavour){
 }
 
 /* ---- audition ------------------------------------------------------------- */
-export function palettePlay(id){
+export function palettePlay(id, cardEl = null){
   const e = getPaletteEntry(id);
   const frets = e && resolvedFrets(e.name, e.frets);
   if (!frets) return;
+  // touch screens can't drag reliably: a tap shows the shape with add buttons
+  if (cardEl && isTouch()){
+    showChordPeek(cardEl, { name: e.name, frets, autoHideMs: 6000, actions: [
+      { label: '+ track', action: 'peek:track', name: e.name, frets: e.frets ? frets : null },
+      ...(e.auto ? [{ label: '+ keep', action: 'peek:keep', name: e.name }] : []),
+    ] });
+  }
   const freqs = [];
   frets.forEach((f, s) => { if (f !== null && f !== undefined) freqs.push(midiToHz(STRING_OPEN_MIDI[s] + f)); });
   if (freqs.length) playChordNow(freqs);
@@ -307,7 +318,7 @@ function cardHTML(e){
   const pinned = e.frets ? `<span class="palette-pin" title="Exact fingering you entered">pinned</span>` : '';
   return `<div class="palette-card${e.auto ? ' palette-auto' : ''}" draggable="true" data-palette-id="${e.id}" data-name="${escHtml(e.name)}" role="listitem"
       title="Drag onto the track to insert · click to hear"
-      onclick="palettePlay('${e.id}')">
+      onclick="palettePlay('${e.id}', this)">
     <span class="palette-grip" aria-hidden="true">⠿</span>
     ${e.auto
       ? `<button type="button" class="palette-x palette-keep" aria-label="Keep ${escHtml(e.name)} in your shapes" title="Keep in your shapes"
@@ -347,7 +358,7 @@ export function paletteHTML(railKey){
   <div class="palette" id="chord-palette" aria-label="Chord table">
     <div class="palette-head">
       <span class="section-label">Chord table</span>
-      <span class="trainer-hint palette-hint">Drag a shape onto the track above to drop it in place · drag a track chord down here to keep its shape · click to hear</span>
+      <span class="trainer-hint palette-hint tip">Drag a shape onto the track above to drop it in place · drag a track chord down here to keep its shape · click to hear</span>
     </div>
     <div class="palette-tools" role="group" aria-label="Customize the chord table">
       <input id="palette-name" class="trainer-custom-name" type="text" placeholder="e.g. F#m7" autocomplete="off" maxlength="12"

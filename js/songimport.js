@@ -18,6 +18,7 @@
    track. Raw pasted text (which usually includes lyrics) is never
    stored — only the extracted chords.
    ============================================================ */
+import { toast } from './toast.js';
 import { registerActions } from './actions.js';
 import { registerStore, loadJSON, saveJSON } from './storage.js';
 import { escHtml } from './util.js';
@@ -27,7 +28,7 @@ import { analyzeAudio } from './audioanalysis.js';
 import { resolveKey, resolveBpm, buildUnit, progressionOptions, unitId, SOURCE_LABEL } from './songunit.js';
 import { getBPM, setBPM } from './metronome.js';
 import { syncKey } from './keysync.js';
-import { getClips, getClip, onClipsChange, clipsUpdate } from './clips.js';
+import { getClips, getClip, onClipsChange, clipsUpdate, clipsAdd } from './clips.js';
 import { trainerUpsertTrack, trainerHasTrack, trainerSelectTrack } from './trainer.js';
 import { trainerNav } from './trainernav.js';
 import { ALL_KEYS as APP_KEYS } from './theorydata.js';
@@ -320,6 +321,7 @@ export function saveUnit(){
   applyTempoKey();
   state.loaded = unit;
   status(`Saved "${unit.title}"${unit.progression.length ? ' and updated its My chords track' : ''}. Saving again updates the same unit.`);
+  toast(`✓ Saved "${unit.title}"`);
   render();
   return unit;
 }
@@ -342,9 +344,11 @@ function loadUnit(el){
 
 function deleteUnit(el){
   const u = units.find(x => x.id === el?.dataset?.id);
-  if (!u || !confirm(`Delete the saved unit "${u.title}"? (Its My chords track stays.)`)) return;
+  if (!u) return;
+  const before = units.slice();
   units = units.filter(x => x.id !== u.id);
   saveUnits();
+  toast(`Deleted "${u.title}" (its track stays)`, { undo: () => { units = before; saveUnits(); render(); } });
   if (state.loaded?.id === u.id) state.loaded = null;
   render();
 }
@@ -516,6 +520,10 @@ function playUnit(el){
   else if (u.progression.length) trainerUpsertTrack({ id: tid, name: `♪ ${u.title}`.slice(0, 40), chords: u.progression.map(name => ({ name })) });
   state.loaded = u;
   openTrack();
+  // the song's clip (or its saved link) goes straight into Play's video pane
+  let clipId = u.clipId && getClip(u.clipId) ? u.clipId : null;
+  if (!clipId && u.url){ const c = clipsAdd(u.url, { open: false }); clipId = c?.id || null; }
+  if (clipId && typeof window.openStudy === 'function') window.openStudy({ clipId });
 }
 
 /* ---- boot ---------------------------------------------------------- */

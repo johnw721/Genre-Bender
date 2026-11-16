@@ -24,7 +24,7 @@
 import { registerActions } from './actions.js';
 import { registerStore, loadJSON, saveJSON } from './storage.js';
 import { escHtml } from './util.js';
-import { setClipPasteFallback, getClip, parseClipUrl } from './clips.js';
+import { setClipPasteFallback, setClipOpenRoute, getClip, parseClipUrl } from './clips.js';
 import { colorMapAddClip, colorMapPickClip, colorMapClipId } from './colormap.js';
 import { trainerSetMode, trainerState } from './trainer.js';
 import { splitLinkText } from './chordsheet.js';
@@ -35,8 +35,14 @@ const STUDY_KEY = registerStore('study', 'GenreBenderStudy_v1');
 const PANES = ['video', 'map', 'chords'];
 const LABEL = { video: 'Video', map: 'Color map', chords: 'My chords · chord library' };
 
-const st = Object.assign({ layout: 'side', a: 36, b: 52, hidden: {}, max: null, phoneTab: 'map' }, loadJSON(STUDY_KEY, {}) || {});
-const save = () => saveJSON(STUDY_KEY, { layout: st.layout, a: st.a, b: st.b, hidden: st.hidden, max: st.max, phoneTab: st.phoneTab });
+const st = Object.assign({ layout: 'side', a: 36, b: 52, hidden: {}, max: null, phoneTab: 'map', videoEmpty: false }, loadJSON(STUDY_KEY, {}) || {});
+const save = () => saveJSON(STUDY_KEY, { layout: st.layout, a: st.a, b: st.b, hidden: st.hidden, max: st.max, phoneTab: st.phoneTab, videoEmpty: st.videoEmpty });
+
+/* The video pane only takes space when there's something to play (or you
+   asked for it, to paste a link into). */
+const hasClip = () => !!getClip(colorMapClipId());
+const videoWanted = () => !st.hidden.video && (hasClip() || st.videoEmpty);
+const paneShown = (p) => p === 'video' ? videoWanted() : !st.hidden[p];
 
 let home = null;          // where each moved node came from
 let prevMode = null;
@@ -55,7 +61,7 @@ function ensure(){
   el.setAttribute('aria-label', 'Study view');
   el.innerHTML = `
     <header class="study-head">
-      <div class="study-title"><b>Study</b><span id="study-clip-name"></span></div>
+      <div class="study-title"><span id="study-clip-name"></span></div>
       <div class="study-tools">
         <div class="study-seg" role="group" aria-label="Layout">
           <button type="button" data-action="study:layout" data-layout="side" title="Video beside the map and chords">◧</button>
@@ -65,7 +71,6 @@ function ensure(){
           ${PANES.map(p => `<button type="button" data-action="study:toggle" data-pane="${p}" aria-pressed="true">${p === 'chords' ? 'Chords' : LABEL[p]}</button>`).join('')}
         </div>
         <button type="button" class="study-reset" data-action="study:reset" title="Reset pane sizes">reset</button>
-        <button type="button" class="icon-btn" data-action="study:close" aria-label="Close study view" title="Close (Esc)">✕</button>
       </div>
     </header>
     <div class="study-body" id="study-body">
@@ -98,7 +103,7 @@ function ensure(){
 function apply(){
   const el = $('study');
   if (!el) return;
-  const visible = PANES.filter(p => !st.hidden[p]);
+  const visible = PANES.filter(paneShown);
   const max = st.max && visible.includes(st.max) ? st.max : null;
   el.dataset.layout = st.layout;
   el.dataset.max = max || '';
@@ -106,21 +111,33 @@ function apply(){
   el.style.setProperty('--study-a', `${st.a}%`);
   el.style.setProperty('--study-b', `${st.b}%`);
   PANES.forEach(p => {
-    const shown = max ? p === max : !st.hidden[p];
+    const shown = max ? p === max : paneShown(p);
     el.querySelector(`.study-pane[data-pane="${p}"]`).classList.toggle('off', !shown);
-    el.querySelector(`[data-action="study:toggle"][data-pane="${p}"]`)?.setAttribute('aria-pressed', String(!st.hidden[p]));
+    el.querySelector(`[data-action="study:toggle"][data-pane="${p}"]`)?.setAttribute('aria-pressed', String(paneShown(p)));
   });
-  const vidOn = max ? max === 'video' : !st.hidden.video;
-  const colOn = max ? max !== 'video' : (!st.hidden.map || !st.hidden.chords);
+  const vidOn = max ? max === 'video' : paneShown('video');
+  const colOn = max ? max !== 'video' : (paneShown('map') || paneShown('chords'));
   el.querySelector('.study-split[data-split="a"]').classList.toggle('off', !(vidOn && colOn));
-  el.querySelector('.study-split[data-split="b"]').classList.toggle('off', !!(max || st.hidden.map || st.hidden.chords));
+  el.querySelector('.study-split[data-split="b"]').classList.toggle('off', !!(max || !paneShown('map') || !paneShown('chords')));
   el.querySelector('#study-col').classList.toggle('off', !colOn);
   el.classList.toggle('no-video', !vidOn);
   el.querySelectorAll('[data-action="study:layout"]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.layout === st.layout)));
   el.querySelectorAll('[data-action="study:phoneTab"]').forEach(b => b.classList.toggle('active', b.dataset.pane === st.phoneTab));
   const c = getClip(colorMapClipId());
   const n = $('study-clip-name');
-  if (n) n.textContent = c ? ` · ${c.label}` : ' · paste a link to start';
+  if (n) n.innerHTML = c
+    ? `<b>${escHtml(c.label)}</b>`
+    : `<span class="study-novideo">No video — paste a link anywhere, or <button type="button" class="study-link" data-action="study:toggle" data-pane="video">open the video pane</button></span>`;
+}
+
+/* Make sure a pane is on screen (from the finder, shortcuts, links). */
+export function studyShowPane(p){
+  if (!PANES.includes(p)) return;
+  if (p === 'video'){ st.hidden.video = false; if (!hasClip()) st.videoEmpty = true; }
+  else st.hidden = { ...st.hidden, [p]: false };
+  if (st.max && st.max !== p) st.max = null;
+  if (p !== 'video') st.phoneTab = p;
+  save(); apply();
 }
 
 /* Drag a splitter: % of the body (a) or of the right/bottom column (b). */
@@ -204,7 +221,9 @@ export function openStudy({ text = null, clipId = null } = {}){
   }
   if (text) colorMapAddClip(text);
   else if (clipId) colorMapPickClip(clipId);
+  if (text || clipId) st.hidden.video = false;
   apply();
+  document.dispatchEvent(new CustomEvent('gb:nav', { detail: { tab: 'play' } }));
 }
 export function closeStudy(){
   if (!studyIsOpen()) return;
@@ -214,41 +233,50 @@ export function closeStudy(){
   document.body.classList.remove('study-open');
   if (prevMode && prevMode !== 'custom' && $('inner-trainer')?.dataset.sub === 'drills') trainerSetMode(prevMode);
   prevMode = null;
-  document.dispatchEvent(new CustomEvent('gb:nav', { detail: { tab: 'study-closed' } }));
+}
+
+/* Open Play through the normal route (trainer tab + custom mode), then run fn. */
+function goPlay(fn){
+  if (!studyIsOpen() && typeof window.trainerNav === 'function') window.trainerNav('chords');
+  fn();
 }
 
 function toggleMax(p){ st.max = st.max === p ? null : p; save(); apply(); }
 
 export function initStudy(){
   registerActions({
-    'study:open':     (el) => openStudy({ clipId: el?.dataset?.clip || colorMapClipId() || null }),
-    'study:close':    () => closeStudy(),
+    'study:open':     (el) => goPlay(() => openStudy({ clipId: el?.dataset?.clip || null })),
     'study:layout':   (el) => { st.layout = el.dataset.layout === 'top' ? 'top' : 'side'; save(); apply(); },
     'study:toggle':   (el) => {
       const p = el.dataset.pane;
-      const nowHidden = !st.hidden[p];
-      if (nowHidden && PANES.filter(x => !st.hidden[x]).length <= 1) return;   // keep at least one
-      st.hidden = { ...st.hidden, [p]: nowHidden };
+      const shown = paneShown(p);
+      if (shown && PANES.filter(paneShown).length <= 1) return;               // keep at least one
+      if (p === 'video'){
+        if (shown){ st.hidden.video = true; st.videoEmpty = false; }
+        else { st.hidden.video = false; if (!hasClip()) st.videoEmpty = true; }
+      } else st.hidden = { ...st.hidden, [p]: shown };
       if (st.max === p) st.max = null;
       save(); apply();
     },
     'study:max':      (el) => toggleMax(el.dataset.pane),
-    'study:reset':    () => { Object.assign(st, { a: 36, b: 52, hidden: {}, max: null }); save(); apply(); },
+    'study:reset':    () => { Object.assign(st, { a: 36, b: 52, hidden: {}, max: null, videoEmpty: false }); save(); apply(); },
     'study:phoneTab': (el) => { st.phoneTab = el.dataset.pane === 'chords' ? 'chords' : 'map'; save(); apply(); },
   });
-  // A link pasted anywhere that no view claims opens here.
+  // A link pasted anywhere that no view claims opens here; every "open
+  // clip" (clips list, song cards) plays in the one video pane.
   setClipPasteFallback((text) => {
     const { url } = splitLinkText(text);
     const meta = parseClipUrl(text) || parseClipUrl(url);
     if (!meta || meta.platform === 'other') return false;
-    openStudy({ text });
+    goPlay(() => openStudy({ text }));
     return true;
   });
+  setClipOpenRoute((id) => { goPlay(() => openStudy({ clipId: id })); return true; });
   document.addEventListener('gb:refclip', () => { if (studyIsOpen()) apply(); });
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape' || !studyIsOpen()) return;
-    if ($('chord-finder') && !$('chord-finder').hidden) return;          // the finder closes first
-    if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '')) return;
-    closeStudy();
+  // Leaving Play (any other page) puts the views back.
+  document.addEventListener('gb:nav', (e) => {
+    const tab = e.detail?.tab;
+    if (studyIsOpen() && tab && tab !== 'play' && tab !== 'trainer') closeStudy();
   });
+  Object.assign(window, { openStudy, closeStudy, studyShowPane, studyIsOpen });
 }

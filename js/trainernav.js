@@ -76,6 +76,13 @@ export function trainerNav(next = sub, mode = null){
   if (typeof window !== 'undefined' && typeof window.switchTab === 'function') window.switchTab('trainer');
   else switchTab('trainer');
   applySub(next, mode === 'today' ? todaysMode() : mode);
+  // My chords + Color map live in the Play workspace now; drills stay here.
+  if (sub === 'drills'){ if (typeof window.closeStudy === 'function') window.closeStudy(); }
+  else if (typeof window.openStudy === 'function'){
+    window.openStudy();
+    window.studyShowPane?.(sub === 'colormap' ? 'map' : 'chords');
+    return;
+  }
   const panel = $('panel-trainer');
   if (panel && typeof panel.scrollIntoView === 'function'){
     try { panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch { panel.scrollIntoView(); }

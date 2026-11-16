@@ -1,20 +1,14 @@
 /* ============================================================
-   progtab.js — floating "hover tab" for the active My chords track.
+   progtab.js — the active My chords track in the transport bar.
 
-   A small draggable panel that stays on screen while you scroll the
-   trainer (or switch tabs) so the progression is always in view while
-   you play along:
+     [ ♪ Track ▾ ]  Em  C  [G]  D   ⟳  ◀ ▶
 
-     ┌ ♪ Track name ──── Em · 92 ─ ▾ ✕ ┐
-     │  Em   C    G    D               │   chords (click = jump + play)
-     │  i    VI   III  VII             │   Roman numerals in the track's key
-     │  [▶ loop] [◀][▶]  beats: 4      │   tempo-locked loop / step through
-     └─────────────────────────────────┘
-
-   Follows the active track live (trainer.onTracksChange), the app key
-   and the tempo keeper. Key: the saved song unit's key for imported
-   tracks, else the app key when every chord fits it, else inferred
-   from the chords. Position / open / collapsed / beats persist.
+   Chords (click = jump + play, hover/tap = guitar diagram), a
+   tempo-locked strum loop that starts from the highlighted chord,
+   step through, and a small popover on the track name for the track
+   switcher and beats per chord. Follows the active track live
+   (trainer.onTracksChange) and the tempo keeper. (This used to also
+   float as a "hover tab"; the strip replaced it.)
    ============================================================ */
 import { registerActions } from './actions.js';
 import { registerStore, loadJSON, saveJSON } from './storage.js';
@@ -67,33 +61,6 @@ export function entryFreqs(entry){
 }
 
 /* ---- DOM ----------------------------------------------------------- */
-function ensureEl(){
-  let el = $('prog-tab');
-  if (el) return el;
-  el = document.createElement('div');
-  el.id = 'prog-tab';
-  el.className = 'prog-tab';
-  el.setAttribute('role', 'dialog');
-  el.setAttribute('aria-label', 'Chord progression hover tab');
-  document.body.appendChild(el);
-  initDrag(el);
-  return el;
-}
-
-function place(el){
-  // Default: bottom-left of the main column; clamp a saved spot to the viewport.
-  const W = window.innerWidth, H = window.innerHeight;
-  const r = el.getBoundingClientRect();
-  const w = r.width || 320, h = r.height || 140;
-  let x = pref.x, y = pref.y;
-  if (x == null || y == null){ x = 24; y = H - h - 24; }
-  x = Math.max(8, Math.min(W - w - 8, x));
-  y = Math.max(8, Math.min(H - Math.min(h, 60) - 8, y));
-  el.style.left = `${x}px`;
-  el.style.top = `${y}px`;
-  el.style.bottom = 'auto';     // the CSS default anchors bottom; top + bottom would stretch it
-}
-
 /* Compact strip in the transport bar: same track, same looper. */
 function renderMini(){
   const host = $('transport-prog');
@@ -101,13 +68,22 @@ function renderMini(){
   const t = trainerActiveTrack();
   const chords = t?.chords || [];
   if (!chords.length){
-    host.innerHTML = `<span class="tp-empty">No chords yet — learn a song or add chords in Play.</span>`;
+    host.innerHTML = `<button type="button" class="tp-empty" data-action="progtab:openPlay">No chords yet — learn a song or add chords in Play →</button>`;
     return;
   }
   if (pos >= chords.length) pos = 0;
   const playing = !!looper?.playing;
   host.innerHTML = `
-    <button type="button" class="tp-prog-name" data-action="progtab:openPlay" title="Open this track in Play">${escHtml(t.name)}</button>
+    <div class="tp-track">
+      <button type="button" class="tp-prog-name" data-action="ui:pop" data-pop="tp-track-pop" aria-haspopup="dialog" aria-expanded="false" title="Track, beats per chord">${escHtml(t.name)} ▾</button>
+      <div class="tp-pop" id="tp-track-pop" role="dialog" aria-label="Track settings" hidden>
+        <div class="tp-pop-row"><span class="tp-pop-k">track</span>
+          <select data-on-change="progtab:track" aria-label="Track">${trainerTrackList().map(o => `<option value="${escHtml(o.id)}"${o.id === t.id ? ' selected' : ''}>${escHtml(o.name)}</option>`).join('')}</select></div>
+        <div class="tp-pop-row"><span class="tp-pop-k">beats</span>
+          <select data-on-change="progtab:beats" aria-label="Beats per chord">${BEAT_OPTIONS.map(b => `<option value="${b}"${b === pref.beats ? ' selected' : ''}>${b} per chord</option>`).join('')}</select></div>
+        <div class="tp-pop-row"><button type="button" class="btn btn-ghost" data-action="progtab:openPlay">Open in Play →</button></div>
+      </div>
+    </div>
     <div class="tp-chords" id="tp-chords">${chords.map((c, i) =>
       `<button type="button" class="tp-chord${i === pos ? ' current' : ''}" data-action="progtab:jump" data-idx="${i}" title="Play ${escHtml(c.name)}">${escHtml(c.name)}</button>`).join('')}</div>
     <button type="button" class="tp-mini${playing ? ' on' : ''}" data-action="progtab:play" data-role="loop" aria-label="${playing ? 'Stop loop' : 'Loop progression'}" title="Loop the progression at the tempo keeper's BPM">${playing ? '■' : '⟳'}</button>
@@ -115,46 +91,7 @@ function renderMini(){
     <button type="button" class="tp-mini tp-hide-sm" data-action="progtab:step" data-dir="1" aria-label="Next chord">▶</button>`;
 }
 
-function render(){
-  renderMini();
-  const el = ensureEl();
-  el.classList.toggle('open', !!pref.open);
-  el.classList.toggle('collapsed', !!pref.collapsed);
-  if (!pref.open) return;      // closing the pop-out keeps the transport loop running
-
-  const t = trainerActiveTrack();
-  const chords = t?.chords || [];
-  if (pos >= chords.length) pos = 0;
-  const k = trackKey(t, { units: safeUnits(), appKey: getAppKey() });
-  const romans = k ? toRomans(chords.map(c => c.name), k.key) : [];
-  bpmShown = getBPM();
-  const playing = !!looper?.playing;
-  const others = trainerTrackList();
-
-  el.innerHTML = `
-    <div class="prog-tab-head" id="prog-tab-drag" title="Drag to move">
-      <span class="prog-tab-title">${escHtml(t?.name || 'My chords')}</span>
-      <span class="prog-tab-meta">${k ? `<b title="${k.from === 'song' ? 'key from the saved song' : k.from === 'app' ? 'app key' : 'guessed from the chords'}">${escHtml(k.key)}</b>${k.from === 'guess' ? '?' : ''} · ` : ''}<span id="prog-tab-bpm">${bpmShown}</span></span>
-      <button type="button" class="prog-tab-x" data-action="progtab:collapse" aria-label="${pref.collapsed ? 'Expand' : 'Collapse'}">${pref.collapsed ? '▴' : '▾'}</button>
-      <button type="button" class="prog-tab-x" data-action="progtab:toggle" aria-label="Close">✕</button>
-    </div>
-    <div class="prog-tab-body">
-      ${chords.length ? `<div class="prog-tab-grid" style="--n:${Math.min(chords.length, 8)}">
-        ${chords.map((c, i) => `<button type="button" class="prog-tab-cell${i === pos ? ' current' : ''}" data-action="progtab:jump" data-idx="${i}" title="Play ${escHtml(c.name)}">
-            <span class="prog-tab-chord">${escHtml(c.name)}</span><span class="prog-tab-roman">${escHtml(romans[i] || '')}</span></button>`).join('')}
-      </div>` : '<div class="prog-tab-empty">This track has no chords yet — add some in My chords.</div>'}
-      <div class="prog-tab-ctrl">
-        <button type="button" class="btn ${playing ? 'btn-primary' : 'btn-ghost'} prog-tab-btn" data-action="progtab:play" ${chords.length ? '' : 'disabled'}>${playing ? '■ stop' : '▶ loop'}</button>
-        <button type="button" class="btn btn-ghost prog-tab-btn" data-action="progtab:step" data-dir="-1" aria-label="Previous chord" ${chords.length ? '' : 'disabled'}>◀</button>
-        <button type="button" class="btn btn-ghost prog-tab-btn" data-action="progtab:step" data-dir="1" aria-label="Next chord" ${chords.length ? '' : 'disabled'}>▶</button>
-        <label class="prog-tab-beats">beats
-          <select data-on-change="progtab:beats" aria-label="Beats per chord">${BEAT_OPTIONS.map(b => `<option value="${b}"${b === pref.beats ? ' selected' : ''}>${b}</option>`).join('')}</select>
-        </label>
-        ${others.length > 1 ? `<select class="prog-tab-track" data-on-change="progtab:track" aria-label="Track">${others.map(o => `<option value="${escHtml(o.id)}"${o.id === t?.id ? ' selected' : ''}>${escHtml(o.name)}</option>`).join('')}</select>` : ''}
-      </div>
-    </div>`;
-  place(el);
-}
+function render(){ renderMini(); }
 
 function safeUnits(){ try { return getUnits(); } catch { return []; } }
 
@@ -201,6 +138,10 @@ function play(){
   paintPlaying(true);
 }
 function stop(){ if (looper) looper.stop(); }
+
+/* keyboard: Space loops, ←/→ step (shortcuts.js) */
+export function progPlay(){ const has = !!trainerActiveTrack()?.chords.length; if (has) play(); return has; }
+export function progStep(dir){ const has = !!trainerActiveTrack()?.chords.length; if (has) step(dir); return has; }
 
 function step(dir){
   const t = trainerActiveTrack();
@@ -265,50 +206,12 @@ function initPeek(){
   document.addEventListener('focusout', (e) => { if (lastPointer !== 'touch' && e.target.closest?.(CHIP)) hidePeek(); });
 }
 
-/* ---- drag ---------------------------------------------------------- */
-function initDrag(el){
-  let sx, sy, ox, oy, dragging = false;
-  el.addEventListener('pointerdown', (e) => {
-    const head = e.target.closest('.prog-tab-head');
-    if (!head || e.button !== 0 || e.target.closest('button')) return;
-    dragging = true;
-    const r = el.getBoundingClientRect();
-    sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
-    try { el.setPointerCapture(e.pointerId); } catch {}
-    el.classList.add('dragging');
-  });
-  el.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    pref.x = ox + (e.clientX - sx);
-    pref.y = oy + (e.clientY - sy);
-    place(el);
-  });
-  const end = (e) => {
-    if (!dragging) return;
-    dragging = false;
-    el.classList.remove('dragging');
-    try { el.releasePointerCapture(e.pointerId); } catch {}
-    const r = el.getBoundingClientRect();
-    pref.x = Math.round(r.left); pref.y = Math.round(r.top);
-    savePref();
-  };
-  el.addEventListener('pointerup', end);
-  el.addEventListener('pointercancel', end);
-}
-
 /* ---- public -------------------------------------------------------- */
-export function progTabToggle(force){
-  pref.open = typeof force === 'boolean' ? force : !pref.open;
-  if (pref.open) pref.collapsed = false;
-  savePref();
-  render();
-}
-export function progTabIsOpen(){ return !!pref.open; }
+
 
 export function initProgTab(){
   registerActions({
-    'progtab:toggle':   () => progTabToggle(),
-    'progtab:collapse': () => { pref.collapsed = !pref.collapsed; savePref(); render(); },
+    'progtab:toggle':   () => { if (typeof window.trainerNav === 'function') window.trainerNav('chords'); },   // old entry → Play
     'progtab:play':     () => play(),
     'progtab:step':     (el) => step(+el.dataset.dir || 1),
     'progtab:jump':     (el) => jump(el),
@@ -316,18 +219,11 @@ export function initProgTab(){
       pref.beats = BEAT_OPTIONS.includes(+el.value) ? +el.value : 4; savePref();
       if (looper?.playing){ stop(); play(); }
     },
-    'progtab:openPlay': () => { if (typeof window.trainerNav === 'function') window.trainerNav('chords'); },
+    'progtab:openPlay': () => { document.getElementById('tp-track-pop')?.setAttribute('hidden', ''); if (typeof window.trainerNav === 'function') window.trainerNav('chords'); },
     'progtab:track':    (el) => { stop(); pos = 0; trainerSelectTrack(el.value); },
   });
   initPeek();
   onTracksChange(() => { hidePeek(); const was = !!looper?.playing; stop(); render(); if (was) play(); });
   onAppKeyChange(() => render());
-  window.addEventListener('resize', () => { const el = $('prog-tab'); if (el && pref.open) place(el); });
-  // The tempo keeper has no change event of its own; keep the BPM label honest.
-  setInterval(() => {
-    if (!pref.open) return;
-    const b = getBPM();
-    if (b !== bpmShown){ bpmShown = b; const s = $('prog-tab-bpm'); if (s) s.textContent = b; }
-  }, 500);
   render();
 }

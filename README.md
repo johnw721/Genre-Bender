@@ -14,6 +14,13 @@ MIDI.
 
 ## Features
 
+- **Four places** — *Songs* (learn a song: chords, key/BPM, audio), *Play* (video · color
+  map · your chords in one resizable view — paste a link anywhere and it opens here),
+  *Practice* (drills, speed trainer), *Create* (genre blending). Your progression lives in the
+  transport bar: **Space** loops it, **← / →** step through it, **/** finds a chord or runs a
+  command (`new track`, `color map in E`, `dark`). Deletes can be undone from the toast; ⋯ →
+  *Show tips* brings back the how-to text, ⋯ → *Quick tour* replays the intro.
+
 - **Visual Mixer** — genre library, multi-select chips, blend-ratio sliders, AI creative direction.
 - **Metronome** — BPM, time signature, tap tempo, swing presets, visual beat grid.
 - **Notation generator** — AI-generated guitar tab + piano chord chart, validated against music theory with [Tonal.js](https://github.com/tonaljs/tonal).

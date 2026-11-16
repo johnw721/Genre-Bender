@@ -82,6 +82,7 @@ import { syncKey, initKeySync } from './keysync.js';
 import { hooktheorySmokeTest } from './hooktheory.js';
 import { initHooktheoryUI } from './hooktheoryui.js';
 import { initProgTools } from './progtools.js';
+import { initTips } from './tips.js';
 import { initMidiIn, _midiFeed, _midiFlush } from './midiin.js';
 import { initSpeedTrainer, rampTempo, speedChords } from './speedtrainer.js';
 import {
@@ -199,6 +200,7 @@ initMidiIn();        // MIDI keyboard → live chord names → My chords / chord
 initProgTools();     // history + voice-leading / transpose / capo strip (before restore renders)
 initPersistence();   // restore reads the UI the inits above built
 initKeySync();       // last: mirror the restored guitar key into the rail + other selects
-initStudy();         // ⤢ study view: pasted link + color map + My chords + chord library, resizable
+initStudy();
+initTips();          // 💡 tips toggle (⋯ menu) + 3-step first-run tour         // ⤢ study view: pasted link + color map + My chords + chord library, resizable
 initChordFinder();   // 🔎 quick chord search: shapes, color-map location, captions → tracks
 initNav();           // shell: Songs / Play / Practice / Create, menu, theme, transport popovers

@@ -27,10 +27,7 @@ const call = (fn, ...a) => (typeof window[fn] === 'function' ? window[fn](...a) 
 /* Sub-nav entries per destination: [id, label, go()]. */
 const SUBS = {
   songs: [],
-  play: [
-    ['chords',   'My chords', () => call('trainerNav', 'chords')],
-    ['colormap', 'Color map', () => call('trainerNav', 'colormap')],
-  ],
+  play: [],          // one workspace: video · color map · My chords + library
   practice: [
     ['today',  'Today',  () => call('switchTab', 'practice')],
     ['drills', 'Drills', () => call('trainerNav', 'drills')],
@@ -46,6 +43,7 @@ function save(){ saveJSON(NAV_KEY, state); }
 
 /* What's on screen right now → { dest, sub }. Pure over the DOM. */
 export function currentView(){
+  if (document.body.classList.contains('study-open')) return { dest: 'play', sub: '' };
   const panel = document.querySelector('.panel.active');
   const tab = panel ? panel.id.replace(/^panel-/, '') : 'upload';
   const tsub = $('inner-trainer')?.dataset.sub || 'drills';
@@ -57,7 +55,7 @@ export function currentView(){
 
 export function go(dest){
   if (dest === 'songs') call('switchTab', 'upload');
-  else if (dest === 'play') call('trainerNav', state.play === 'colormap' ? 'colormap' : 'chords');
+  else if (dest === 'play') call('trainerNav', 'chords');
   else if (dest === 'practice') call('switchTab', 'practice');
   else if (dest === 'create') call('switchTab', 'mixer');
   refresh();
@@ -66,7 +64,6 @@ export function go(dest){
 
 export function refresh(){
   const v = currentView();
-  if (v.dest === 'play') state.play = v.sub;
   state.dest = v.dest;
   save();
   document.querySelectorAll('.dest').forEach(b => {
