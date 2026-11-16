@@ -49,6 +49,7 @@
         <button class="hbtn" type="button" id="hooktheory-btn" data-action="hooktheory:open" aria-pressed="false" aria-label="Connect Hooktheory for progression realism checks" title="Optional: layers real chord-trend data from Hooktheory on top of AI-generated progressions"><span class="hbtn-ico">🎵</span>Hooktheory</button>
         <button class="hbtn" type="button" onclick="openSettings()" aria-label="Open AI settings and backup" title="AI endpoint, model, key · backup / restore"><span class="hbtn-ico">⚙</span>AI settings &amp; backup</button>
         <div class="menu-sep"></div>
+        <button class="menu-item" type="button" data-action="study:open" title="Video, color map, My chords and the chord library in one resizable view — or just paste a link anywhere"><span class="menu-ico">⤢</span>Study view</button>
         <button class="menu-item explore-toggle" type="button" id="explore-btn" onclick="toggleExplore()" aria-pressed="false"
           title="Explore mode: shuffles genres, tempo, keys and settings everywhere, jumps you somewhere new, and keeps re-rolling each panel you wander into. Never calls the AI — hit Generate when a roll intrigues you."><span class="menu-ico">✦</span>Explore mode</button>
         <button class="menu-item" type="button" onclick="toggleShortcutHelp()"><span class="menu-ico">⌨</span>Keyboard shortcuts</button>
@@ -575,7 +576,8 @@
     <div class="tp-group tp-prog" id="transport-prog" aria-label="Active track"></div>
     <div class="tp-group">
       <button type="button" class="tp-mini tp-hide-sm" data-action="progtab:toggle" title="Pop the progression out into a floating tab (Roman numerals, beats, track switcher)">⧉</button>
-      <button type="button" class="tp-mini" data-action="clips:toggle" title="Reference clips player">▶ clips</button>
+      <button type="button" class="tp-mini" data-action="study:open" title="Study view: video + color map + My chords + chord library in one resizable view">⤢ study</button>
+      <button type="button" class="tp-mini tp-hide-sm" data-action="clips:toggle" title="Reference clips player">▶ clips</button>
     </div>
   </footer>
 

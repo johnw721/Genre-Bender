@@ -266,3 +266,76 @@ body.cf-open{overflow:hidden}
 .chord-peek{width:auto;min-width:150px;max-width:210px}
 .chord-peek-head{flex-wrap:wrap;row-gap:0}
 .chord-peek .chord-box{width:130px;margin:0 auto}
+
+/* chord table: key chords row (follow key) */
+.palette-sec{flex:0 0 100%;display:flex;align-items:baseline;gap:8px;margin:6px 0 -2px;font-size:12px;font-weight:600;color:var(--text)}
+.palette-sec small{font-weight:400;color:var(--muted)}
+.palette-card.palette-auto{border-style:dashed}
+.palette-keep{color:var(--accent)}
+.palette-follow.on{background:var(--accent-glow);border-color:var(--accent2);color:var(--accent)}
+
+/* ---- study view (study.js) ------------------------------------------- */
+.study{position:fixed;left:0;right:0;top:0;bottom:var(--transport-h);z-index:36;display:flex;flex-direction:column;background:var(--bg)}
+.study[hidden]{display:none}
+.study-head{display:flex;align-items:center;gap:12px;padding:8px 12px 8px 16px;border-bottom:1px solid var(--border);flex:0 0 auto}
+.study-title{flex:1;min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.study-title span{color:var(--muted)}
+.study-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.study-seg{display:inline-flex;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden}
+.study-seg button{border:none;background:none;color:var(--muted);font-size:12px;padding:5px 10px;cursor:pointer;font-family:var(--ui)}
+.study-seg button+button{border-left:1px solid var(--border)}
+.study-seg button[aria-pressed="true"]{background:var(--surface3);color:var(--text)}
+.study-reset{border:none;background:none;color:var(--muted);font-size:12px;cursor:pointer}
+.study-reset:hover{color:var(--text)}
+.study-body{flex:1;min-height:0;display:grid;padding:8px;gap:0}
+.study[data-layout="side"] .study-body{grid-template-columns:var(--study-a) 8px minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+.study[data-layout="top"]  .study-body{grid-template-rows:var(--study-a) 8px minmax(0,1fr);grid-template-columns:minmax(0,1fr)}
+.study-col{min-width:0;min-height:0;display:grid}
+.study[data-layout="side"] .study-col{grid-template-rows:var(--study-b) 8px minmax(0,1fr)}
+.study[data-layout="top"]  .study-col{grid-template-columns:var(--study-b) 8px minmax(0,1fr)}
+.study-pane{min-width:0;min-height:0;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+.study-pane-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px 6px 12px;border-bottom:1px solid var(--border);
+  font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);user-select:none;cursor:default}
+.study-pane-head button{border:none;background:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 6px;border-radius:var(--r-sm)}
+.study-pane-head button:hover{color:var(--text);background:var(--surface2)}
+.study-pane-body{flex:1;min-height:0;overflow:auto;padding:12px;overscroll-behavior:contain}
+.study-split{position:relative;cursor:col-resize;touch-action:none}
+.study-split::after{content:'';position:absolute;inset:0;margin:auto;border-radius:3px;background:var(--border2);transition:background .12s}
+.study[data-layout="side"] .study-split[data-split="a"],.study[data-layout="top"] .study-split[data-split="b"]{cursor:col-resize}
+.study[data-layout="side"] .study-split[data-split="a"]::after,.study[data-layout="top"] .study-split[data-split="b"]::after{width:3px;height:40px}
+.study[data-layout="side"] .study-split[data-split="b"],.study[data-layout="top"] .study-split[data-split="a"]{cursor:row-resize}
+.study[data-layout="side"] .study-split[data-split="b"]::after,.study[data-layout="top"] .study-split[data-split="a"]::after{height:3px;width:40px}
+.study-split:hover::after,.study-split:focus-visible::after,.study.resizing .study-split::after{background:var(--accent2)}
+.study.resizing{user-select:none}
+.study.resizing iframe{pointer-events:none}          /* keep the drag when the cursor crosses the video */
+/* hidden / maximized panes collapse their tracks */
+.study-pane.off,.study-split.off,.study-col.off{display:none}
+.study.no-video .study-body,.study[data-max]:not([data-max=""]) .study-body{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:minmax(0,1fr)!important}
+.study .study-col:has(> .study-pane.off){grid-template-columns:minmax(0,1fr)!important;grid-template-rows:minmax(0,1fr)!important}
+.study-phone-tabs{display:none}
+body.study-open{overflow:hidden}
+
+/* the moved-in views, tuned for a pane */
+.study #cm-clip{margin:0;border:none;padding:0;background:none}
+.study #cm-clip .cm-clip-frame{max-height:none}
+.study #colormap-host .colormap > summary{display:none}
+.study #trainer-card{border:none;background:none;padding:0}
+
+@media (max-width:720px){
+  .study-head{flex-wrap:wrap;gap:6px;padding:8px 10px}
+  .study-tools .study-seg:first-child,.study-reset{display:none}
+  .study-body{padding:6px}
+  .study .study-body{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:var(--study-a) 10px minmax(0,1fr)!important}
+  .study .study-split[data-split="a"]{cursor:row-resize}
+  .study .study-split[data-split="a"]::after{height:4px!important;width:48px!important}
+  .study .study-col{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:minmax(0,1fr)!important}
+  .study .study-split[data-split="b"]{display:none}
+  .study[data-phone-tab="map"] .study-pane[data-pane="chords"],.study[data-phone-tab="chords"] .study-pane[data-pane="map"]{display:none}
+  .study-phone-tabs{display:flex;gap:6px;padding:0 6px 6px;flex:0 0 auto}
+  .study-phone-tabs button{flex:1;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:13px;padding:8px;border-radius:var(--r)}
+  .study-phone-tabs button.active{color:var(--text);border-color:var(--accent2)}
+  .study-panes{display:none}
+}
+.study .cm-study-btn{display:none}
+.study #colormap-host .cm-session{display:block}
+.study #colormap-host .colormap{border:none;padding:0;margin:0}

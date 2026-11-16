@@ -55,7 +55,8 @@ import { trainerNav, trainerOpenColorMap, trainerOnTab, initTrainerNav } from '.
 import { initShortcuts, toggleShortcutHelp } from './shortcuts.js';
 import { initColorMap } from './colormap.js';
 import {
-  palettePlay, paletteRemove, paletteAddByName, paletteFillFromControls, paletteClear
+  palettePlay, paletteRemove, paletteAddByName, paletteFillFromControls, paletteClear,
+  paletteSetFollow, paletteFollowsKey, paletteSetFlavour, paletteKeep
 } from './chordpalette.js';
 import { toggleExplore, exploreOnInnerTab } from './explore.js';
 import { initPersistence } from './persist.js';
@@ -67,6 +68,7 @@ import { initSongImport } from './songimport.js';
 import { initProgTab } from './progtab.js';
 import { initNav } from './nav.js';
 import { initChordFinder } from './chordfinder.js';
+import { initStudy } from './study.js';
 import { initGuided, guidedOnTab } from './guided.js';
 import { initPractice, practiceOnTab } from './practice.js';
 import {
@@ -144,6 +146,7 @@ Object.assign(window, {
   toggleShortcutHelp,
   // chord table (drag-and-drop palette inside "My chords")
   palettePlay, paletteRemove, paletteAddByName, paletteFillFromControls, paletteClear,
+  paletteSetFollow, paletteFollowsKey, paletteSetFlavour, paletteKeep,
   // trainer explore sandbox
   exploreFretInput, exploreSetKey, exploreLoadDegree, exploreMv,
   exploreSetProg, exploreLoadProgChord, explorePlayProg, exploreStopProg,
@@ -196,5 +199,6 @@ initMidiIn();        // MIDI keyboard → live chord names → My chords / chord
 initProgTools();     // history + voice-leading / transpose / capo strip (before restore renders)
 initPersistence();   // restore reads the UI the inits above built
 initKeySync();       // last: mirror the restored guitar key into the rail + other selects
+initStudy();         // ⤢ study view: pasted link + color map + My chords + chord library, resizable
 initChordFinder();   // 🔎 quick chord search: shapes, color-map location, captions → tracks
 initNav();           // shell: Songs / Play / Practice / Create, menu, theme, transport popovers

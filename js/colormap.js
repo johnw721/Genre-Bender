@@ -946,6 +946,7 @@ function clipPanelHTML(){
     <div class="cm-mrow">
       <span class="cm-mel-label">reference</span>
       <select id="cm-clip-select" class="tab-style-select cm-clip-select" data-on-change="cm:clipPick" aria-label="Reference clip">${clipOptionsHTML()}</select>
+      <button type="button" class="pb-btn cm-study-btn" data-action="study:open" title="Video + color map + My chords + chord library in one resizable view">⤢ study</button>
     </div>
     <div class="cm-mrow">
       <input id="cm-clip-url" class="cm-mel-input cm-clip-url" type="url" autocomplete="off" spellcheck="false"
@@ -967,6 +968,7 @@ function pickClip(id){
   if (prev === sessionClipId) return;
   saveJSON(MELODY_KEY, { text: globalMel.text, mode: globalMel.mode, clipId: sessionClipId });
   if (sessionClipId) clipsDetachDock();
+  document.dispatchEvent(new CustomEvent('gb:refclip', { detail: { id: sessionClipId } }));
   applyContextMelody();
   const f = $('cm-clip-frame');
   if (f) renderClipFrame();
@@ -994,9 +996,14 @@ function refreshClipChrome(){
 }
 /* Is the map on screen? (Shape Trainer tab open on My chords / Color map.) */
 function mapVisible(){
+  if (document.body.classList.contains('study-open')) return !!$('cm-clip');
   const sub = $('inner-trainer')?.dataset.sub;
   return !!($('cm-clip') && $('panel-trainer')?.classList.contains('active') && (sub === 'chords' || sub === 'colormap'));
 }
+/* For the study view: put a link (or a saved clip) in the inline player. */
+export function colorMapAddClip(text){ return addClipFromInput(text); }
+export function colorMapPickClip(id){ pickClip(id); }
+export function colorMapClipId(){ return sessionClipId; }
 
 function melodyPanelHTML(){
   return `<div class="cm-melody" id="colormap-melody" role="group" aria-label="Melody lens">
@@ -1281,7 +1288,7 @@ export function initColorMap(){
       }
     },
   });
-  onAppKeyChange(k => { mapKey = k; redrawColorMap(); });
+  onAppKeyChange((k, src) => { if (src === 'colormap-key') return; mapKey = k; redrawColorMap(); });
   initChordPeek();
   window.addEventListener('message', onYtMessage);
   document.addEventListener('toggle', e => { if (e.target && e.target.id === 'cm-neck') neckOpen = e.target.open; }, true);

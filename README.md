@@ -40,6 +40,14 @@ MIDI.
   **Create** (genre mixer, guided workflow). A transport bar at the bottom keeps the metronome,
   key and the current track's chords on every page; less-used tools live in the ⋯ menu.
   Light and dark themes (☀ in the top bar).
+- **Study view** — paste a link anywhere (or ⤢ study in the transport bar / clips player / ⋯ menu)
+  and one screen holds the video (A–B loop, speed, caption chords), the color map (with melody
+  lens) and My chords + the chord library. Drag the dividers to resize, flip between side-by-side
+  and stacked, hide or maximize any pane (double-click its header); Esc closes. On a phone the
+  video sits on top and you switch between Color map and Chords below.
+- **Chord library follows the key** — the chord table leads with the color map key's chords
+  (triads, 7ths, or both) and rebuilds whenever the key changes; tap + (or drag) to keep one in
+  your own shapes. Turn it off with ⟳ follow key.
 - **Find a chord** — 🔎 in the top bar (or `/`, Ctrl/⌘ K). Type a chord for its shapes, notes and
   where it sits in the color map (with keys it's diatonic in), then hear it, add it to the track or
   jump to it on the map. Paste a reel/TikTok caption or a shared link and every chord in it is

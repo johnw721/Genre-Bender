@@ -26,6 +26,7 @@ import { STRING_OPEN_MIDI, midiToHz } from './theory.js';
 import { playChordNow } from './audio.js';
 import { escHtml } from './util.js';
 import { registerStore, loadJSON, saveJSON } from './storage.js';
+import { getAppKey, onAppKeyChange } from './keysync.js';
 
 const PALETTE_KEY = registerStore('chordPalette', 'GenreBenderChordPalette_v1');
 export const DRAG_MIME = 'application/x-genre-bender-chord';
@@ -36,6 +37,12 @@ const $ = (id) => document.getElementById(id);
 const SEED = ['C', 'G', 'D', 'A', 'E', 'Am', 'Em', 'Dm', 'F', 'G7', 'Am7', 'Cmaj7'];
 
 let palette = [];
+/* "Follow key": the table leads with the current key's diatonic chords
+   (the color map's key — they share one app key), rebuilt every time
+   the key changes. Your saved shapes stay below, untouched. */
+let follow = true;
+let flavour = 'triads';            // 'triads' | 'sevenths' | 'both'
+const FLAVOURS = ['triads', 'sevenths', 'both'];
 let dragPayload = null;   // { source: 'palette'|'track', id?, idx?, name, frets }
 
 function makeId(){ return 'pal_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -49,6 +56,9 @@ function resolvedFrets(name, frets){
 /* ---- persistence ---------------------------------------------------------- */
 export function initPalette(){
   const s = loadJSON(PALETTE_KEY);
+  if (!initPalette.wired){ initPalette.wired = true; onAppKeyChange(() => { if (follow) redrawPalette(); }); }
+  if (s && typeof s.follow === 'boolean') follow = s.follow;
+  if (s && FLAVOURS.includes(s.flavour)) flavour = s.flavour;
   if (s && Array.isArray(s.shapes)){
     palette = s.shapes.filter(e => e && typeof e.name === 'string').map(e => ({
       id: e.id || makeId(), name: e.name,
@@ -59,9 +69,32 @@ export function initPalette(){
   palette = SEED.map(name => ({ id: makeId(), name, frets: null }));
   save();
 }
-function save(){ saveJSON(PALETTE_KEY, { shapes: palette }); }
+function save(){ saveJSON(PALETTE_KEY, { shapes: palette, follow, flavour }); }
 
-export function getPaletteEntry(id){ return palette.find(e => e.id === id) || null; }
+/* The key's chords for the follow-key row, in degree order. Pure. */
+export function keyShapes(key, fl = 'triads'){
+  const tri = diatonicChords(key);
+  const sev = tri.map(n => seventhOf(n, key));
+  const names = fl === 'sevenths' ? sev : fl === 'both' ? tri.flatMap((n, i) => [n, sev[i]]) : tri;
+  return names.map((name, i) => ({ id: `auto_${i}`, name, frets: null, auto: true }));
+}
+function autoEntries(){ return follow ? keyShapes(getAppKey() || 'C', flavour) : []; }
+
+export function getPaletteEntry(id){
+  if (String(id).startsWith('auto_')) return autoEntries().find(e => e.id === id) || null;
+  return palette.find(e => e.id === id) || null;
+}
+export function paletteFollowsKey(){ return follow; }
+export function paletteSetFollow(on){ follow = !!on; save(); redrawPalette(); }
+export function paletteSetFlavour(fl){ if (FLAVOURS.includes(fl)){ flavour = fl; save(); redrawPalette(); } }
+/* "+ keep": copy a key chord into your saved shapes. */
+export function paletteKeep(id){
+  const e = getPaletteEntry(id);
+  if (!e) return;
+  const err = $('palette-err');
+  if (paletteAdd(e.name)){ if (err) err.textContent = ''; redrawPalette(); }
+  else if (err) err.textContent = `"${e.name}" is already in your shapes.`;
+}
 export function paletteSize(){ return palette.length; }
 
 /* ---- mutations ------------------------------------------------------------ */
@@ -118,16 +151,16 @@ export function paletteChangeQuality(id, qualityKey){
 
 /* Quick-fill: every diatonic chord of a key, as triads or sevenths.
    Skips shapes already on the table. */
+function seventhOf(n, key){
+  const p = parseChordName(n);
+  if (!p) return n;
+  const q = p.quality === 'maj' ? 'maj7' : p.quality === 'min' ? 'min7' : 'm7b5';
+  // the V of a key wants a dominant 7, not a major 7
+  const isFive = fifthRootOf(key) === p.rootName;
+  return withQuality(n, isFive && p.quality === 'maj' ? 'dom7' : q) || n;
+}
 export function paletteFillKey(key, flavour = 'triads'){
-  const names = diatonicChords(key).map(n => {
-    if (flavour !== 'sevenths') return n;
-    const p = parseChordName(n);
-    if (!p) return n;
-    const q = p.quality === 'maj' ? 'maj7' : p.quality === 'min' ? 'min7' : 'm7b5';
-    // the V of a key wants a dominant 7, not a major 7
-    const isFive = fifthRootOf(key) === p.rootName;
-    return withQuality(n, isFive && p.quality === 'maj' ? 'dom7' : q) || n;
-  });
+  const names = diatonicChords(key).map(n => flavour !== 'sevenths' ? n : seventhOf(n, key));
   let added = 0;
   names.forEach(n => { if (paletteAdd(n)) added++; });
   redrawPalette();
@@ -239,9 +272,15 @@ export function initPaletteDrag(root){
     if (!p) return;
     e.preventDefault();
     clearPaletteHover(root);
-    if (p.source === 'palette'){
+    if (p.source === 'palette' && String(p.id).startsWith('auto_')){
+      // a key chord dropped on the table: keep it (at the drop spot when over a saved card)
       const card = e.target.closest('.palette-card');
-      if (card && card.dataset.paletteId !== p.id){
+      const at = card && !String(card.dataset.paletteId).startsWith('auto_') ? palette.findIndex(x => x.id === card.dataset.paletteId) : null;
+      paletteAdd(p.name, null, { at });
+      redrawPalette();
+    } else if (p.source === 'palette'){
+      const card = e.target.closest('.palette-card');
+      if (card && card.dataset.paletteId !== p.id && !String(card.dataset.paletteId).startsWith('auto_')){
         const r = card.getBoundingClientRect();
         paletteMove(p.id, card.dataset.paletteId, e.clientX < r.left + r.width / 2);
       }
@@ -266,25 +305,38 @@ function cardHTML(e){
     ? layeredFretSVG({ chordFrets: frets, window: windowFor(frets, null), showChord: true, showScale: false })
     : `<div class="palette-noshape">no shape</div>`;
   const pinned = e.frets ? `<span class="palette-pin" title="Exact fingering you entered">pinned</span>` : '';
-  return `<div class="palette-card" draggable="true" data-palette-id="${e.id}" role="listitem"
+  return `<div class="palette-card${e.auto ? ' palette-auto' : ''}" draggable="true" data-palette-id="${e.id}" data-name="${escHtml(e.name)}" role="listitem"
       title="Drag onto the track to insert · click to hear"
       onclick="palettePlay('${e.id}')">
     <span class="palette-grip" aria-hidden="true">⠿</span>
-    <button type="button" class="palette-x" aria-label="Remove ${escHtml(e.name)} from the table"
-      onclick="event.stopPropagation();paletteRemove('${e.id}')">×</button>
+    ${e.auto
+      ? `<button type="button" class="palette-x palette-keep" aria-label="Keep ${escHtml(e.name)} in your shapes" title="Keep in your shapes"
+          onclick="event.stopPropagation();paletteKeep('${e.id}')">+</button>`
+      : `<button type="button" class="palette-x" aria-label="Remove ${escHtml(e.name)} from the table"
+          onclick="event.stopPropagation();paletteRemove('${e.id}')">×</button>`}
     ${svg}
     <div class="palette-card-label">${escHtml(e.name)}${pinned}</div>
   </div>`;
 }
 function gridInnerHTML(){
+  const auto = autoEntries();
+  const key = getAppKey() || 'C';
+  const autoPart = auto.length ? `
+    <div class="palette-sec" role="presentation">
+      <span>In ${escHtml(keyLabel(key))}</span><small>follows the color map key · ${flavour === 'both' ? 'triads + 7ths' : flavour}</small>
+    </div>
+    ${auto.map(cardHTML).join('')}
+    <div class="palette-sec" role="presentation"><span>Your shapes</span><small>${palette.length}</small></div>` : '';
   if (!palette.length){
-    return `<div class="palette-empty">The table is empty — add a chord by name, fill a key, or drag a chord down from the track.</div>`;
+    return autoPart + `<div class="palette-empty">${auto.length ? 'Drag a key chord here (or tap its +) to keep it.' : 'The table is empty — add a chord by name, fill a key, or drag a chord down from the track.'}</div>`;
   }
-  return palette.map(cardHTML).join('');
+  return autoPart + palette.map(cardHTML).join('');
 }
 export function redrawPalette(){
   const g = $('palette-grid');
   if (g) g.innerHTML = gridInnerHTML();
+  const f = $('palette-follow');
+  if (f){ f.classList.toggle('on', follow); f.setAttribute('aria-pressed', String(follow)); }
 }
 
 /* Whole section. Called from the track view's render. `railKey` seeds
@@ -307,6 +359,12 @@ export function paletteHTML(railKey){
         <select id="palette-key" data-keypick class="tab-style-select palette-key" aria-label="Key — changes the app key; fill buttons use it"
           onchange="syncKey(this.value,'palette-key')">${keyOpts}</select>
       </label>
+      <button class="pb-btn palette-follow${follow ? ' on' : ''}" type="button" id="palette-follow" aria-pressed="${follow}"
+        onclick="paletteSetFollow(!paletteFollowsKey())" title="Lead the table with the current key's chords and rebuild them whenever the key changes">⟳ follow key</button>
+      <select class="tab-style-select palette-flavour" aria-label="Key chords as" onchange="paletteSetFlavour(this.value)">
+        ${FLAVOURS.map(f => `<option value="${f}"${f === flavour ? ' selected' : ''}>${f === 'both' ? 'triads + 7ths' : f}</option>`).join('')}
+      </select>
+      <span class="palette-sep" aria-hidden="true"></span>
       <button class="pb-btn" type="button" onclick="paletteFillFromControls('triads')" title="Add the key's seven diatonic triads">fill key</button>
       <button class="pb-btn" type="button" onclick="paletteFillFromControls('sevenths')" title="Add the key's seven diatonic seventh chords">fill 7ths</button>
       <span class="palette-sep" aria-hidden="true"></span>

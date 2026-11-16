@@ -634,7 +634,9 @@ function renderPlayer(reloadFrame = true){
       aria-label="Clip notes" data-on-change="clips:update" data-id="${clip.id}" data-field="notes">
     ${clipChordsHTML(clip)}
     <div class="clip-actions">
-      <button class="clip-mini primary${isRef ? ' on' : ''}" type="button" data-action="clips:seed" data-id="${clip.id}"
+      <button class="clip-mini primary" type="button" data-action="study:open" data-clip="${clip.id}"
+        title="Open this clip in the study view: video + color map + My chords + chord library, resizable">⤢ study</button>
+      <button class="clip-mini${isRef ? ' on' : ''}" type="button" data-action="clips:seed" data-id="${clip.id}"
         title="Select this clip's genres in the mixer, set its key and BPM, and blend toward it">${isRef ? '✓ seeded' : '⇢ seed mixer'}</button>
       <button class="clip-mini" type="button" data-action="clips:usebpm" data-id="${clip.id}" ${clip.bpm ? '' : 'disabled'}
         title="Push this clip's BPM to the tempo keeper">↑ bpm</button>
@@ -744,6 +746,9 @@ export function onDockReattach(fn){ detachListeners.add(fn); }
    own player (the color map) can claim the paste instead. */
 let pasteRoute = null;
 export function setClipPasteRoute(fn){ pasteRoute = typeof fn === 'function' ? fn : null; }
+/* When no view claims the paste: the study view opens with it (else the dock). */
+let pasteFallback = null;
+export function setClipPasteFallback(fn){ pasteFallback = typeof fn === 'function' ? fn : null; }
 
 /* Header "▶ clips" button: opens/closes when floating, expands/collapses when docked. */
 export function clipsToggleDock(){
@@ -827,6 +832,7 @@ function initGlobalPaste(){
     if (meta && meta.platform !== 'other'){
       e.preventDefault();
       if (pasteRoute && pasteRoute(text)) return;
+      if (pasteFallback && pasteFallback(text)) return;
       clipsAdd(text);
     }
   });

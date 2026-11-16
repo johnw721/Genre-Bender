@@ -45,5 +45,7 @@ export function syncKey(key, sourceId){
     if (!options.length || options.some(o => o.value === key)) el.value = key;
   });
   if (sourceId !== 'trainer-explore') setExploreKey(key);
-  if (sourceId !== 'colormap-key') listeners.forEach(fn => { try { fn(key); } catch (e) { console.error('keysync listener:', e); } });
+  // Every listener hears every change (the color map's own included) with
+  // its source, so a listener that caused the change can skip it.
+  listeners.forEach(fn => { try { fn(key, sourceId); } catch (e) { console.error('keysync listener:', e); } });
 }

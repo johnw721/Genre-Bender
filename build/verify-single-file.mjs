@@ -398,6 +398,57 @@ try {
         ($('cm-clip-tags')?.textContent || '').replace(/\s+/g, ' ').slice(0, 120));
   click(d.querySelector('#cm-clip-tags .cm-cchip'));
   check('clip chord chip → diagram', !$('chord-peek').hidden && $('chord-peek').querySelector('b').textContent === 'Cmaj7');
+
+  // Chord library follows the color map key
+  const autoNames = () => [...d.querySelectorAll('#palette-grid .palette-auto .palette-card-label')].map(e => e.textContent.trim()).join(' ');
+  w.trainerNav('chords');
+  w.syncKey('C', 'test');
+  check('chord library leads with the key chords', autoNames() === 'C Dm Em F G Am Bdim', autoNames());
+  const cmKey = $('colormap-key');
+  cmKey.value = 'Bb'; cmKey.dispatchEvent(new w.Event('change', { bubbles: true }));
+  check('changing the color map key rebuilds the chord library', /^Bb Cm Dm Eb F Gm Adim$/.test(autoNames()), autoNames());
+  w.paletteSetFlavour('sevenths');
+  check('library as 7ths', /^Bbmaj7 Cm7 Dm7 Ebmaj7 F7 Gm7 Am7b5$/.test(autoNames()), autoNames());
+  const saved0 = d.querySelectorAll('#palette-grid .palette-card:not(.palette-auto)').length;
+  click(d.querySelector('#palette-grid .palette-auto .palette-keep'));
+  check('+ keeps a key chord in your shapes', d.querySelectorAll('#palette-grid .palette-card:not(.palette-auto)').length === saved0 + 1);
+  w.paletteSetFollow(false);
+  check('follow key can be turned off', !d.querySelector('#palette-grid .palette-auto') && $('palette-follow')?.getAttribute('aria-pressed') === 'false');
+  w.paletteSetFollow(true); w.paletteSetFlavour('triads'); w.syncKey('C', 'test');
+
+  // Study view: a pasted link opens video + color map + My chords + library in one view
+  w.switchTab('upload');
+  const pasteText = (t) => d.dispatchEvent(Object.assign(new w.Event('paste', { bubbles: true }), { clipboardData: { getData: () => t } }));
+  pasteText('Groove: Dm9 G13 Cmaj9 https://www.youtube.com/watch?v=abcDEF12345');
+  await new Promise(r => setTimeout(r, 30));
+  const study = $('study');
+  check('pasting a link (off the map) opens the study view', study && !study.hidden && d.body.classList.contains('study-open'));
+  check('study holds the real player, color map and My chords + library',
+        !!study.querySelector('[data-pane="video"] #cm-clip') && !!study.querySelector('[data-pane="map"] #colormap-host #colormap-body') &&
+        !!study.querySelector('[data-pane="chords"] #trainer-card #palette-grid'));
+  check('the pasted clip is loaded with its caption chords', /Dm9/.test($('cm-clip-tags').textContent) && /abcDEF12345/.test($('study-clip-name').textContent),
+        $('study-clip-name').textContent);
+  click(study.querySelector('.cm-chip[data-name="C"]') || study.querySelector('.cm-chip'));
+  check('color map works inside study (click → diagram)', !$('chord-peek').hidden);
+  const before = study.style.getPropertyValue('--study-a');
+  study.querySelector('.study-split[data-split="a"]').dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+  check('splitter resizes the panes', study.style.getPropertyValue('--study-a') !== before, `${before} → ${study.style.getPropertyValue('--study-a')}`);
+  click(study.querySelector('[data-action="study:toggle"][data-pane="video"]'));
+  check('a pane can be hidden', study.querySelector('.study-pane[data-pane="video"]').classList.contains('off') && study.classList.contains('no-video'));
+  click(study.querySelector('[data-action="study:toggle"][data-pane="video"]'));
+  click(study.querySelector('[data-action="study:max"][data-pane="map"]'));
+  check('a pane can be maximized', study.dataset.max === 'map' && study.querySelector('.study-pane[data-pane="chords"]').classList.contains('off'));
+  click(study.querySelector('[data-action="study:max"][data-pane="map"]'));
+  const sel = $('colormap-key'); sel.value = 'G'; sel.dispatchEvent(new w.Event('change', { bubbles: true }));
+  check('in study, the library follows the map key too', /^G Am Bm C D Em F#dim$/.test(autoNames()), autoNames());
+  pasteText('https://www.youtube.com/watch?v=zzzYYY98765');
+  await new Promise(r => setTimeout(r, 30));
+  check('pasting another link while open swaps the video', /zzzYYY98765/.test($('study-clip-name').textContent));
+  d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  check('Esc closes study and puts every view back',
+        study.hidden && !!d.querySelector('#inner-trainer > #trainer-card') && !!d.querySelector('#inner-trainer > #colormap-host') &&
+        !!d.querySelector('#colormap-host .cm-session > #cm-clip'));
+  w.syncKey('C', 'test');
   w.switchTab('upload');
   click(d.querySelector('[data-action="song:new"]'));
   check('new clears the form', $('song-title').value === '' && $('song-output').classList.contains('placeholder'));
