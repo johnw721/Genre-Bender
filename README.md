@@ -1,5 +1,7 @@
 # Genre Bender
 
+**Live site: [genre-bender.netlify.app](https://genre-bender.netlify.app)**
+
 An AI-assisted genre-blending music production assistant that runs entirely
 in the browser. Pick 2–4 genres, dial in blend ratios, and get creative
 direction, a guitar tab, and a piano chord chart you can play back on a
