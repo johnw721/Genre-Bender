@@ -2,19 +2,30 @@
 node_modules/
 server/node_modules/
 
-# build / dev-server cache
+# build output / dev-server cache
 dist/
 .vite/
+.netlify/
 
-# secrets / local env
+# secrets / local env (keep the example files)
 .env
+.env.*
+!.env.example
 server/.env
+server/.env.*
+!server/.env.example
 
-# logs & os cruft
+# logs & os / editor cruft
 npm-debug.log*
 *.log
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
 
-# local daily learning files
-daily_learning_06-05-2026.md
+# local scratch: test files, patches, git bundles, notes
+_to_delete/
+*.patch
+*.bundle
+*.tmp.mjs
+daily_learning_*.md
