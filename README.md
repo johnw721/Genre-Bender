@@ -2,142 +2,122 @@
 
 **Live site: [genre-bender.netlify.app](https://genre-bender.netlify.app)**
 
-An AI-assisted genre-blending music production assistant that runs entirely
-in the browser. Pick 2–4 genres, dial in blend ratios, and get creative
-direction, a guitar tab, and a piano chord chart you can play back on a
-tempo-locked sequencer, loop per-card, sync in Compose mode, and export to
-MIDI.
+A browser-based practice and writing companion for guitarists. Say *"I want to learn
+that song"* and get its chords, key and BPM into a track you can loop, study against
+the video, and see on a color map of the key — then blend genres with AI to write
+something of your own.
 
-> Refactored from a single 1083-line HTML file into a small, dependency-clear
-> ES-module project. See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the file
-> hierarchy and module map.
+Vanilla ES modules, plain CSS, no framework. Everything you make is stored locally in
+your browser.
 
 ---
 
-## Features
+## What you can do
 
-- **Four places** — *Songs* (learn a song: chords, key/BPM, audio), *Play* (video · color
-  map · your chords in one resizable view — paste a link anywhere and it opens here),
-  *Practice* (drills, speed trainer), *Create* (genre blending). Your progression lives in the
-  transport bar: **Space** loops it, **← / →** step through it, **/** finds a chord or runs a
-  command (`new track`, `color map in E`, `dark`). Deletes can be undone from the toast; ⋯ →
-  *Show tips* brings back the how-to text, ⋯ → *Quick tour* replays the intro.
+The app has four places, plus a transport bar at the bottom (tempo, key and your
+current progression) that stays on every page.
 
-- **Visual Mixer** — genre library, multi-select chips, blend-ratio sliders, AI creative direction.
-- **Metronome** — BPM, time signature, tap tempo, swing presets, visual beat grid.
-- **Notation generator** — AI-generated guitar tab + piano chord chart, validated against music theory with [Tonal.js](https://github.com/tonaljs/tonal).
-- **Playback** — tempo-locked sequencer, per-card loopers, drag-to-reorder cards, and a **Compose** mode that plays guitar and piano on one clock.
-- **MIDI export** — pure-JS Standard MIDI File (type-1) writer, no dependencies.
-- **Reference clips** — paste X / Instagram / TikTok / YouTube links (or just
-  Ctrl/Cmd+V anywhere on the page) and they play in the left rail — or in a
-  floating, draggable window (⇱) — while you work; the metronome and loopers keep
-  running across tab switches. Clips save locally with a label, key / BPM / genre
-  tags and notes, hand their BPM to the tempo keeper (or capture the BPM you tapped
-  along), and export/import as JSON. **Seed mixer** turns a clip into input: its
-  genre tags become the mixer selection, its key the app key, its BPM the tempo,
-  and *Generate blend* is told to blend toward it. Platforms block their normal
-  pages inside frames, so the player uses each one's official embed endpoint —
-  the one place the app makes third-party requests (only once you open a clip).
-  Short links like `vm.tiktok.com/…` can't be resolved in-browser; paste the full URL.
-- **Analyze Track (v1)** — pick a saved clip, paste its caption or describe what you
-  hear, and the AI proposes catalog genres with confidence, a BPM/key guess and a
-  feel. Write the result back to the clip's tags or seed the mixer from it in one
-  click. It reasons from text — it cannot hear the embed. Real audio fingerprinting
-  (upload) is still to come and will land in the same panel.
-- **Shell** — four places instead of five tabs and a sidebar: **Songs** (your library + Learn a
-  song), **Play** (My chords, Color map), **Practice** (today's plan, drills, speed trainer) and
-  **Create** (genre mixer, guided workflow). A transport bar at the bottom keeps the metronome,
-  key and the current track's chords on every page; less-used tools live in the ⋯ menu.
-  Light and dark themes (☀ in the top bar).
-- **Study view** — paste a link anywhere (or ⤢ study in the transport bar / clips player / ⋯ menu)
-  and one screen holds the video (A–B loop, speed, caption chords), the color map (with melody
-  lens) and My chords + the chord library. Drag the dividers to resize, flip between side-by-side
-  and stacked, hide or maximize any pane (double-click its header); Esc closes. On a phone the
-  video sits on top and you switch between Color map and Chords below.
-- **Chord library follows the key** — the chord table leads with the color map key's chords
-  (triads, 7ths, or both) and rebuilds whenever the key changes; tap + (or drag) to keep one in
-  your own shapes. Turn it off with ⟳ follow key.
-- **Find a chord** — 🔎 in the top bar (or `/`, Ctrl/⌘ K). Type a chord for its shapes, notes and
-  where it sits in the color map (with keys it's diatonic in), then hear it, add it to the track or
-  jump to it on the map. Paste a reel/TikTok caption or a shared link and every chord in it is
-  pulled out — make a track, open the map in the likely key, or save the link as a clip.
-  Clicking a color-map chord shows its diagram for a moment; chords named in a clip's caption
-  show up as tappable chips in the clips player and the color map.
-- **Learn a song** — tab 03. Turn "I want to learn that song" into a saved *unit*
-  (BPM, key, color-map key, closest chord progression) and a prefilled **My chords**
-  track, from any of three paths that cross-check each other:
-  1. *Paste chords* — any chord sheet (Ultimate Guitar copy/paste, ChordPro `[Am]`,
-     bar notation `| Am | F | x2`). Chords are extracted per section, each section is
-     reduced to its repeating loop, the key is inferred with a confidence and runner-up
-     keys, and everything is shown in Roman numerals. Pasted text (lyrics) is never stored.
-  2. *Look up BPM / key* by title + artist — GetSongBPM via a server function
-     (`netlify/functions/songmeta.mjs`; same handler in `server/proxy.js` for `npm start`).
-     Needs `GETSONGBPM_API_KEY` set server-side (free key at getsongbpm.com/api; their
-     terms require the backlink the panel shows).
-  3. *Listen to the audio* — pick an audio/video file (an iPhone screen recording works)
-     or capture a playing tab's audio (desktop Chrome/Edge). Key + BPM come from chroma
-     and onset analysis in the browser; chords are a beat-synced major/minor sketch.
-  Agreement between sources raises confidence; a relative major/minor or half/double-time
-  disagreement is flagged, and you can override any field. **Save unit → My chords** is
-  idempotent: the same title/artist (or linked clip) updates the same unit and track.
-- **Hover tab** — in Shape trainer → *My chords*, **⧉ hover tab** floats the active track's
-  progression in a small draggable panel that stays on screen while you scroll, switch tabs
-  or play: chords with Roman numerals (in the saved song's key, else the app key, else a
-  guess), the current chord highlighted, a tempo-locked strum loop from any chord, ◀ ▶ step,
-  beats-per-chord, and a track switcher. It follows edits live; position and state persist.
-- **Two-pane shell** — a sticky left rail holds the always-on things (tempo keeper,
-  current key, selected genres, the reference you're blending toward, the clip
-  player); the tabs live in the main column. Below 1180px the rail stacks on top.
-- **Guided Workflow** — tab 02 is a live stepper over the actions above: drop in a
-  reference → tag it → seed the mixer → generate the blend → get a tab → play along.
-  Each step reads the real app state (done / current / locked) and its button is a
-  shortcut to the existing action, so you can work in any order.
-- **Chord table** — inside Shape trainer → *My chords*, every track sits above a
-  customizable table of chord diagrams. Add shapes by name, pin an exact fingering
-  from the fret squares (*+ add to table*), or fill a key's triads / sevenths in one
-  click; then drag a diagram onto the track to drop it in exactly that spot (the
-  voicing comes with it), drag track chords to reorder, or drag one down to the
-  table to keep its shape. The table is shared across tracks and persists locally.
-- **Practice** — tab 04 holds three 10–20 minute plans (see [`PRACTICE.md`](./PRACTICE.md)):
-  *Trainer-first* (daily; the drill mode rotates by weekday and the step counts today's
-  quiz answers), *Clip → chart* (transcribe a reference into a My chords track) and
-  *Blend & play* (the whole pipeline). Steps the app can observe tick themselves off;
-  the rest are one-click "mark done" ticks stored per day. A fully done plan counts
-  toward a streak shown in the header.
-- **Seed packs** — pre-filled My chords tracks (link, key, BPM, color chart) from
-  `seeds/*.pack.json`; load with *⤓ seed pack*, a `#seed=` link, or a console
-  snippet. Re-applying is safe (idempotent). See [seeds/README.md](seeds/README.md).
-- **Backup** — ⚙ AI → *export everything* writes session, clips, trainer progress,
-  the chord table and label prefs to one JSON file (never your API key); *import
-  backup* restores it.
+**Songs — learn a song.** Three ways in, and they cross-check each other:
+- *Paste chords* — Ultimate Guitar copy/paste, ChordPro `[Am]`, or bar notation
+  `| Am | F | x2`. Each section is reduced to its repeating loop, the key is inferred
+  with a confidence, and everything is shown in Roman numerals. Lyrics are never stored.
+- *Look up BPM / key* by title + artist (GetSongBPM, via a server function).
+- *Listen to the audio* — an audio/video file (an iPhone screen recording works) or a
+  playing tab's audio (desktop Chrome/Edge). Key, BPM and a chord sketch come from
+  analysis in the browser.
+
+Saving makes a song *unit* and a matching **My chords** track. Saving again updates
+the same one.
+
+**Play — one resizable workspace.** Video, color map and your chords side by side or
+stacked. Drag the dividers, hide or maximize any pane; on a phone the panes become tabs.
+- *Video* — paste a YouTube / Instagram / TikTok / X link anywhere (Ctrl/⌘ V) and it
+  opens here, with A–B loop and speed. Chords named in a caption become tappable chips.
+- *Color map* — every chord in the key, colored by function (tonic / predominant /
+  dominant), with in-scale, out-of-scale and parallel views and a melody lens.
+  Out-of-key chords are spelled the way they read (♭VII in C is B♭, not A♯).
+- *My chords* — tracks you build by name, by frets, or by dragging shapes from the
+  chord library. The library follows the color map's key and rebuilds when it changes.
+- On touch screens, tapping a chord shows its diagram with **+ track / + keep**.
+
+**Practice.** Spaced-repetition drills (shape ↔ scale degree, scale shapes, moving
+shapes, progression ID, color-map functions), a speed trainer, and three short daily
+plans with a streak — see [`PRACTICE.md`](./PRACTICE.md).
+
+**Create.** Pick 2–4 genres, set blend ratios, and get AI creative direction,
+production techniques, a chord & rhythm guide and reference tracks — each with
+YouTube / Spotify / Apple Music links. Generate a guitar tab and piano chart (checked
+with [Tonal.js](https://github.com/tonaljs/tonal)), play them on a tempo-locked
+sequencer with per-card loops and a Compose mode, and export MIDI. A guided workflow
+walks the whole path from reference clip to play-along.
+
+**Everywhere.**
+- **Find a chord** — `/` or Ctrl/⌘ K. Type a chord for its shapes, notes and where it
+  sits on the color map. Paste a reel caption and every chord in it is pulled out.
+  It also runs commands: `new track Verse`, `color map in E`, `practice`, `dark`.
+- **Keyboard** — Space loops your progression (or plays the melody, if Play has one),
+  ← / → step through it, 1–7 play scale degrees, `?` shows the full list.
+- **Undo, not "are you sure"** — deleting or clearing something happens straight away,
+  with Undo in the toast for a few seconds.
+- **Less text** — how-to text is hidden; ⋯ → *Show tips* brings it back, ⋯ → *Quick
+  tour* replays the 3-step intro.
+- **Saved clips, seed packs, backup** — clips keep a label, key/BPM/genre tags and
+  notes; seed packs (`seeds/*.pack.json`) load pre-filled tracks; ⚙ → *export
+  everything* writes one JSON backup (never your API key).
+- Light and dark themes.
 
 ---
 
-## Running it
+## Running it locally
 
-This is an **ES-module** project, so it must be served over HTTP. Opening
-`index.html` directly with `file://` will fail (browsers block module imports
-on the file protocol).
+Needs Node 18+.
 
 ```bash
-# from the project root
-python -m http.server 8000
-# then open http://localhost:8000
+npm run setup     # installs the app and the small proxy server
+npm start         # proxy on :3000 + Vite dev server on :5500 (opens the browser)
 ```
 
-Any static server works (`npx serve`, `php -S`, nginx, etc.).
+`npm run web` runs only the front end. The proxy (`server/proxy.js`) adds your
+Anthropic key to AI requests and serves the BPM/key lookup; put its settings in
+`server/.env`:
+
+```
+ANTHROPIC_API_KEY=...
+GETSONGBPM_API_KEY=...      # free key at getsongbpm.com/api (optional)
+```
+
+### Build and deploy
+
+```bash
+npm run share     # builds dist/genre-bender.html (one self-contained file) and runs the checks
+```
+
+The live site is that single file. Copy it to `dist/netlify/index.html` and drag it
+onto Netlify, or deploy with the BPM/key function included:
+
+```bash
+npx netlify-cli deploy --prod --dir dist/netlify --functions netlify/functions
+```
+
+The function needs `GETSONGBPM_API_KEY` set in the Netlify site's environment.
+
+### Tests
+
+| Command | Checks |
+|---|---|
+| `npm run verify:single` | the built file end to end in jsdom (~160 checks) |
+| `npm run verify:song` | chord-sheet parsing, key inference, song units |
+| `npm run verify:clips` | link parsing for each platform |
+| `npm run verify:seeds` / `verify:seeds:e2e` | seed packs |
 
 ### A note on the AI calls
+
 The default endpoint in [`js/config.js`](./js/config.js) is
-`https://api.anthropic.com/v1/messages`. That works **without an API key only
-inside the Claude.ai artifact sandbox**, which injects auth for you. When you
-self-host, the browser cannot call that endpoint directly — there's no key and
-CORS will block it. Point `API_CONFIG.endpoint` at your own thin proxy that
-adds the key server-side (see below). You can also enter the endpoint, model,
-and API key directly in the app using the new ⚙ AI settings button in the
-header. The AI features degrade gracefully with a clear error message if the
-endpoint is unreachable; everything else (metronome, playback, MIDI export of
-existing data) still works.
+`https://api.anthropic.com/v1/messages`, which a browser can't call directly (no key,
+and CORS blocks it). Point it at a proxy that adds the key server-side — the local
+`server/proxy.js`, or your own (example below) — or set the endpoint, model and key in
+the app under ⚙ AI. If the AI is unreachable you get a clear error; everything else
+keeps working.
 
 ---
 
@@ -207,22 +187,26 @@ export const API_CONFIG = {
 ## Project layout
 
 ```
-genre-bender/
+Genre-Bender/
 ├── index.html
-├── css/        # tokens, base, header-tabs, mixer, metronome, notation, trainer, clips, shell
-└── js/         # config, util, store, storage, actions, api, theory, swing, audio,
-                # metronome, sequencer, loopers, cards, blend, guitar, piano, midi,
-                # ui, library, clips, analyze, guided, main
+├── css/                 # tokens, theme, layout + one file per area
+├── js/                  # ES modules — one per feature (see ARCHITECTURE.md)
+├── shared/              # code used by both the browser and the server (BPM/key lookup)
+├── server/              # local proxy: AI requests + BPM/key lookup
+├── netlify/functions/   # the same BPM/key lookup as a Netlify function
+├── seeds/               # seed packs
+└── build/               # single-file build + test scripts
 ```
 
-Full module responsibilities and the dependency graph are in
+Module responsibilities and how they talk to each other are in
 [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ---
 
 ## External dependencies
 
-- **Tonal.js** (loaded via CDN in `index.html`, exposed as `window.Tonal`) — chord validation and note parsing. No build step, no npm install.
-
-There is no bundler and no framework. The whole app is vanilla JS modules,
-plain CSS, and one CDN script.
+- **Tonal.js** — chord validation and note parsing (CDN script in `index.html`).
+- **Vite** — dev server only; the build is a custom script, not a bundler.
+- The video player uses each platform's official embed, the only third-party requests
+  the app makes (and only once you open a clip). Short links like `vm.tiktok.com/…`
+  can't be resolved in the browser; paste the full URL.
