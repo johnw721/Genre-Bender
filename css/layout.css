@@ -316,8 +316,7 @@ body.cf-open{overflow:hidden}
 body.study-open{overflow:hidden}
 
 /* the moved-in views, tuned for a pane */
-.study #cm-clip{margin:0;border:none;padding:0;background:none}
-.study #cm-clip .cm-clip-frame{max-height:none}
+
 .study #colormap-host .colormap > summary{display:none}
 .study #trainer-card{border:none;background:none;padding:0}
 
@@ -400,42 +399,92 @@ body:not(.show-tips) .tip{display:none !important}
 .cf-cmd:hover{background:var(--accent-glow)}
 .cf-cmd kbd{font-size:11px;color:var(--muted)}
 
-/* ---- video: pop-out player + phone layout ------------------------------
-   .study.pop floats the video pane over Play (CSS only — the iframe isn't
-   moved, so it keeps playing). Clip picker / link box show with .clip-edit. */
+/* ---- the one video player (player.js) -----------------------------------
+   #gb-player is a fixed layer holding #cm-clip. dock = glued over Play's
+   video slot (inline left/top/width/height), pop = modal, mini = corner. */
+.gb-player{position:fixed;z-index:29}
+.gb-player[hidden]{display:none}
+.gb-player #cm-clip{margin:0;border:none;padding:0;background:none}
+.gb-player #cm-clip .cm-clip-frame{max-height:none;order:-1;flex:0 0 auto}
+.gb-player:not(.clip-edit) #cm-clip > .cm-mrow,.gb-player:not(.clip-edit) #cm-clip .cm-sync{display:none}
+.gbp-card{height:100%;display:flex;flex-direction:column;min-height:0}
+.gbp-body{flex:1;min-height:0;overflow:auto;padding:12px;overscroll-behavior:contain}
+.gbp-head{display:none;align-items:center;gap:4px;padding:6px 6px 6px 12px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--text)}
+.gbp-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gbp-btn{border:none;background:none;color:var(--muted);cursor:pointer;font-size:12px;font-weight:600;padding:4px 8px;border-radius:var(--r-sm);min-height:28px}
+.gbp-btn:hover{color:var(--text);background:var(--surface2)}
+.gbp-scrim{display:none}
+.gb-player .cm-clip-frame[data-aspect="portrait"]{width:auto;max-width:100%;height:min(440px,62vh);max-height:none;align-self:center}
+body:has(.study.resizing) .gb-player iframe{pointer-events:none}
+
+/* dock: transparent, the pane draws the frame */
+.gb-player[data-mode="dock"] .gbp-body{padding:12px}
+
+/* pop: a modal over the page */
+.gb-player[data-mode="pop"]{inset:0;z-index:31}
+.gb-player[data-mode="pop"] .gbp-scrim{display:block;position:absolute;inset:0;background:rgba(0,0,0,.62);backdrop-filter:blur(2px)}
+.gb-player[data-mode="pop"] .gbp-card{position:absolute;left:50%;transform:translateX(-50%);top:calc(var(--topbar-h) + 12px);height:auto;
+  width:min(960px,calc(100vw - 24px));max-height:calc(100dvh - var(--topbar-h) - var(--transport-h) - 24px);
+  background:var(--surface);border:1px solid var(--accent2);border-radius:var(--r-lg);box-shadow:0 20px 60px rgba(0,0,0,.5);animation:popIn .16s ease}
+@keyframes popIn{from{opacity:0;transform:translate(-50%,10px) scale(.98)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+.gb-player[data-mode="pop"] .gbp-head,.gb-player[data-mode="mini"] .gbp-head{display:flex}
+.gb-player[data-mode="pop"] .gbp-pop{color:var(--accent);border:1px solid var(--accent2)}
+.gb-player[data-mode="pop"] .gbp-close{display:none}
+.gb-player[data-mode="pop"] .cm-clip-frame[data-aspect="portrait"]{height:calc(100dvh - var(--topbar-h) - var(--transport-h) - 190px)}
+
+/* mini: a corner player on every other page — just the video */
+.gb-player[data-mode="mini"]{right:16px;bottom:calc(var(--transport-h) + 12px);width:340px;max-width:calc(100vw - 24px);z-index:33;
+  background:var(--surface);border:1px solid var(--border2);border-radius:var(--r-lg);box-shadow:var(--shadow);overflow:hidden;touch-action:none}
+.gb-player[data-mode="mini"] .gbp-head{cursor:grab}
+.gb-player[data-mode="mini"] .gbp-body{padding:0;overflow:hidden}
+.gb-player[data-mode="mini"] #cm-clip > :not(.cm-clip-frame):not(.cm-vsync){display:none!important}
+.gb-player[data-mode="mini"] .cm-vsync > :not(.vsync-now){display:none!important}
+.gb-player[data-mode="mini"] .cm-vsync{padding:6px 10px;min-height:0}
+.gb-player[data-mode="mini"] .cm-clip-frame{border:none;border-radius:0}
+.gb-player[data-mode="mini"] .cm-clip-frame[data-aspect="portrait"]{height:300px}
+
+/* the Play video pane is an empty slot the player sits on */
 .study-vid-tools{display:inline-flex;align-items:center;gap:2px}
 .study-pane-head .study-vid-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .study-pane-head .study-pop-btn,.study-pane-head .study-clip-edit{font-size:12px;text-transform:none;letter-spacing:0;font-weight:600}
 .study-pane-head .study-clip-edit[aria-pressed="true"]{color:var(--text);background:var(--surface2)}
-.study:not(.clip-edit) #cm-clip > .cm-mrow,.study:not(.clip-edit) #cm-clip .cm-sync{display:none}
-.study #cm-clip .cm-clip-frame{order:-1}
-.study-pop-scrim{display:none}
-.study.pop .study-pop-scrim{display:block;position:fixed;inset:0;z-index:58;background:rgba(0,0,0,.62);backdrop-filter:blur(2px)}
-.study.pop .study-pane[data-pane="video"]{display:flex!important;position:fixed;z-index:60;left:50%;transform:translateX(-50%);
-  top:calc(var(--topbar-h) + 12px);width:min(960px,calc(100vw - 24px));max-height:calc(100dvh - var(--topbar-h) - var(--transport-h) - 24px);
-  box-shadow:0 20px 60px rgba(0,0,0,.5);border-color:var(--accent2);animation:popIn .16s ease}
-@keyframes popIn{from{opacity:0;transform:translate(-50%,10px) scale(.98)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
-.study.pop .study-pane[data-pane="video"] .study-max-btn{display:none}
-.study.pop .study-pane[data-pane="video"] .study-pane-body{overflow:auto}
-.study.pop .cm-clip-frame[data-aspect="portrait"]{max-height:calc(100dvh - var(--topbar-h) - var(--transport-h) - 150px)}
-.study.pop .study-body{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:minmax(0,1fr)!important}
-.study.pop .study-split[data-split="a"]{display:none}
-.study.pop .study-pane-head .study-pop-btn{color:var(--accent);border:1px solid var(--accent2)}
+#study-slot-video{padding:0}
 
 @media (max-width:720px){
-  /* docked on a phone: the player sits on top at its real size */
-  .study:not(.pop) .study-body{grid-template-rows:auto 6px minmax(0,1fr)!important}
+  .study .study-body{grid-template-rows:auto 6px minmax(0,1fr)!important}
   .study .study-split[data-split="a"]{pointer-events:none}
   .study .study-split[data-split="a"]::after{display:none}
-  .study:not(.pop) .study-pane[data-pane="video"] .study-pane-body{overflow:visible;padding:8px}
-  .study:not(.pop) .cm-clip-frame[data-aspect="portrait"]{max-height:34vh}
-  .study:not(.pop) #cm-clip .cm-clip-tags{display:none}
+  .study-pane[data-pane="video"] .study-pane-body{flex:0 0 auto;overflow:visible}
   .study-pane-head .study-max-btn{display:none}
-  .study.pop .study-pane[data-pane="video"]{top:calc(var(--topbar-h) + 6px);width:calc(100vw - 12px)}
-  .study.pop .study-pane[data-pane="video"] .study-pane-body{padding:8px}
+  .gb-player[data-mode="dock"] .gbp-body{padding:8px;overflow:visible}
+  .gb-player[data-mode="dock"] .cm-clip-frame[data-aspect="portrait"]{height:34vh}
+  .gb-player[data-mode="dock"] #cm-clip .cm-clip-tags{display:none}
+  .gb-player[data-mode="pop"] .gbp-card{top:calc(var(--topbar-h) + 6px);width:calc(100vw - 12px)}
+  .gb-player[data-mode="pop"] .gbp-body{padding:8px}
+  .gb-player[data-mode="mini"]{width:min(240px,58vw);right:8px}
+  .gb-player[data-mode="mini"] .cm-clip-frame[data-aspect="portrait"]{height:150px}
+  .gb-player[data-mode="mini"]:has(.cm-clip-frame[data-aspect="portrait"]){width:auto}
 }
-/* portrait clips (reels / TikTok): size by height so the 9:16 box can't collapse */
-.study .cm-clip-frame[data-aspect="portrait"]{width:auto;max-width:100%;height:min(440px,62vh);max-height:none;align-self:center;flex:0 0 auto}
-.study.pop .cm-clip-frame[data-aspect="portrait"]{height:calc(100dvh - var(--topbar-h) - var(--transport-h) - 190px);max-height:none}
-@media (max-width:720px){ .study:not(.pop) .cm-clip-frame[data-aspect="portrait"]{height:34vh;max-height:none} }
-.study #cm-clip .cm-clip-frame[data-aspect="landscape"]{flex:0 0 auto}
+
+/* chords synced to the video */
+.cm-vsync{flex-wrap:wrap;gap:6px;align-items:center}
+.cm-vsync:empty{display:none}
+.vsync-tap{min-height:44px;min-width:120px;padding:8px 16px;border-radius:var(--r);border:1px solid var(--accent);background:var(--accent-glow);color:var(--text);
+  font-size:14px;font-weight:700;letter-spacing:.04em;cursor:pointer}
+.vsync-tap b{font-size:16px;margin-left:4px}
+.vsync-tap.hit{animation:tapHit .18s ease}
+@keyframes tapHit{from{background:var(--accent);transform:scale(.96)}to{background:var(--accent-glow);transform:scale(1)}}
+.vsync-now{font-size:13px}
+.vsync-now b{font-size:16px;color:var(--accent);margin:0 2px}
+.tp-chords.following .tp-chord.current{box-shadow:0 0 0 2px var(--accent) inset}
+
+/* one library: songs, then clips that aren't songs yet */
+.song-lib-sep{grid-column:1/-1;margin:8px 0 -2px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.song-card.song-clip{background:transparent;border-style:dashed}
+.song-pill.sync{color:var(--accent);border-color:var(--accent2)}
+
+/* empty states: say it once */
+.trainer-track-empty{font-family:var(--ui);font-size:13px;line-height:1.5;padding:18px 14px}
+.trainer-track-empty b{color:var(--text);font-weight:600}
+.tp-empty-short{display:none}
+@media (max-width:720px){ .tp-empty-long{display:none} .tp-empty-short{display:inline} }

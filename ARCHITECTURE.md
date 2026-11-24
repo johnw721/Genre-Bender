@@ -30,6 +30,24 @@ loaded), color map and My chords + chord library, resizable, side-by-side or sta
 `trainerNav('chords'|'colormap')` opens it and focuses that pane; Drills stay under Practice.
 Opening a saved clip routes into Play (`clips.setClipOpenRoute`) — there is one video player.
 
+**One player** (`player.js`): `#cm-clip` is moved once at boot into a fixed layer `#gb-player` and
+never moved again (moving an iframe reloads it). Modes: `dock` (glued over Play's empty
+`#study-slot-video` by a rAF loop — follows splitters, scrolling, phone tabs), `pop` (modal; a new
+clip on a phone pops automatically), `mini` (corner player on every other page, draggable), `hidden`
+(no clip, or ✕ — which also stops the video). `study.js` only moves the color map + My chords.
+
+**Chords synced to the video** (`videosync.js`): tap along once and each tap stores the YouTube
+playhead (`colormap.onClipTime` / `clipNow`, interpolated between the player's ~4 reports a second).
+Saved on the clip as `sync: { chords, times }` (self-contained, so it survives export / device sync /
+track edits). While playing: "now / next" readout, the transport strip follows if the active track
+has the same chords, tapping a strip chord seeks the video, "loop this pass" sets A–B to one cycle;
+past the last tap it extrapolates at the average chord length. YouTube only.
+
+**One library**: the Songs page lists song units, then clips that aren't songs yet
+(`songimport.looseClips`). ▶ Play on either brings its world along — tempo, key and a track
+(`applyClipContext`: the unit's track, or a track of the clip's synced chords); opening a clip anywhere
+does the same via `gb:refclip`. The transport's **library** button goes there.
+
 **Feedback**: `toast.js` gives one bottom toast — `✓ …` for saves/adds, and **Undo** (6 s) for
 deletes instead of `confirm()` (delete/clear track, clear/remove shapes, delete saved song).
 **Tips**: instruction text carries `.tip` and only shows with `body.show-tips` (⋯ → Show tips);
@@ -410,6 +428,8 @@ tap ──► metronome.getBPM ──────────┤
 | `songimport.js` | The panel: three paths, overrides, save/load/delete units, open track | `initSongImport`, `saveUnit`, `getUnits` |
 | `progtab.js` | Transport strip for the active My chords track: chords, tempo-locked loop (own `makeLooper`), step / jump, track popover (switcher, beats per chord, Open in Play); follows `trainer.onTracksChange` + `keysync.onAppKeyChange`; prefs in `GenreBenderProgTab_v1` | `initProgTab`, `progPlay`, `progStep`, `trackKey`, `entryFreqs` |
 | `toast.js` | One bottom toast; optional Undo callback | `toast`, `hideToast` |
+| `player.js` | The one video player: dock / pop / mini / hidden, never re-parented after boot | `initPlayer`, `playerPop`, `playerClose`, `playerShow`, `playerUpdate`, `playerMode` |
+| `videosync.js` | Tap-along chord sync per clip; strip follows the video; seek / loop a pass | `initVideoSync`, `chordIndexAt`, `tapIndexAt`, `seekToChord`, `onSyncChord`, `trackMatchesSync` |
 | `tips.js` | Show-tips toggle + 3-step first-run tour | `initTips`, `setTips`, `startTour` |
 | `shared/songmeta-core.mjs` | Server-side GetSongBPM lookup + match ranking (used by the Netlify Function and the dev proxy) | `lookupSongMeta`, `handleSongMeta` |
 

@@ -203,6 +203,9 @@ export function clipsUpdate(id, field, value){
     const ok = value && typeof value.text === 'string';
     if (ok && value.text.trim()) clip.melody = { text: value.text, mode: value.mode === 'frets' ? 'frets' : 'notes' };
     else delete clip.melody;
+  } else if (field === 'sync'){
+    const v = cleanSync(value);
+    if (v) clip.sync = v; else delete clip.sync;
   } else if (field === 'loop'){
     // the color map's A–B loop + speed (YouTube): { a, b, on, rate }
     const v = cleanLoop(value);
@@ -342,6 +345,16 @@ function cleanLoop(v){
   const out = { a: n(v.a), b: n(v.b), on: !!v.on, rate: [0.5, 0.75, 0.9, 1].includes(+v.rate) ? +v.rate : 1 };
   return (out.a === null && out.b === null && !out.on && out.rate === 1) ? null : out;
 }
+/* Chords synced to the video: the chord names (in order, looping) and the
+   times you tapped each change. Self-contained, so it survives export,
+   device sync and track edits. */
+function cleanSync(v){
+  if (!v || typeof v !== 'object') return null;
+  const chords = (Array.isArray(v.chords) ? v.chords : []).map(x => String(x || '').trim()).filter(Boolean).slice(0, 64);
+  const times = (Array.isArray(v.times) ? v.times : []).map(Number).filter(t => Number.isFinite(t) && t >= 0)
+    .map(t => Math.round(t * 100) / 100).sort((a, b) => a - b).slice(0, 2000);
+  return chords.length && times.length ? { chords, times } : null;
+}
 function cleanMelody(m){
   return m && typeof m.text === 'string' && m.text.trim() ? { text: m.text, mode: m.mode === 'frets' ? 'frets' : 'notes' } : null;
 }
@@ -366,9 +379,10 @@ export function clipsImport(list){
       }
       if (!have.bpm && Number.isFinite(+c.bpm) && +c.bpm > 0){ have.bpm = Math.round(+c.bpm); changed = true; }
       const newer = c.updatedAt && (!have.updatedAt || c.updatedAt > have.updatedAt);
-      const m = cleanMelody(c.melody), l = cleanLoop(c.loop);
+      const m = cleanMelody(c.melody), l = cleanLoop(c.loop), y = cleanSync(c.sync);
       if (m && (!have.melody || newer) && JSON.stringify(m) !== JSON.stringify(have.melody)){ have.melody = m; changed = true; }
       if (l && (!have.loop || newer) && JSON.stringify(l) !== JSON.stringify(have.loop)){ have.loop = l; changed = true; }
+      if (y && (!have.sync || newer) && JSON.stringify(y) !== JSON.stringify(have.sync)){ have.sync = y; changed = true; }
       if (changed){ merged++; if (newer) have.updatedAt = c.updatedAt; }
       continue;
     }
@@ -379,9 +393,10 @@ export function clipsImport(list){
       genres: String(c.genres || ''), notes: String(c.notes || ''),
       addedAt: c.addedAt || new Date().toISOString(),
     };
-    const m = cleanMelody(c.melody), l = cleanLoop(c.loop);
+    const m = cleanMelody(c.melody), l = cleanLoop(c.loop), y = cleanSync(c.sync);
     if (m) clip.melody = m;
     if (l) clip.loop = l;
+    if (y) clip.sync = y;
     if (c.updatedAt) clip.updatedAt = c.updatedAt;
     clips.push(clip);
     added++;
@@ -427,6 +442,7 @@ function compactList(){ /* short keys keep the link small */
     if (c.notes) o.n = c.notes;
     if (c.melody) o.m = c.melody;
     if (c.loop) o.p = c.loop;
+    if (c.sync) o.s = c.sync;
     if (c.addedAt) o.a = c.addedAt;
     if (c.updatedAt) o.t = c.updatedAt;
     return o;
@@ -435,7 +451,7 @@ function compactList(){ /* short keys keep the link small */
 function expandList(arr){
   return (Array.isArray(arr) ? arr : []).map(o => ({
     url: o.u, label: o.l, key: o.k, bpm: o.b, genres: o.g, notes: o.n,
-    melody: o.m, loop: o.p, addedAt: o.a, updatedAt: o.t,
+    melody: o.m, loop: o.p, sync: o.s, addedAt: o.a, updatedAt: o.t,
   }));
 }
 export async function clipsSyncPayload(){

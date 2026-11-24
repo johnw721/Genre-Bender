@@ -27,12 +27,18 @@ current progression) that stays on every page.
   analysis in the browser.
 
 Saving makes a song *unit* and a matching **My chords** track. Saving again updates
-the same one.
+the same one. Songs and saved clips share one library: ▶ Play on either sets the tempo,
+key and track and opens the video; a clip becomes a song with **+ make it a song**.
 
 **Play — one resizable workspace.** Video, color map and your chords side by side or
 stacked. Drag the dividers, hide or maximize any pane; on a phone the panes become tabs.
 - *Video* — paste a YouTube / Instagram / TikTok / X link anywhere (Ctrl/⌘ V) and it
   opens here, with A–B loop and speed. Chords named in a caption become tappable chips.
+  **⧉ pop out** floats it over the page (automatic on phones); on other pages it keeps
+  playing in a small corner player.
+- *Chord sync* (YouTube) — tap along once on every chord change; after that the player
+  shows *now / next*, the transport strip follows the video, tapping a chord jumps the
+  video there, and *loop this pass* loops one trip round the progression.
 - *Color map* — every chord in the key, colored by function (tonic / predominant /
   dominant), with in-scale, out-of-scale and parallel views and a melody lens.
   Out-of-key chords are spelled the way they read (♭VII in C is B♭, not A♯).
@@ -105,7 +111,7 @@ The function needs `GETSONGBPM_API_KEY` set in the Netlify site's environment.
 
 | Command | Checks |
 |---|---|
-| `npm run verify:single` | the built file end to end in jsdom (~160 checks) |
+| `npm run verify:single` | the built file end to end in jsdom (~190 checks) |
 | `npm run verify:song` | chord-sheet parsing, key inference, song units |
 | `npm run verify:clips` | link parsing for each platform |
 | `npm run verify:seeds` / `verify:seeds:e2e` | seed packs |

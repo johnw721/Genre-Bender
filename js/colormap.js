@@ -818,13 +818,15 @@ function embedFor(c, p){
 function renderClipFrame(){
   const f = $('cm-clip-frame');
   if (!f) return;
+  frameStopped = false;
   f.innerHTML = clipFrameHTML();
   f.dataset.aspect = clipAspect();
   const ifr = f.querySelector('iframe');
   if (ifr) ifr.addEventListener('load', () => ytListen(ifr));
-  ytTime = null;
+  ytTime = null; ytState = -1;
   const l = $('cm-clip-loop');
   if (l) l.innerHTML = clipLoopInnerHTML();
+  document.dispatchEvent(new CustomEvent('gb:clipframe'));
 }
 
 /* ---- A–B loop + speed (YouTube IFrame API over postMessage) --------------
@@ -832,7 +834,22 @@ function renderClipFrame(){
    streams infoDelivery messages with currentTime / playerState, and we
    send seekTo / setPlaybackRate commands back. */
 let ytTime = null;
+let ytTimeAt = 0;          // when ytTime arrived (ms), to interpolate between reports
+let ytState = -1;          // YouTube playerState: 1 playing, 2 paused, 0 ended
+let ytRate = 1;
 let lastSeek = 0;
+const timeListeners = new Set();
+/* videosync.js: the playhead, reported ~4×/s while playing. */
+export function onClipTime(fn){ timeListeners.add(fn); return () => timeListeners.delete(fn); }
+/* Best guess of the playhead right now (interpolates while playing). */
+export function clipNow(){
+  if (ytTime == null) return null;
+  return ytState === 1 ? ytTime + (Date.now() - ytTimeAt) / 1000 * ytRate : ytTime;
+}
+export function clipIsPlaying(){ return ytState === 1; }
+export function colorMapSeek(t){ if (Number.isFinite(t)){ ytCommand('seekTo', [Math.max(0, t), true]); ytTime = Math.max(0, t); ytTimeAt = Date.now(); } }
+export function colorMapSetLoop(patch){ setLoop(patch); }
+export function colorMapIsYouTube(){ const c = sessionClip(); return !!c && (parseClipUrl(c.url) || {}).platform === 'youtube'; }
 function ytFrame(){ return $('cm-clip-frame')?.querySelector('iframe') || null; }
 function ytPost(msg){
   const f = ytFrame();
@@ -871,7 +888,14 @@ function onYtMessage(e){
     if (c && c.loop && c.loop.rate && c.loop.rate !== 1) ytCommand('setPlaybackRate', [c.loop.rate]);
   }
   if (d.event === 'infoDelivery' && d.info){
-    if (typeof d.info.currentTime === 'number'){ ytTime = d.info.currentTime; const r = $('cm-loop-now'); if (r) r.textContent = fmtTime(ytTime); loopCheck(false); }
+    if (typeof d.info.playerState === 'number') ytState = d.info.playerState;
+    if (typeof d.info.playbackRate === 'number') ytRate = d.info.playbackRate;
+    if (typeof d.info.currentTime === 'number'){
+      ytTime = d.info.currentTime; ytTimeAt = Date.now();
+      const r = $('cm-loop-now'); if (r) r.textContent = fmtTime(ytTime);
+      loopCheck(false);
+      timeListeners.forEach(fn => { try { fn(ytTime); } catch (err) { console.error(err); } });
+    }
     if (d.info.playerState === 0) loopCheck(true);
   }
 }
@@ -970,6 +994,7 @@ function clipPanelHTML(){
     </div>
     <div class="cm-clip-frame" id="cm-clip-frame" data-aspect="${clipAspect()}">${clipFrameHTML()}</div>
     <div class="cm-clip-loop cm-mline" id="cm-clip-loop">${clipLoopInnerHTML()}</div>
+    <div class="cm-vsync cm-mline" id="cm-vsync"></div>
     <div class="cm-clip-tags" id="cm-clip-tags">${clipTagsHTML()}</div>
     <details class="cm-sync"><summary>⇄ sync clips with another device</summary>${clipsSyncHTML()}</details>
     <div class="cm-clip-err" id="cm-clip-err" aria-live="polite"></div>
@@ -1019,6 +1044,11 @@ function mapVisible(){
 export function colorMapAddClip(text){ return addClipFromInput(text); }
 export function colorMapPickClip(id){ pickClip(id); }
 export function colorMapClipId(){ return sessionClipId; }
+/* player.js: ✕ stops the video (drops the iframe); showing it again reloads. */
+let frameStopped = false;
+export function colorMapStopFrame(){ const f = $('cm-clip-frame'); if (f) f.innerHTML = ''; frameStopped = true; ytTime = null; }
+export function colorMapReloadFrame(){ frameStopped = false; renderClipFrame(); }
+export function colorMapFrameLoaded(){ return !frameStopped; }
 
 function melodyPanelHTML(){
   return `<div class="cm-melody" id="colormap-melody" role="group" aria-label="Melody lens">
@@ -1082,7 +1112,7 @@ export function colorMapHTML(){
     </summary>
     <div class="cm-tools" id="colormap-tools">${toolsHTML(key)}</div>
     <div class="cm-session">
-      ${clipPanelHTML()}
+      ${$('cm-clip') ? '' : clipPanelHTML()}
       ${melodyPanelHTML()}
     </div>
     <div id="colormap-body">${body}</div>

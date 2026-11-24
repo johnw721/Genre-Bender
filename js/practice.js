@@ -18,7 +18,8 @@
      Mon sc · Tue s2n · Wed n2s · Thu mv · Fri prog · Sat/Sun mixed
    ============================================================ */
 import { store } from './store.js';
-import { getClips, getActiveClip, clipsSeedMixer, clipsToggleDock, clipsCaptureBpm, onClipsChange } from './clips.js';
+import { getClips, getClip, getActiveClip, clipsSeedMixer, clipsToggleDock, clipsCaptureBpm, onClipsChange } from './clips.js';
+import { colorMapClipId } from './colormap.js';
 import { generateBlend } from './blend.js';
 import { generateGuitar } from './guitar.js';
 import { exportMidi } from './midi.js';
@@ -61,8 +62,9 @@ export function todaysMode(d = new Date()){ return ROTATION[d.getDay()]; }
 const QUIZ_TARGET = 20;
 
 /* ---- state snapshot ---- */
+const playerClip = () => getClip(colorMapClipId()) || getActiveClip();
 function focusClip(){
-  return getActiveClip()
+  return playerClip()
     || (store.reference && getClips().find(c => c.id === store.reference.clipId))
     || getClips()[0] || null;
 }
@@ -74,7 +76,7 @@ function state(){
   const mode = todaysMode();
   const answeredToday = mode === 'mixed' ? today.answered : (today.byKind[mode] || 0);
   return {
-    clip, clipOpen: !!getActiveClip(), ref: store.reference, selected: store.selected,
+    clip, clipOpen: !!playerClip() && window.playerMode?.() !== 'hidden', ref: store.reference, selected: store.selected,
     blend: store.blendData, tab: store.guitarTabData, chart: store.pianoChordData,
     playing: guitarSeq.playing || pianoSeq.playing, metro: metroPlaying(),
     bpm: getBPM(), swing: getSwing() > 0, key: getAppKey(),
@@ -89,7 +91,11 @@ function goTrainer(mode){
   else trainerNav('drills', mode || null);
 }
 function goMyChords(){ goTrainer('custom'); }
-function openPlayer(){ if (!$('clip-dock')?.classList.contains('closed')) return $('clip-url')?.focus(); clipsToggleDock(); }   // the player floats over any page
+/* A clip loaded → it's already playing in the corner (mini player); else pick one from the library. */
+function openPlayer(){
+  if (getClip(colorMapClipId())){ window.playerShow?.(); return; }
+  document.querySelector('[data-action="song:library"]')?.click();
+}
 function clickAction(name){ document.querySelector(`[data-action="${name}"]`)?.click(); }
 
 /* ---- step vocabulary ----
@@ -130,7 +136,7 @@ const PLANS = {
     title: 'Trainer-first', sub: 'SRS fluency · ~12 min · daily default',
     steps: [
       { id: 'clip', title: 'Open a clip for ambience', mins: '0–1',
-        hint: s => s.clipOpen ? `“${s.clip.label}” in the clips player — leave it playing.` : 'Open any saved clip in the clips player so a reference is in your ear.',
+        hint: s => s.clipOpen ? `“${s.clip.label}” is playing — the corner player follows you while you drill.` : 'Play any song or clip from your library; it keeps playing in the corner while you drill.',
         done: s => s.clipOpen, go: 'practice:player', label: () => 'Open the player' },
       { id: 'mode', title: s => `Today's drill: ${MODE_LABEL[s.mode]}`, mins: '',
         hint: s => s.trainer.mode === s.mode ? 'Selected.' : `Rotation — Mon Scale shapes · Tue Shape→Number · Wed Number→Shape · Thu Moving shapes · Fri Progression ID · Sat/Sun Mixed. Trainer is on ${MODE_LABEL[s.trainer.mode] || s.trainer.mode}.`,
@@ -316,5 +322,6 @@ export function initPractice(){
     'practice:midi':       () => exportMidi('guitar'),
   }));
   onClipsChange(() => { if (visible()) renderPractice(); });
+  document.addEventListener('gb:player', () => { if (visible()) renderPractice(); });
   renderPractice();
 }

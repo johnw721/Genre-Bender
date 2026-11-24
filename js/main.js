@@ -45,7 +45,7 @@ import {
   trainerStartCustomChordEdit, trainerCancelCustomChordEdit, trainerSaveCustomChordEdit,
   trainerChangeCustomChordQuality, trainerSetCustomChordPosition, trainerResetCustomChordPosition,
   trainerFitChordToKey,
-  trainerSwitchTrack, trainerNewTrack, trainerRenameTrack, trainerDeleteTrack,
+  trainerSwitchTrack, trainerNewTrack, trainerRenameTrack, trainerDeleteTrack, trainerAddChord,
   trainerPlayLick, trainerRerollLick, trainerRedraw, trainerAddPaletteFromFrets,
   trainerRecolorTrack, trainerColorChord,
   trainerPreviewCustomChordPosition, trainerStepCustomChordPosition, trainerUseTrackKey
@@ -83,6 +83,8 @@ import { hooktheorySmokeTest } from './hooktheory.js';
 import { initHooktheoryUI } from './hooktheoryui.js';
 import { initProgTools } from './progtools.js';
 import { initTips } from './tips.js';
+import { initPlayer } from './player.js';
+import { initVideoSync } from './videosync.js';
 import { initMidiIn, _midiFeed, _midiFlush } from './midiin.js';
 import { initSpeedTrainer, rampTempo, speedChords } from './speedtrainer.js';
 import {
@@ -140,7 +142,7 @@ Object.assign(window, {
   trainerStartCustomChordEdit, trainerCancelCustomChordEdit, trainerSaveCustomChordEdit,
   trainerChangeCustomChordQuality, trainerSetCustomChordPosition, trainerResetCustomChordPosition,
   trainerFitChordToKey,
-  trainerSwitchTrack, trainerNewTrack, trainerRenameTrack, trainerDeleteTrack,
+  trainerSwitchTrack, trainerNewTrack, trainerRenameTrack, trainerDeleteTrack, trainerAddChord,
   trainerPlayLick, trainerRerollLick, trainerAddPaletteFromFrets,
   trainerRecolorTrack, trainerColorChord,
   trainerPreviewCustomChordPosition, trainerStepCustomChordPosition, trainerOpenColorMap, trainerNav,
@@ -201,6 +203,8 @@ initProgTools();     // history + voice-leading / transpose / capo strip (before
 initPersistence();   // restore reads the UI the inits above built
 initKeySync();       // last: mirror the restored guitar key into the rail + other selects
 initStudy();
+initPlayer();
+initVideoSync();      // chords synced to the video (tap along once)         // one video player: docked in Play, mini elsewhere, pop-out
 initTips();
 window.__gbRenderBlend = renderBlendResult;   // test hook: paint a blend reply without calling the AI          // 💡 tips toggle (⋯ menu) + 3-step first-run tour         // ⤢ study view: pasted link + color map + My chords + chord library, resizable
 initChordFinder();   // 🔎 quick chord search: shapes, color-map location, captions → tracks

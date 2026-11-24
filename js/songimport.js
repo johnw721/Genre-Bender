@@ -28,8 +28,8 @@ import { analyzeAudio } from './audioanalysis.js';
 import { resolveKey, resolveBpm, buildUnit, progressionOptions, unitId, SOURCE_LABEL } from './songunit.js';
 import { getBPM, setBPM } from './metronome.js';
 import { syncKey } from './keysync.js';
-import { getClips, getClip, onClipsChange, clipsUpdate, clipsAdd } from './clips.js';
-import { trainerUpsertTrack, trainerHasTrack, trainerSelectTrack } from './trainer.js';
+import { getClips, getClip, onClipsChange, clipsUpdate, clipsAdd, clipsRemove, clipsImport, PLATFORM_LABEL } from './clips.js';
+import { trainerUpsertTrack, trainerHasTrack, trainerSelectTrack, trainerTrackList, trainerTrackChordsOf } from './trainer.js';
 import { trainerNav } from './trainernav.js';
 import { ALL_KEYS as APP_KEYS } from './theorydata.js';
 import { getCtx } from './audio.js';
@@ -462,19 +462,48 @@ function render(){
   renderUnits();
 }
 
+/* Clips that aren't a song yet (no unit points at them). */
+function looseClips(){
+  const used = new Set(units.map(u => u.clipId).filter(Boolean));
+  const urls = new Set(units.map(u => u.url).filter(Boolean));
+  return getClips().filter(c => !used.has(c.id) && !urls.has(c.url));
+}
+const clipOfUnit = (u) => (u.clipId && getClip(u.clipId)) || (u.url && getClips().find(c => c.url === u.url)) || null;
+
+function clipCardHTML(c){
+  const chords = c.sync?.chords || [];
+  return `<article class="song-card song-clip">
+      <div class="song-card-top">
+        <div class="song-card-title">${escHtml(c.label)}<small>${escHtml(PLATFORM_LABEL[c.platform] || 'Link')} clip</small></div>
+        <button type="button" class="song-card-del" data-action="song:clipDelete" data-id="${escHtml(c.id)}" aria-label="Delete ${escHtml(c.label)}" title="Delete this clip">✕</button>
+      </div>
+      <div class="song-card-meta">
+        ${c.key ? `<span class="song-pill">key <b>${escHtml(c.key)}</b></span>` : ''}
+        ${c.bpm ? `<span class="song-pill"><b>${c.bpm}</b> BPM</span>` : ''}
+        ${c.sync ? '<span class="song-pill sync">⏺ synced</span>' : ''}
+      </div>
+      ${chords.length ? `<div class="song-card-prog">${chords.slice(0, 8).map(n => `<span>${escHtml(n)}</span>`).join('')}</div>` : ''}
+      <div class="song-card-actions">
+        <button type="button" class="btn btn-primary" data-action="song:clipPlay" data-id="${escHtml(c.id)}">▶ Play</button>
+        <button type="button" class="btn btn-ghost" data-action="song:fromClip" data-id="${escHtml(c.id)}" title="Add its chords, key and tempo — it becomes a song">+ make it a song</button>
+      </div>
+    </article>`;
+}
+
 function renderUnits(){
   const list = $('song-units');
   if (!list) return;
-  if (!units.length){
+  const loose = looseClips();
+  if (!units.length && !loose.length){
     list.innerHTML = `<div class="song-empty">
       <div class="song-empty-title">Learn your first song</div>
-      <p>Paste a chord sheet, look the song up, or let the app listen to a recording. You'll get its key, tempo and progression — ready to play along with.</p>
-      <button class="btn btn-primary" type="button" data-action="song:startLearn">+ Learn a song</button>
+      <p>Paste a chord sheet, look the song up, or let the app listen to a recording — you'll get its key, tempo and chords, ready to play along with. Or just paste a video link anywhere.</p>
     </div>`;
     return;
   }
   list.innerHTML = units.map(u => {
     const prog = u.progression.slice(0, 8);
+    const uc = clipOfUnit(u);
     return `<article class="song-card song-unit${state.loaded?.id === u.id ? ' active' : ''}">
       <div class="song-card-top">
         <div class="song-card-title">${escHtml(u.title)}${u.artist ? `<small>${escHtml(u.artist)}</small>` : ''}</div>
@@ -484,15 +513,67 @@ function renderUnits(){
         <span class="song-pill">key <b>${u.key ? escHtml(u.key.value) : '?'}</b></span>
         <span class="song-pill"><b>${u.bpm ? u.bpm.value : '?'}</b> BPM</span>
         ${u.timeSig ? `<span class="song-pill">${escHtml(u.timeSig)}</span>` : ''}
+        ${uc ? `<span class="song-pill" title="${escHtml(uc.label)}">▶ video</span>` : ''}
+        ${uc?.sync ? '<span class="song-pill sync">⏺ synced</span>' : ''}
       </div>
       ${prog.length ? `<div class="song-card-prog">${prog.map(c => `<span>${escHtml(c)}</span>`).join('')}${u.progression.length > 8 ? '<span>…</span>' : ''}</div>` : ''}
       <div class="song-card-actions">
-        ${u.progression.length ? `<button type="button" class="btn btn-primary" data-action="song:play" data-id="${escHtml(u.id)}">▶ Play</button>` : ''}
+        ${u.progression.length || uc ? `<button type="button" class="btn btn-primary" data-action="song:play" data-id="${escHtml(u.id)}">▶ Play</button>` : ''}
         <button type="button" class="btn btn-ghost" data-action="song:load" data-id="${escHtml(u.id)}">Edit</button>
       </div>
       <span hidden>${escHtml(u.title)} — ${escHtml(u.artist || '')} ${u.key ? escHtml(u.key.value) : '?'} · ${u.bpm ? u.bpm.value + ' BPM' : '? BPM'}${u.progression.length ? ' · ' + escHtml(u.progression.slice(0, 6).join(' ')) + (u.progression.length > 6 ? '…' : '') : ''}</span>
     </article>`;
-  }).join('');
+  }).join('') + (loose.length ? `<div class="song-lib-sep">Clips — not songs yet</div>${loose.map(clipCardHTML).join('')}` : '');
+}
+
+/* ---- one library: clips play like songs ------------------------------- */
+const appKeyFor = (raw) => {
+  const k = normalizeKeyName(String(raw || '')) || String(raw || '');
+  return APP_KEYS.find(x => x === k) || APP_KEYS.find(x => sameKey(x, k)) || null;
+};
+/* Bring a clip's world with it: tempo + key tags, and a track for its
+   synced chords (an existing track with the same chords, else a new one). */
+export function applyClipContext(c, { track = true } = {}){
+  if (!c) return;
+  if (c.bpm){ const sl = $('bpm-slider'); if (sl) sl.value = c.bpm; setBPM(c.bpm); }
+  const k = appKeyFor(c.key);
+  if (k) syncKey(k, 'songimport');
+  const chords = c.sync?.chords;
+  if (track && chords?.length){
+    const same = trainerTrackList().find(t => {
+      const names = trainerTrackChordsOf(t.id);
+      return names.length === chords.length && names.every((n, i) => n === chords[i]);
+    });
+    if (same) trainerSelectTrack(same.id);
+    else trainerUpsertTrack({ id: `trk_clip_${c.id}`, name: `♪ ${c.label}`.slice(0, 40), chords: chords.map(name => ({ name })) });
+  }
+}
+function playClip(el){
+  const c = getClip(el?.dataset?.id);
+  if (!c) return;
+  applyClipContext(c);
+  openTrack();
+  window.openStudy?.({ clipId: c.id });
+}
+/* "+ make it a song": the Learn form, prefilled with the clip. */
+function songFromClip(el){
+  const c = getClip(el?.dataset?.id);
+  if (!c) return;
+  newSong();
+  if ($('song-title')) $('song-title').value = c.label || '';
+  renderClipPicker();
+  if ($('song-clip')) $('song-clip').value = c.id;
+  if (c.key) state.manualKey = appKeyFor(c.key) || null;
+  if (c.bpm) state.manualBpm = c.bpm;
+  render();
+  startLearn(false);
+}
+function deleteClip(el){
+  const c = getClip(el?.dataset?.id);
+  if (!c) return;
+  const copy = JSON.parse(JSON.stringify(c));
+  clipsRemove(c.id);
+  toast(`Deleted "${c.label}"`, { undo: () => clipsImport([copy]) });
 }
 
 /* Open + focus the Learn a song form (empty, or as left). */
@@ -551,8 +632,29 @@ export function initSongImport(){
     'song:new':         () => newSong(),
     'song:startLearn':  () => startLearn(true),
     'song:play':        (el) => playUnit(el),
+    'song:clipPlay':    (el) => playClip(el),
+    'song:fromClip':    (el) => songFromClip(el),
+    'song:clipDelete':  (el) => deleteClip(el),
+    'song:library':     () => {
+      document.querySelector('.dest[data-dest="songs"]')?.click();
+      setTimeout(() => $('song-units')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 60);
+    },
   });
-  onClipsChange(renderClipPicker);
+  // Opening a clip anywhere (Play's picker, a pasted link, the library) brings
+  // its song along: the song's track, key and tempo — or the clip's own tags.
+  setTimeout(() => document.addEventListener('gb:refclip', (e) => {
+    const id = e.detail?.id;
+    const c = id && getClip(id);
+    if (!c) return;
+    const u = units.find(x => clipOfUnit(x)?.id === id);
+    if (!u){ applyClipContext(c); return; }
+    const tid = `trk_${u.id}`;
+    if (trainerHasTrack(tid)) trainerSelectTrack(tid);
+    if (u.bpm){ const sl = $('bpm-slider'); if (sl) sl.value = u.bpm.value; setBPM(u.bpm.value); }
+    const k = u.key && appKeyFor(u.key.value);
+    if (k) syncKey(k, 'songimport');
+  }), 0);
+  onClipsChange(() => { renderClipPicker(); renderUnits(); });
   renderClipPicker();
   if ($('song-capture-btn') && !canCaptureTab()) $('song-capture-btn').title = "Tab audio capture needs desktop Chrome / Edge — on iPhone, screen-record and choose the file";
   render();

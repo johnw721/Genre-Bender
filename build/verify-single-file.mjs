@@ -443,8 +443,8 @@ try {
   await new Promise(r => setTimeout(r, 30));
   const study = $('study');
   check('pasting a link (off the map) opens the study view', study && !study.hidden && d.body.classList.contains('study-open'));
-  check('study holds the real player, color map and My chords + library',
-        !!study.querySelector('[data-pane="video"] #cm-clip') && !!study.querySelector('[data-pane="map"] #colormap-host #colormap-body') &&
+  check('study holds the real color map and My chords + library; the player docks on the video pane',
+        d.getElementById('gb-player')?.dataset.mode === 'dock' && d.getElementById('gb-player').contains(d.getElementById('cm-clip')) && !!study.querySelector('[data-pane="map"] #colormap-host #colormap-body') &&
         !!study.querySelector('[data-pane="chords"] #trainer-card #palette-grid'));
   check('the pasted clip is loaded with its caption chords', /Dm9/.test($('cm-clip-tags').textContent) && /abcDEF12345/.test($('study-clip-name').textContent),
         $('study-clip-name').textContent);
@@ -467,7 +467,7 @@ try {
   w.switchTab('upload');
   check('leaving Play puts every view back',
         study.hidden && !!d.querySelector('#inner-trainer > #trainer-card') && !!d.querySelector('#inner-trainer > #colormap-host') &&
-        !!d.querySelector('#colormap-host .cm-session > #cm-clip'));
+        d.getElementById('gb-player')?.dataset.mode === 'mini');
   w.syncKey('C', 'test');
   w.switchTab('upload');
   click(d.querySelector('[data-action="song:new"]'));
@@ -627,30 +627,110 @@ try {
   check('reference links ran', false, e.stack || e.message);
 }
 
-// Pop-out video player
+// One video player: docked in Play, pop-out, mini on other pages, ✕ stops it
 try {
   const $ = (id) => d.getElementById(id);
   const click = el => el && el.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  w.trainerNav('chords');
   w.openStudy({ text: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' });
-  const study = $('study'), popBtn = () => study.querySelector('.study-pop-btn');
-  check('pop-out button shows once a clip is loaded', !popBtn().hidden, popBtn().textContent);
-  check('desktop: opening a clip docks it (no auto pop)', !study.classList.contains('pop'));
+  const study = $('study'), pl = $('gb-player'), popBtn = () => study.querySelector('.study-pop-btn');
+  const mode = () => pl.dataset.mode;
+  const ifr = () => $('cm-clip-frame')?.querySelector('iframe');
+  check('player layer holds the clip player', !!pl && pl.contains($('cm-clip')) && !!ifr());
+  check('in Play the player docks on the video pane', mode() === 'dock' && !pl.hidden, mode());
+  const first = ifr();
   click(popBtn());
-  check('⧉ pop out floats the video over Play', study.classList.contains('pop') && /back to Play/.test(popBtn().textContent));
-  check('pop-out keeps the same player (no reload / move)', !!$('cm-clip-frame')?.querySelector('iframe') && study.querySelector('.study-pane[data-pane="video"] #cm-clip-frame'));
+  check('⧉ pop out floats it over the page', mode() === 'pop');
+  check('same iframe — popping out does not reload', ifr() === first);
   d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
-  check('Esc docks it back', !study.classList.contains('pop'));
-  click(popBtn()); click(study.querySelector('.study-pop-scrim'));
-  check('tapping outside docks it back', !study.classList.contains('pop'));
-  const editBtn = study.querySelector('.study-clip-edit');
-  check('clip picker folds away while a clip plays', !study.classList.contains('clip-edit'));
-  click(editBtn);
-  check('clip ▾ shows the picker / link box', study.classList.contains('clip-edit') && editBtn.getAttribute('aria-pressed') === 'true');
-  click(editBtn);
-  w.studyPop(true); w.closeStudy();
-  check('leaving Play clears the pop-out', !study.classList.contains('pop'));
+  check('Esc docks it back', mode() === 'dock');
+  click(popBtn()); click(pl.querySelector('.gbp-scrim'));
+  check('tapping outside docks it back', mode() === 'dock');
+  check('clip picker folds away while a clip plays', !pl.classList.contains('clip-edit'));
+  click(study.querySelector('.study-clip-edit'));
+  check('clip ▾ shows the picker / link box', pl.classList.contains('clip-edit'));
+  click(study.querySelector('.study-clip-edit'));
+  click(d.querySelector('.dest[data-dest="songs"]'));
+  check('leaving Play: the video keeps playing in a mini player', !study.classList.contains('nope') && mode() === 'mini' && ifr() === first, mode());
+  click(pl.querySelector('.gbp-open'));
+  check('mini → Play docks it again, same video', mode() === 'dock' && ifr() === first, mode());
+  click(d.querySelector('.dest[data-dest="practice"]'));
+  click(pl.querySelector('.gbp-close'));
+  check('✕ closes the mini player and stops the video', pl.hidden && !ifr());
+  w.trainerNav('chords');
+  check('back in Play the video is there again', mode() === 'dock' && !!ifr());
 } catch (e) {
-  check('pop-out video ran', false, e.stack || e.message);
+  check('one video player ran', false, e.stack || e.message);
+}
+
+// Chords synced to the video (tap along once; the strip follows)
+try {
+  const $ = (id) => d.getElementById(id);
+  const click = el => el && el.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+  w.trainerNav('chords');
+  w.trainerNewTrack('Sync test');
+  ['Am', 'F', 'C', 'G'].forEach(n => w.trainerAddChord(n));
+  w.openStudy({ text: 'https://www.youtube.com/watch?v=syncTEST123' });
+  await wait(20);
+  const ifr = () => $('cm-clip-frame').querySelector('iframe');
+  const yt = (t, state = 1) => w.dispatchEvent(new w.MessageEvent('message', { origin: 'https://www.youtube.com', source: ifr().contentWindow,
+    data: JSON.stringify({ event: 'infoDelivery', info: { currentTime: t, playerState: state } }) }));
+  check('sync offers tap-along on a YouTube clip', !!$('cm-vsync').querySelector('[data-action="vsync:rec"]'));
+  click($('cm-vsync').querySelector('[data-action="vsync:rec"]'));
+  check('recording shows TAP with the first chord', /TAP\s*Am/.test($('vsync-tap')?.textContent || ''), $('cm-vsync').textContent.trim().slice(0, 60));
+  // taps at 10, 12, 14, 16 (one pass) and 18, 20 (start of the next)
+  for (const t of [10, 12, 14, 16, 18, 20]){ yt(t, 2); click($('vsync-tap')); }
+  check('each tap advances to the next chord (looping)', /TAP\s*C/.test($('vsync-tap').textContent) && /6 taps/.test($('cm-vsync').textContent));
+  d.dispatchEvent(new w.KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+  check('Space taps too', /7 taps/.test($('cm-vsync').textContent));
+  click($('cm-vsync').querySelector('[data-action="vsync:undo"]'));
+  click($('cm-vsync').querySelector('[data-action="vsync:done"]'));
+  const clip = w.__gbClipForTest?.() || null;
+  check('done saves the sync on the clip', /now|play/.test($('cm-vsync').textContent) && !!$('cm-vsync').querySelector('[data-action="vsync:loop"]'));
+  const cur = () => [...d.querySelectorAll('#tp-chords .tp-chord')].findIndex(b => b.classList.contains('current'));
+  yt(13.1, 2); await wait(5);
+  check('at 0:13 the strip shows F and the player says "now F"', cur() === 1 && /now\s*F/.test($('vsync-now').textContent), `${cur()} ${$('vsync-now').textContent}`);
+  yt(18.5, 2); await wait(5);
+  check('next pass wraps back to Am', cur() === 0 && /now\s*Am/.test($('vsync-now').textContent));
+  yt(25.5, 2); await wait(5);
+  check('past the last tap it keeps counting at the average chord length', cur() === 3 && /now\s*G/.test($('vsync-now').textContent), `${cur()} ${$('vsync-now').textContent}`);
+  check('the strip is marked as following the video', $('tp-chords').classList.contains('following'));
+  click($('cm-vsync').querySelector('[data-action="vsync:loop"]'));
+  const A = d.querySelector('#cm-clip-loop input[data-k="a"]')?.value, B = d.querySelector('#cm-clip-loop input[data-k="b"]')?.value;
+  check('↻ loop this pass sets A–B to one trip round the progression', A === '0:18' && B === '0:26', `${A}–${B}`);
+  w.trainerNewTrack('Other');
+  w.trainerAddChord('D');
+  check('…and the player says which track it follows', /strip follows when the track is Am F C G/.test($('cm-vsync').textContent));
+  w.trainerDeleteTrack(); w.trainerDeleteTrack();
+} catch (e) {
+  check('video sync ran', false, e.stack || e.message);
+}
+
+// One library: clips that aren't songs yet sit with the songs and play like them
+try {
+  const $ = (id) => d.getElementById(id);
+  const click = el => el && el.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  click(d.querySelector('.transport [data-action="song:library"]'));
+  const cards = () => [...d.querySelectorAll('#song-units .song-card.song-clip')];
+  const synced = cards().find(c => /syncTEST123/.test(c.textContent));
+  check('transport "library" opens Songs with clips listed', !!$('song-units') && cards().length >= 1 && /Clips — not songs yet/.test($('song-units').textContent), String(cards().length));
+  check('a synced clip shows its chords and a synced badge', !!synced && /synced/.test(synced.textContent) && /Am\s*F\s*C\s*G/.test(synced.querySelector('.song-card-prog')?.textContent || ''));
+  click(synced.querySelector('[data-action="song:clipPlay"]'));
+  const strip = [...d.querySelectorAll('#tp-chords .tp-chord')].map(b => b.textContent).join(' ');
+  check('▶ Play on a clip: opens Play with its video and a track of its synced chords', d.getElementById('gb-player').dataset.mode !== 'hidden' &&
+        /syncTEST123/.test($('study-clip-name').textContent) && strip === 'Am F C G', strip);
+  click(d.querySelector('.transport [data-action="song:library"]'));
+  const c2 = cards().find(c => /syncTEST123/.test(c.textContent));
+  click(c2.querySelector('[data-action="song:fromClip"]'));
+  check('+ make it a song prefills the Learn form with the clip', /syncTEST123/.test($('song-title').value) && !!$('song-clip').value);
+  const n = cards().length;
+  click(cards()[0].querySelector('[data-action="song:clipDelete"]'));
+  check('deleting a clip offers Undo', cards().length === n - 1 && !!$('gb-toast').querySelector('[data-toast-undo]'));
+  click($('gb-toast').querySelector('[data-toast-undo]'));
+  check('Undo puts the clip back', cards().length === n);
+} catch (e) {
+  check('one library ran', false, e.stack || e.message);
 }
 
 check('no runtime errors during boot', errors.length === 0, errors.slice(0, 3).join(' | '));

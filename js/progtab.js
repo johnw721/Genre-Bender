@@ -24,6 +24,7 @@ import { getVoicing } from './chordbook.js';
 import { STRING_OPEN_MIDI, midiToHz } from './theory.js';
 import { makeLooper } from './loopscheduler.js';
 import { playChordNow } from './audio.js';
+import { onSyncChord, trackMatchesSync, seekToChord } from './videosync.js';
 
 const $ = (id) => document.getElementById(id);
 const PREF_KEY = registerStore('progTab', 'GenreBenderProgTab_v1');
@@ -68,7 +69,7 @@ function renderMini(){
   const t = trainerActiveTrack();
   const chords = t?.chords || [];
   if (!chords.length){
-    host.innerHTML = `<button type="button" class="tp-empty" data-action="progtab:openPlay">No chords yet — learn a song or add chords in Play →</button>`;
+    host.innerHTML = `<button type="button" class="tp-empty" data-action="progtab:openPlay"><span class="tp-empty-long">No chords yet — learn a song or add chords in Play →</span><span class="tp-empty-short">No chords yet →</span></button>`;
     return;
   }
   if (pos >= chords.length) pos = 0;
@@ -159,6 +160,8 @@ function jump(el){
   const wasPlaying = !!looper?.playing;
   stop();
   highlight(i);
+  // synced to the video: jump the video to that chord too
+  if (!wasPlaying && trackMatchesSync()) seekToChord(i);
   if (wasPlaying) play();
   else { const f = entryFreqs(t.chords[i]); if (f.length) playChordNow(f); }
 }
@@ -225,5 +228,12 @@ export function initProgTab(){
   initPeek();
   onTracksChange(() => { hidePeek(); const was = !!looper?.playing; stop(); render(); if (was) play(); });
   onAppKeyChange(() => render());
+  // chords synced to the video: the strip follows the playhead (silently)
+  onSyncChord((idx) => {
+    const strip = $('tp-chords');
+    strip?.classList.toggle('following', idx != null && trackMatchesSync());
+    if (idx == null || looper?.playing || !trackMatchesSync()) return;
+    highlight(idx);
+  });
   render();
 }

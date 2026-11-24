@@ -237,6 +237,7 @@ export function trainerActiveTrack(){
   const t = getActiveTrack();
   return t ? { id: t.id, name: t.name, chords: t.chords.map(c => ({ name: c.name, frets: c.frets ? c.frets.slice() : null })) } : null;
 }
+export function trainerTrackChordsOf(id){ return (tracks.find(t => t.id === id)?.chords || []).map(c => c.name); }
 export function trainerTrackList(){ return tracks.map(t => ({ id: t.id, name: t.name, n: t.chords.length })); }
 export function onTracksChange(fn){ trackListeners.add(fn); return () => trackListeners.delete(fn); }
 function addChordToActiveTrack(entry){
@@ -349,7 +350,7 @@ function fitChordToKey(originalName, key){
 }
 function customChipsHTML(t){
   if (!t.chords.length){
-    return `<span class="trainer-hint">No chords yet — type a name or enter frets below, then add.</span>`;
+    return '';            // the drop zone below says it once
   }
   return t.chords.map((c, i) => `
     <span class="chip trainer-chip">${i + 1}. ${escHtml(c.name)}
@@ -444,7 +445,7 @@ function customControlsHTML(entry, idx, t){
 
 function customDiagramsInnerHTML(t){
   if (!t.chords.length){
-    return `<div class="trainer-track-empty">Drop a shape from the chord table here, or add one below.</div>`;
+    return `<div class="trainer-track-empty"><b>No chords yet.</b> Type a name above, tap a chord on the color map, or drag a shape here from the table.</div>`;
   }
   const parts = [];
   t.chords.forEach((c, i) => {
