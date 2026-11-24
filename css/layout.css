@@ -399,3 +399,43 @@ body:not(.show-tips) .tip{display:none !important}
 .cf-cmd.first{border-color:var(--accent2)}
 .cf-cmd:hover{background:var(--accent-glow)}
 .cf-cmd kbd{font-size:11px;color:var(--muted)}
+
+/* ---- video: pop-out player + phone layout ------------------------------
+   .study.pop floats the video pane over Play (CSS only — the iframe isn't
+   moved, so it keeps playing). Clip picker / link box show with .clip-edit. */
+.study-vid-tools{display:inline-flex;align-items:center;gap:2px}
+.study-pane-head .study-vid-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.study-pane-head .study-pop-btn,.study-pane-head .study-clip-edit{font-size:12px;text-transform:none;letter-spacing:0;font-weight:600}
+.study-pane-head .study-clip-edit[aria-pressed="true"]{color:var(--text);background:var(--surface2)}
+.study:not(.clip-edit) #cm-clip > .cm-mrow,.study:not(.clip-edit) #cm-clip .cm-sync{display:none}
+.study #cm-clip .cm-clip-frame{order:-1}
+.study-pop-scrim{display:none}
+.study.pop .study-pop-scrim{display:block;position:fixed;inset:0;z-index:58;background:rgba(0,0,0,.62);backdrop-filter:blur(2px)}
+.study.pop .study-pane[data-pane="video"]{display:flex!important;position:fixed;z-index:60;left:50%;transform:translateX(-50%);
+  top:calc(var(--topbar-h) + 12px);width:min(960px,calc(100vw - 24px));max-height:calc(100dvh - var(--topbar-h) - var(--transport-h) - 24px);
+  box-shadow:0 20px 60px rgba(0,0,0,.5);border-color:var(--accent2);animation:popIn .16s ease}
+@keyframes popIn{from{opacity:0;transform:translate(-50%,10px) scale(.98)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+.study.pop .study-pane[data-pane="video"] .study-max-btn{display:none}
+.study.pop .study-pane[data-pane="video"] .study-pane-body{overflow:auto}
+.study.pop .cm-clip-frame[data-aspect="portrait"]{max-height:calc(100dvh - var(--topbar-h) - var(--transport-h) - 150px)}
+.study.pop .study-body{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:minmax(0,1fr)!important}
+.study.pop .study-split[data-split="a"]{display:none}
+.study.pop .study-pane-head .study-pop-btn{color:var(--accent);border:1px solid var(--accent2)}
+
+@media (max-width:720px){
+  /* docked on a phone: the player sits on top at its real size */
+  .study:not(.pop) .study-body{grid-template-rows:auto 6px minmax(0,1fr)!important}
+  .study .study-split[data-split="a"]{pointer-events:none}
+  .study .study-split[data-split="a"]::after{display:none}
+  .study:not(.pop) .study-pane[data-pane="video"] .study-pane-body{overflow:visible;padding:8px}
+  .study:not(.pop) .cm-clip-frame[data-aspect="portrait"]{max-height:34vh}
+  .study:not(.pop) #cm-clip .cm-clip-tags{display:none}
+  .study-pane-head .study-max-btn{display:none}
+  .study.pop .study-pane[data-pane="video"]{top:calc(var(--topbar-h) + 6px);width:calc(100vw - 12px)}
+  .study.pop .study-pane[data-pane="video"] .study-pane-body{padding:8px}
+}
+/* portrait clips (reels / TikTok): size by height so the 9:16 box can't collapse */
+.study .cm-clip-frame[data-aspect="portrait"]{width:auto;max-width:100%;height:min(440px,62vh);max-height:none;align-self:center;flex:0 0 auto}
+.study.pop .cm-clip-frame[data-aspect="portrait"]{height:calc(100dvh - var(--topbar-h) - var(--transport-h) - 190px);max-height:none}
+@media (max-width:720px){ .study:not(.pop) .cm-clip-frame[data-aspect="portrait"]{height:34vh;max-height:none} }
+.study #cm-clip .cm-clip-frame[data-aspect="landscape"]{flex:0 0 auto}

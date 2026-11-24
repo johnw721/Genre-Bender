@@ -627,6 +627,32 @@ try {
   check('reference links ran', false, e.stack || e.message);
 }
 
+// Pop-out video player
+try {
+  const $ = (id) => d.getElementById(id);
+  const click = el => el && el.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  w.openStudy({ text: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' });
+  const study = $('study'), popBtn = () => study.querySelector('.study-pop-btn');
+  check('pop-out button shows once a clip is loaded', !popBtn().hidden, popBtn().textContent);
+  check('desktop: opening a clip docks it (no auto pop)', !study.classList.contains('pop'));
+  click(popBtn());
+  check('⧉ pop out floats the video over Play', study.classList.contains('pop') && /back to Play/.test(popBtn().textContent));
+  check('pop-out keeps the same player (no reload / move)', !!$('cm-clip-frame')?.querySelector('iframe') && study.querySelector('.study-pane[data-pane="video"] #cm-clip-frame'));
+  d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  check('Esc docks it back', !study.classList.contains('pop'));
+  click(popBtn()); click(study.querySelector('.study-pop-scrim'));
+  check('tapping outside docks it back', !study.classList.contains('pop'));
+  const editBtn = study.querySelector('.study-clip-edit');
+  check('clip picker folds away while a clip plays', !study.classList.contains('clip-edit'));
+  click(editBtn);
+  check('clip ▾ shows the picker / link box', study.classList.contains('clip-edit') && editBtn.getAttribute('aria-pressed') === 'true');
+  click(editBtn);
+  w.studyPop(true); w.closeStudy();
+  check('leaving Play clears the pop-out', !study.classList.contains('pop'));
+} catch (e) {
+  check('pop-out video ran', false, e.stack || e.message);
+}
+
 check('no runtime errors during boot', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 let failed = 0;

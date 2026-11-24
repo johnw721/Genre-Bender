@@ -75,9 +75,13 @@ function ensure(){
     </header>
     <div class="study-body" id="study-body">
       <section class="study-pane" data-pane="video" aria-label="Video">
-        <div class="study-pane-head"><span>Video</span><button type="button" data-action="study:max" data-pane="video" title="Maximize / restore">⤢</button></div>
+        <div class="study-pane-head"><span class="study-vid-name">Video</span><span class="study-vid-tools">
+          <button type="button" class="study-clip-edit" data-action="study:clipEdit" aria-pressed="false" title="Change clip / add a link">clip ▾</button>
+          <button type="button" class="study-pop-btn" data-action="study:pop" title="Pop the video out over Play">⧉ pop out</button>
+          <button type="button" class="study-max-btn" data-action="study:max" data-pane="video" title="Maximize / restore">⤢</button></span></div>
         <div class="study-pane-body" id="study-slot-video"></div>
       </section>
+      <div class="study-pop-scrim" data-action="study:pop" aria-hidden="true"></div>
       <div class="study-split" data-split="a" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize video pane"></div>
       <div class="study-col" id="study-col">
         <section class="study-pane" data-pane="map" aria-label="Color map">
@@ -100,9 +104,26 @@ function ensure(){
   return el;
 }
 
+/* Pop-out player: the video pane floats over Play as a modal. It's a class
+   on the pane (no DOM move), so the video keeps playing when it pops in/out.
+   Opening a clip on a phone pops it automatically. Session-only state. */
+let pop = false;
+let clipEdit = false;
+const isPhone = () => { try { return !!window.matchMedia?.('(max-width: 720px)').matches; } catch { return false; } };
+export function studyPop(on = !pop){ pop = !!on && hasClip(); apply(); if (pop) document.querySelector('.study-pop-btn')?.focus({ preventScroll: true }); }
+export function studyIsPopped(){ return pop; }
+
 function apply(){
   const el = $('study');
   if (!el) return;
+  if (pop && !hasClip()) pop = false;
+  el.classList.toggle('pop', pop);
+  el.classList.toggle('clip-edit', clipEdit || !hasClip());
+  const pb = el.querySelector('.study-pop-btn');
+  if (pb){ pb.textContent = pop ? '↙ back to Play' : '⧉ pop out'; pb.title = pop ? 'Dock the video back into Play (Esc)' : 'Pop the video out over Play'; pb.hidden = !hasClip(); }
+  el.querySelector('.study-clip-edit')?.setAttribute('aria-pressed', String(clipEdit));
+  const vn = el.querySelector('.study-vid-name');
+  if (vn) vn.textContent = pop && getClip(colorMapClipId()) ? getClip(colorMapClipId()).label : 'Video';
   const visible = PANES.filter(paneShown);
   const max = st.max && visible.includes(st.max) ? st.max : null;
   el.dataset.layout = st.layout;
@@ -221,13 +242,15 @@ export function openStudy({ text = null, clipId = null } = {}){
   }
   if (text) colorMapAddClip(text);
   else if (clipId) colorMapPickClip(clipId);
-  if (text || clipId) st.hidden.video = false;
+  if (text || clipId){ st.hidden.video = false; if (isPhone() && hasClip()){ pop = true; clipEdit = false; } }
   apply();
   document.dispatchEvent(new CustomEvent('gb:nav', { detail: { tab: 'play' } }));
 }
 export function closeStudy(){
   if (!studyIsOpen()) return;
   hideChordPeek();
+  pop = false;
+  $('study')?.classList.remove('pop');
   moveOut();
   $('study').hidden = true;
   document.body.classList.remove('study-open');
@@ -259,6 +282,8 @@ export function initStudy(){
       save(); apply();
     },
     'study:max':      (el) => toggleMax(el.dataset.pane),
+    'study:pop':      () => studyPop(),
+    'study:clipEdit': () => { clipEdit = !clipEdit; apply(); if (clipEdit) setTimeout(() => $('cm-clip-url')?.focus(), 0); },
     'study:reset':    () => { Object.assign(st, { a: 36, b: 52, hidden: {}, max: null, videoEmpty: false }); save(); apply(); },
     'study:phoneTab': (el) => { st.phoneTab = el.dataset.pane === 'chords' ? 'chords' : 'map'; save(); apply(); },
   });
@@ -278,5 +303,9 @@ export function initStudy(){
     const tab = e.detail?.tab;
     if (studyIsOpen() && tab && tab !== 'play' && tab !== 'trainer') closeStudy();
   });
-  Object.assign(window, { openStudy, closeStudy, studyShowPane, studyIsOpen });
+  Object.assign(window, { openStudy, closeStudy, studyShowPane, studyIsOpen, studyPop });
+  // Esc docks a popped-out video (before other Esc handlers)
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && pop && !document.getElementById('chord-finder')?.offsetParent){ e.stopPropagation(); studyPop(false); }
+  }, true);
 }
